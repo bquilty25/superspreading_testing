@@ -1,22 +1,29 @@
 # Load required packages scripts
 pacman::p_load("fitdistrplus","tidyverse","patchwork")
 
+
+# AK: load LFT curve to check
+# setwd("~/Documents/GitHub/superspreading_testing")
+# lft_curve <- read_csv("~/Documents/GitHub/pcr-profile/LFT_curve_summary.csv"); day_list <- seq(0,20,1)
+# lft_curve_days <- lft_curve[match(day_list,lft_curve$days_since_infection),]
+
 # Load data
 inf_curve <- read.csv("data/auc.csv")
 
-contacts_o18 <- read.csv("2020-cov-tracing/data/contact_distributions_o18.csv") %>% 
-  pivot_longer(1:3) %>% 
-  mutate(age="o18")
+contacts_o18 <- read.csv("../2020-cov-tracing/data/contact_distributions_o18.csv") %>% 
+  rowSums() #pivot_longer(1:3) %>% 
+  #mutate(age="o18")
 
-contacts_u18 <- read.csv("2020-cov-tracing/data/contact_distributions_u18.csv")%>% 
-  pivot_longer(1:3) %>% 
-  mutate(age="u18")
+contacts_u18 <- read.csv("../2020-cov-tracing/data/contact_distributions_u18.csv")%>% 
+  rowSums() #pivot_longer(1:3) %>% 
+  #mutate(age="u18")
 
-contacts <- bind_rows(contacts_o18,contacts_u18)
+contacts <- c(contacts_o18,contacts_u18)
+
 
 # estimate parameters and take product
 #fitdistrplus::descdist(contacts$value,boot = 1000)
-contacts_dist <- fitdist(contacts$value,"nbinom")
+contacts_dist <- fitdist(contacts,"nbinom")
 contacts_sample <- rnbinom(n=100000,size=contacts_dist$estimate[1],mu=contacts_dist$estimate[2])
 
 contacts_plot <- as_tibble(contacts_sample)%>% 
