@@ -26,7 +26,7 @@ contacts_plot <- as_tibble(contacts_sample)%>%
              y=..prop..,
              group=1))+
   geom_bar()+
-  scale_x_discrete(breaks=c(as.character(seq(0,20,by=2)),">20"))+
+  scale_x_discrete(breaks=c(as.character(seq(0,18,by=2)),">20"))+
   labs(x="Number of contacts",y="Probability")+
   theme_minimal()
 
@@ -42,7 +42,7 @@ auc_plot <- as_tibble(auc_sample)%>%
   theme_minimal()
 
 R_sample <- contacts_sample*auc_sample
-fitdist(round(R_sample),"nbinom")
+(R=fitdist(round(R_sample),"nbinom"))
 
 sec_cases_plot <- as_tibble(R_sample) %>% 
   mutate(value=ifelse(round(value)>20,">20",round(value)),
@@ -52,7 +52,8 @@ sec_cases_plot <- as_tibble(R_sample) %>%
              group=1))+
   geom_bar()+
   labs(x="Number of secondary cases",y="Probability")+
-  theme_minimal()
+  theme_minimal()+
+  annotate(label=paste0("R = ",as.character(round(R$estimate[2],2)),"\n","k = ",as.character(round(R$estimate[1],2))),x="17",y=0.5,geom="text")
 
 (auc_plot+contacts_plot)/
   sec_cases_plot
