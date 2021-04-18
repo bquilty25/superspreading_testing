@@ -1,18 +1,8 @@
 # Load required packages scripts
-pacman::p_load("fst","fitdistrplus","tidyverse","cowplot","patchwork")
+pacman::p_load("fitdistrplus","tidyverse","patchwork")
 
 # Load data
-most_recent_file <- file.info(list.files("data/", full.names = T)) %>% 
-  as.data.frame() %>% 
-  rownames_to_column()%>% 
-  filter(str_detect(rowname,"_all.fst")) %>% 
-  slice_max(mtime) %>% 
-  pull(rowname)
-
-inf_curve <- read.fst(most_recent_file) %>% 
-  select(type, tot_auc) %>% 
-  sample_n(10000)
-write.csv(inf_curve,"data/auc.csv")
+inf_curve <- read.csv("data/auc.csv")
 
 contacts_o18 <- read.csv("2020-cov-tracing/data/contact_distributions_o18.csv") %>% 
   pivot_longer(1:3) %>% 
