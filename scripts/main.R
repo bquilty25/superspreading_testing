@@ -29,13 +29,13 @@ prob_infect <- inf_curve %>%
   mutate(contacts_casual=sample(contacts$e_other,size=n(),replace = T)) %>% 
   group_by(sim,idx,norm_auc,contacts_casual) %>% 
   summarise(prob_infect=1-prod(shedding),
-            n_casual_infected=rbinom(n=n(),size=contacts_casual,prob=norm_auc)) %>% 
+            n_casual_infected=rpois(n=n(),lambda=rbinom(n=n(),size=contacts_casual,prob=norm_auc))) %>% 
   ungroup() %>% 
   group_by(sim,idx) %>% 
   nest() %>% 
   mutate(contacts_repeated=sample(contacts$e_repeated,size=n(),replace = T)) %>%
   unnest() %>% 
-  mutate(n_repeated_infected=rbinom(n=n(),size=contacts_repeated,prob=prob_infect),
+  mutate(n_repeated_infected=rpois(n=n(),lambda=rbinom(n=n(),size=contacts_repeated,prob=prob_infect)),
          n_total_infected=n_repeated_infected+n_casual_infected)
 
 fitdist(prob_infect$n_total_infected,"nbinom")
