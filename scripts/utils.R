@@ -1,11 +1,31 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr")
+pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS")
 
 
 # # McAloon et al. incubation period meta-analysis
 #https://bmjopen.bmj.com/content/10/8/e039652
 inc_parms <- list(mu_inc = 1.63,
                   sigma_inc = 0.5)
+
+#### LIVERPOOL INNOVA ANALYSIS ----
+innova_liv <- tribble(~left,~right,~pos,~neg,
+                      30,35,1,18,
+                      25,30,3,9,
+                      20,25,18,5,
+                      15,20,17,2) %>% 
+  pivot_longer(c(pos,neg))  
+
+# random sample from binned intervals 
+innova_liv_sim <- innova_liv %>% 
+  group_by(left,right,name) %>% 
+  uncount(value) %>% 
+  ungroup() %>% 
+  mutate(id=row_number()) %>% 
+  crossing(sim=c(1:100)) %>% 
+  mutate(ct=runif(n=n(),min = left,max=right),
+         Innova=as.numeric(as.factor(name))-1)
+
+liv_mod <- glm(Innova~ct,data=innova_liv_sim,family="binomial") 
 
 ##### KCL ANALYSIS ----
 pickering <- readxl::read_xlsx(here("data","pickering_dat.xlsx")) %>% 
@@ -85,30 +105,43 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
   models <- models %>% 
     unnest(data) %>%  
     select(-c(y)) %>% 
-    pivot_wider(names_from=name,values_from = x) %>%
-    mutate(flight_dep_t  = runif(n=n(),min = start,max=end))
+    pivot_wider(names_from=name,values_from = x)
   
   return(models)
 }
 
 inf_curve_func <- function(m,start=0,end=30){
   #browser()
-  x <- data.frame(t=seq(start,end,length.out = 31))
+  x <- data.frame(t=seq(start,end,length.out = 31)) %>% 
+    mutate(u=runif(n=n(),0,1))
   
   #predict CTs for each individual per day
   x$ct <- m(x$t)
   
   #predict culture probability given CTs
-  x$culture <-  stats::predict(culture_mod, type = "response", newdata = x)
+  x$culture <-  stats::predict(lee_mod, type = "response", newdata = x)
 
   return(x)
 }
 
-
-
-auc_wrapper <- function(df,from=0,to=30){
+calc_sensitivity <- function(model, x){
+  #browser()
+  if(!is.na(x)){
+    s <- model(x)
+  } else {
+    s <- NA_real_
+  }
   
-DescTools::AUC(y=df$culture,x=df$t,from=from,to=to,method="trapezoid")
+  return(s)
+}
+
+auc_wrapper <- function(df,from,to){
+  browser()
+  
+  from <- from
+  to <- to
+  
+
 
 }
 
@@ -121,5 +154,59 @@ make_proportions <- function(prop_asy, n_cases){
   x <- data.frame(type=rbinom(n=n_cases,size=1,prob = prop_asy)) %>% 
     mutate(type=ifelse(type==1,"asymptomatic","symptomatic"),
            idx=row_number())
+  
+}
+
+propresponsible=function(R0,k,prop){
+  qm1=qnbinom(1-prop,k+1,mu=R0*(k+1)/k)
+  remq=1-prop-pnbinom(qm1-1,k+1,mu=R0*(k+1)/k)
+  remx=remq/dnbinom(qm1,k+1,mu=R0*(k+1)/k)
+  q=qm1+1
+  1-pnbinom(q-1,k,mu=R0)-dnbinom(q,k,mu=R0)*remx
+}
+
+test_times <- function(type,onset_t,sampling_freq=3){
+  #browser()
+  
+   if(type=="asymptomatic"){
+     initial_t <- sample(size=1,x = c(0:29))
+  }else{
+    initial_t <- sample(size=1,x = c(0:onset_t))
+  }
+  
+  test_timings <- data.frame(test_t = seq(from=initial_t,to=30,by=sampling_freq)) %>% 
+    mutate(test_no = paste0("test_", row_number())) 
+
+  
+  return(test_timings)
+}
+
+earliest_pos <- function(df){
+  #browser()
+  
+  x_q <- df %>% filter(test_label==TRUE) 
+  
+  if (nrow(x_q) == 0L){
+    return(data.frame(test_no="None",test_p=0,test_t=Inf))
+  } else {
+    return((x_q %>% select(test_no,test_p,test_t) %>% slice_min(test_t)))
+  }
+}
+
+truncate_days <- function(df,trunc){
+  
+  
+  
+}
+
+detector <- function(test_p, u = NULL){
+  
+  if (is.null(u)){
+    u <- runif(n = length(test_p))
+  }
+  
+  # true positive if the test exceeds a random uniform
+  # when uninfected, PCR will be 0
+  TP <- test_p > u
   
 }
