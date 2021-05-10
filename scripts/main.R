@@ -1,12 +1,9 @@
 
-# AK: load LFT curve to check
-# setwd("~/Documents/GitHub/superspreading_testing")
-# lft_curve <- read_csv("~/Documents/GitHub/pcr-profile/LFT_curve_summary.csv"); day_list <- seq(0,20,1)
-# lft_curve_days <- lft_curve[match(day_list,lft_curve$days_since_infection),]
+
 source("scripts/utils.R")
 source("scripts/lee_infectivity.R")
 
-make_trajectories(n_cases=10,n_sims = 100) %>% 
+inf_curve <- make_trajectories(n_cases=10,n_sims = 100) %>% 
   mutate(sampling_freq=3) %>% 
   mutate(test_times=pmap(.f=test_times,list(sampling_freq=sampling_freq,onset_t=onset_t,type=type))) %>% 
   unnest(test_times) %>% 
@@ -20,29 +17,12 @@ make_trajectories(n_cases=10,n_sims = 100) %>%
   select(-data) %>% 
   mutate(infectiousness = map(inf_curve_func,.x=m)) %>% 
   rowwise() %>% 
-  mutate(auc=MESS::auc(y=infectiousness$culture,x=infectiousness$t),
-         test_auc=ifelse(is.infinite(test_t),
-                         0,
-                         MESS::auc(y=infectiousness$culture,x=infectiousness$t,from=test_t)),
-         symp_auc=ifelse(type=="asymptomatic",
-                         0,
-                         MESS::auc(y=infectiousness$culture,x=infectiousness$t,from=onset_t)),
-         #test_auc=0,
-         #symp_auc=0,
-         trunc_auc=pmax(test_auc,symp_auc),
-         #prop=(trunc_auc/auc)
-         ) %>%
-  #filter(type=="symptomatic") %>% 
-  ungroup() %>%  
-  group_by(sim) %>% 
-  summarise(prop=sum(trunc_auc)/sum(auc)) %>% 
-  nest() %>%
-  mutate(Q = purrr::map(.x = data, ~quantile( .$prop*100,
-                                              probs = c(0.5,0.025,0.975)))) %>%
-  unnest_wider(Q)
-  #ungroup() %>% 
-  #mutate(norm_auc=((auc*(1-prop))-min((auc*(1-prop))))/(max(auc*(1-prop))-min(auc*(1-prop))))
-  #mutate(norm_auc=(auc-min(auc))/(max(auc)-min(auc)))
+  mutate(auc=case_when(type=="symptomatic"~MESS::auc(y=infectiousness$culture,x=infectiousness$t,to=onset_t),
+                    TRUE~MESS::auc(y=infectiousness$culture,x=infectiousness$t))) %>% 
+  ungroup() %>% 
+  mutate(norm_auc=(auc-min(auc))/(max(auc)-min(auc)))
+  
+  
 
 #Load contact data
 contacts_o18 <- read.csv(here("2020-cov-tracing","data","contact_distributions_o18.csv")) %>% 
@@ -55,22 +35,36 @@ contacts_u18 <- read.csv(here("2020-cov-tracing","data","contact_distributions_u
 
 contacts <- bind_rows(contacts_o18,contacts_u18) 
 
-prob_infect <- inf_curve %>% select(-u) %>% 
-  unnest(infectiousness) %>% 
-  mutate(contacts_casual=sample(contacts$e_other,size=n(),replace = T)) %>% 
-  group_by(sim,idx,type,norm_auc,contacts_casual) %>% 
-  summarise(prob_infect=1-prod(1-culture),
-            n_casual_infected=rpois(n=n(),lambda=rbinom(n=n(),size=contacts_casual,prob=norm_auc))) %>% 
+prob_infect <- inf_curve %>% 
+  select(-u) %>% 
+  unnest(infectiousness) %>%
+  crossing(het_contacts=c(TRUE,FALSE),
+           het_vl=c(TRUE,FALSE)) %>% 
+  mutate(contacts_casual=ifelse(het_contacts,
+                                sample(contacts$e_other,size=n(),replace = T),
+                                   2),
+         norm_auc=ifelse(het_vl,
+                         norm_auc,
+                         0.2440)) %>% 
+  group_by(sim,idx,type,het_contacts,het_vl,norm_auc,contacts_casual) %>% 
+  summarise(n_casual_infected=rbinom(n=n(),size=contacts_casual,prob=culture)) %>% #per day AUC?
   ungroup() %>% 
-  group_by(sim,idx) %>% 
+  group_by(sim,idx,het_contacts,het_vl) %>% 
   nest() %>% 
-  mutate(contacts_repeated=sample(contacts$e_repeated,size=n(),replace = T)) %>%
+  mutate(contacts_repeated=ifelse(het_contacts,
+                                  sample(contacts$e_repeated,size=n(),replace = T),
+                                  5)) %>%
   unnest() %>% 
-  mutate(n_repeated_infected=rpois(n=n(),lambda=rbinom(n=n(),size=contacts_repeated,prob=prob_infect)),
+  mutate(n_repeated_infected=rbinom(n=n(),size=contacts_repeated,prob=norm_auc),
          n_total_infected=n_repeated_infected+n_casual_infected)
 
-(r_k <- fitdist(prob_infect$n_total_infected,"nbinom"))
-ggplot(prob_infect)+geom_histogram(aes(x=n_total_infected))
+fitdist(prob_infect %>% filter(!het_contacts,!het_vl) %>% pull(n_total_infected),"nbinom")
+fitdist(prob_infect %>% filter(!het_contacts,het_vl) %>% pull(n_total_infected),"nbinom")
+fitdist(prob_infect %>% filter(het_contacts,!het_vl) %>% pull(n_total_infected),"nbinom")
+fitdist(prob_infect %>% filter(het_contacts,het_vl) %>% pull(n_total_infected),"nbinom")
+
+
+ggplot(prob_infect)+geom_histogram(aes(x=n_total_infected))+facet_grid(het_vl~het_contacts,labeller = label_both)+scale_y_log10()
 
 #Prop responsible for 80% of transmission
 propresponsible(R0=r_k$estimate[2],r_k$estimate[1],prop=0.8)
