@@ -9,7 +9,7 @@ source("scripts/lee_infectivity.R")
 
 crowd_contacts <- crossing(density=c(1:5),
                radius=c(5,10,15,20)) %>% 
-      mutate(area=pi*(radius^2)*0.5,
+      mutate(area=pi*(radius^2),
              contacts=area*density)
 
 
@@ -98,15 +98,15 @@ n_infected <-  simul %>%
     mutate(n_infected=rpois(n=n(),lambda=rbinom(n=n(),size=contacts,prob=norm_auc))) 
 
 
-(r_k <- fitdist(n_infected %>% filter(testing) %>% pull(n_infected),"nbinom"))
-(r_k <- fitdist(n_infected %>% filter(!testing) %>% pull(n_infected),"nbinom"))
+n_infected %>%  group_by(radius,density,testing) %>% nest() %>% mutate(dist=map(.f=function(x){fitdist(data=x$n_infected,distr="nbinom")},.x=data)) %>% unlist(dist)
+(r_k <- fitdist(n_infected%>%  group_by(radius==5,density==5) %>% filter(!testing) %>% pull(n_infected),"nbinom"))
 
 n_infected %>% 
   ggplot(aes(x=n_infected))+geom_histogram()+facet_wrap(~testing,ncol=1)
 
 
 n_infected %>% 
-  mutate(prob_ss=n_infected>=10) %>% 
+  mutate(prob_ss=n_infected>10) %>% 
   group_by(testing,radius,density) %>% 
   count(prob_ss) %>% 
   group_by(radius,density,testing) %>% 
@@ -115,7 +115,14 @@ n_infected %>%
   arrange(radius,density,testing) %>% 
   ggplot()+
   geom_tile(aes(x=density,y=radius,fill=prob))+
-  scale_fill_viridis_c(name="Probability of superspreading event",guide=guide_coloursteps(show.limits = T))+
-  facet_grid(~testing,labeller=label_both)+
-  coord_fixed(ratio=5/25)
+  geom_text(aes(x=density,y=radius,label=round(prob,2)),colour="white")+
+  scale_fill_viridis_c(name="Probability of superspreading event\n(>10 crowd members exposed)",guide=guide_coloursteps(show.limits = F),option="rocket",begin=0.1,end=0.9)+
+  facet_wrap(~testing,labeller=labeller(testing=function(x){ifelse(x,"LFT testing before event","No LFT testing before event")}),ncol = 1)+
+  coord_fixed(ratio=5/25)+
+  labs(x="Crowd density (people per square metre)",
+       y="Dispersion distance (radius around infected person)")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+
+ggsave("density_distance_ss.png",dpi=600,height = 210,width=197,units="mm")  
 
