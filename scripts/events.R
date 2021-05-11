@@ -32,7 +32,7 @@ simul <- make_trajectories(n_cases=100,n_sims = 100) %>%
            #Test positive and symptomatic before event start, avert event transmission
                              test_label & type=="symptomatic"&event_start>onset_t~
                                MESS::auc(y=infectiousness$culture,x=infectiousness$t,from = event_start,to=event_end),
-           #Test positive and symptomatic after event start, avert from event start onwards
+           #Test positive and symptomatic after event start, avert from event transmission
                              test_label & type=="symptomatic"&event_start<onset_t~
                                MESS::auc(y=infectiousness$culture,x=infectiousness$t,from = event_start,to=event_end),
            #Test negative and symptomatic before event start, avert event transmission
@@ -75,7 +75,7 @@ simul %>%
   group_by(sim,idx,testing) %>% 
   crossing(crowd_contacts) %>% 
   mutate(contacts=round(contacts)) %>% 
-  mutate(n_infected=rpois(n=n(),lambda=rbinom(n=n(),size=contacts,prob=norm_auc))) %>% View()
+  mutate(n_infected=rbinom(n=n(),size=contacts,prob=norm_auc)) %>%
   group_by(density,radius,testing,contacts) %>%
   nest() %>%
   mutate(Q = purrr::map(.x = data, ~quantile(.$n_infected/contacts,
@@ -95,32 +95,34 @@ n_infected <-  simul %>%
              #%>%  filter(radius==5,density==5)
              ) %>% 
     mutate(contacts=round(contacts)) %>% 
-    mutate(n_infected=rpois(n=n(),lambda=rbinom(n=n(),size=contacts,prob=norm_auc))) 
+    mutate(n_infected=rbinom(n=n(),size=contacts,prob=norm_auc))
 
 
 n_infected %>%  group_by(radius,density,testing) %>% nest() %>% mutate(dist=map(.f=function(x){fitdist(data=x$n_infected,distr="nbinom")},.x=data)) %>% unlist(dist)
 (r_k <- fitdist(n_infected%>%  group_by(radius==5,density==5) %>% filter(!testing) %>% pull(n_infected),"nbinom"))
 
-n_infected %>% 
+n_infected %>% filter(radius==5,density==5) %>% 
   ggplot(aes(x=n_infected))+geom_histogram()+facet_wrap(~testing,ncol=1)
 
 
 n_infected %>% 
-  mutate(prob_ss=n_infected>10) %>% 
-  group_by(testing,radius,density) %>% 
-  count(prob_ss) %>% 
-  group_by(radius,density,testing) %>% 
-  mutate(prob = prop.table(n)) %>% 
-  filter(prob_ss) %>% 
-  arrange(radius,density,testing) %>% 
+  mutate(sar=n_infected/contacts) %>% 
+  select(sim,idx,radius,density,area,testing,sar) %>% 
+  pivot_wider(names_from=c(testing),values_from=sar) %>% 
+  mutate(ratio=`TRUE`/`FALSE`) %>%
+  group_by(density,radius) %>% 
+  nest() %>%
+  mutate(Q = purrr::map(.x = data, ~quantile(.$ratio, na.rm=T,
+                                             probs = c(0.5,0.025,0.975)))) %>%
+  unnest_wider(Q) %>% 
   ggplot()+
-  geom_tile(aes(x=density,y=radius,fill=prob))+
-  geom_text(aes(x=density,y=radius,label=round(prob,2)),colour="white")+
-  scale_fill_viridis_c(name="Probability of superspreading event\n(>10 crowd members exposed)",guide=guide_coloursteps(show.limits = F),option="rocket",begin=0.1,end=0.9)+
-  facet_wrap(~testing,labeller=labeller(testing=function(x){ifelse(x,"LFT testing before event","No LFT testing before event")}),ncol = 1)+
+  geom_tile(aes(x=density,y=radius,fill=`50%`))+
+  geom_text(aes(x=density,y=radius,label=paste0(round(`50%`,2),"\n(",round(`2.5%`,2),", ",round(`97.5%`,2),")")),colour="white")+
+  scale_fill_viridis_c(name="Relative proportion of crowd bubble infected with pre-event testing\n(1 = no difference)",guide=guide_coloursteps(show.limits = F,ticks=T),option="mako",begin=0.1,end=0.9,direction = -1)+
+  #facet_wrap(~testing,labeller=labeller(testing=function(x){ifelse(x,"LFT testing before event","No LFT testing before event")}),ncol = 1)+
   coord_fixed(ratio=5/25)+
   labs(x="Crowd density (people per square metre)",
-       y="Dispersion distance (radius around infected person)")+
+       y="Dispersion distance (radius from infected person)")+
   theme_minimal()+
   theme(legend.position = "bottom")
 

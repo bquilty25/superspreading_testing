@@ -1,0 +1,1 @@
+#Estimate secondary case distribution pre-pandemic (R0) and with various levels of contact reduction from Comix
