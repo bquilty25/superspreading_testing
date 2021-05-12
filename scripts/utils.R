@@ -1,5 +1,5 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS")
+pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate")
 
 
 # # McAloon et al. incubation period meta-analysis
@@ -110,7 +110,7 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
   return(models)
 }
 
-inf_curve_func <- function(m,start=0,end=30){
+inf_curve_func <- function(m,start=0,end=30,trunc_t){
   #browser()
   x <- data.frame(t=seq(start,end,length.out = 31)) %>% 
     mutate(u=runif(n=n(),0,1))
@@ -121,6 +121,12 @@ inf_curve_func <- function(m,start=0,end=30){
   #predict culture probability given CTs
   x$culture <-  stats::predict(lee_mod, type = "response", newdata = x)
 
+  if(!is.na(trunc_t)){
+  x <- filter(x,t<ceiling(trunc_t))
+  }else{
+    x
+  }
+  
   return(x)
 }
 
@@ -191,12 +197,6 @@ earliest_pos <- function(df){
   } else {
     return((x_q %>% select(test_no,test_p,test_t) %>% slice_min(test_t)))
   }
-}
-
-truncate_days <- function(df,trunc){
-  
-  
-  
 }
 
 detector <- function(test_p, u = NULL){
