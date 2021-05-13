@@ -121,11 +121,11 @@ inf_curve_func <- function(m,start=0,end=30,trunc_t){
   #predict culture probability given CTs
   x$culture <-  stats::predict(lee_mod, type = "response", newdata = x)
 
-  if(!is.na(trunc_t)){
-  x <- filter(x,t<ceiling(trunc_t))
-  }else{
-    x
-  }
+  # if(!is.na(trunc_t)){
+  # x <- filter(x,t<ceiling(trunc_t))
+  # }else{
+  #   x
+  # }
   
   return(x)
 }
@@ -139,16 +139,6 @@ calc_sensitivity <- function(model, x){
   }
   
   return(s)
-}
-
-auc_wrapper <- function(df,from,to){
-  browser()
-  
-  from <- from
-  to <- to
-  
-
-
 }
 
 ## sample asymp proportions
