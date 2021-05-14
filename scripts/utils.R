@@ -1,5 +1,5 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate")
+pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon")
 
 
 # # McAloon et al. incubation period meta-analysis

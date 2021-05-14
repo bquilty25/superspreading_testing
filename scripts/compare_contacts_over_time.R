@@ -49,7 +49,7 @@ fitdist(contact_data %>%  filter(time_period == "aug_sept") %>% pull(e_all),
 fitdist(contact_data %>% filter(time_period == "feb_mar") %>% pull(e_all),
         "nbinom")
 
-inf_curve <- make_trajectories(n_cases = 10, n_sims = 100) %>%
+inf_curve <- make_trajectories(n_cases = 100, n_sims = 100) %>%
   mutate(sampling_freq = 3) %>%
   mutate(test_times = pmap(
     .f = test_times,
@@ -198,44 +198,41 @@ prob_infect <-
   ) %>%
   mutate(n_total_infected = n_repeated_infected + n_casual_infected)
 
+dists <- prob_infect %>% 
+  group_by(time_period,
+         trunc_by_onset) %>% 
+  nest() %>% 
+  mutate(dists=map(.x=data,.f= .%>% 
+                     pull(n_total_infected) %>% 
+                     fitdist("nbinom"))) %>% 
+  mutate(dist_params=map(dists,~tibble(mu=.x$estimate[[2]],
+                                      size=.x$estimate[[1]]))) %>% 
+  unnest_wider(dist_params)
 
-prob_infect %>% ggplot() + geom_histogram(aes(x = n_casual_infected)) +
-  facet_wrap(trunc_by_onset ~ time_period)
 
-#truncated by onset
-fitdist(prob_infect %>% 
-          filter(time_period == "pre",
-                 trunc_by_onset) %>% 
-          pull(n_total_infected),
-        "nbinom")
+prob_infect %>% 
+  mutate(n_total_infected=factor(ifelse(round(n_total_infected)>=20,"\u2265 20",round(n_total_infected))),
+         n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,19)),"\u2265 20"))) %>%
+  #filter(!trunc_by_onset) %>% 
+  ggplot(aes(x=n_total_infected,
+             y=..prop..,
+             group=1))+
+  geom_bar(width=0.8)+
+  geom_text(data=dists,
+             aes(label=paste0("R = ",as.character(round(mu,2)),"\n","k = ",as.character(round(size,2))),
+             x="18",
+             y=0.5),
+            hjust = 1)+
+  labs(x="Number of secondary cases",y="Probability")+
+  theme_minimal()+
+  theme(axis.line.x.bottom = element_line(),
+        axis.ticks.x.bottom = element_line(),
+        axis.line.y.left = element_line())+
+  facet_rep_grid(fct_rev(ifelse(trunc_by_onset,"Symptomatic self-isolation","No symptomatic self-isolation"))~time_period, scales='free_y',
+                 labeller=labeller(time_period=c("pre"="Pre-pandemic (BBC 2018)",
+                                                 "aug_sept"="Relaxed (Comix Aug/Sept 2020)",
+                                                 "feb_mar"="Lockdown (Comix Feb/Mar 2021)"))) + 
+  scale_x_discrete(breaks=c(as.character(seq(0,18,by=2)),"\u2265 20"),expand = expansion(add=0.7))+
+  scale_y_continuous(limits=c(0,0.7),expand=c(0,0))
 
-fitdist(prob_infect %>% 
-          filter(time_period == "aug_sept",
-                 trunc_by_onset) %>% 
-          pull(n_total_infected),
-        "nbinom")
-
-fitdist(prob_infect %>% 
-          filter(time_period == "feb_mar",
-                 trunc_by_onset) %>% 
-          pull(n_total_infected),
-        "nbinom")
-
-#untruncated by onset
-fitdist(prob_infect %>% 
-          filter(time_period == "pre",
-                 !trunc_by_onset) %>% 
-          pull(n_total_infected),
-        "nbinom")
-
-fitdist(prob_infect %>% 
-          filter(time_period == "aug_sept",
-                 !trunc_by_onset) %>% 
-          pull(n_total_infected),
-        "nbinom")
-
-fitdist(prob_infect %>% 
-          filter(time_period == "feb_mar",
-                 !trunc_by_onset) %>% 
-          pull(n_total_infected),
-        "nbinom")
+ggsave("results/contacts_over_time.png",width=9,height=5,units="in",dpi=400)
