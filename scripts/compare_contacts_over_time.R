@@ -42,15 +42,19 @@ comix_high_low <- contacts_comix %>%
 #summarise number of contacts
 contact_data <- comix_high_low %>% bind_rows(contacts_bbc)
 
-fitdist(contact_data %>%  filter(time_period == "pre") %>% pull(e_all),
-        "nbinom")
-fitdist(contact_data %>%  filter(time_period == "aug_sept") %>% pull(e_all),
-        "nbinom")
-fitdist(contact_data %>% filter(time_period == "feb_mar") %>% pull(e_all),
-        "nbinom")
+contact_data %>% 
+  group_by(time_period) %>% 
+  nest() %>% 
+  mutate(dists=map(.x=data,.f= .%>% 
+                     mutate(e_all = rowSums(across(c(e_home,e_school,e_work,e_other)),na.rm = T)) %>% 
+                     pull(e_all) %>% 
+                     fitdist("nbinom"))) %>% 
+  mutate(dist_params=map(dists,~tibble(mu=.x$estimate[[2]],
+                                       size=.x$estimate[[1]]))) %>% 
+  unnest_wider(dist_params)
 
 inf_curve <- make_trajectories(n_cases = 100, n_sims = 100) %>%
-  mutate(sampling_freq = 3) %>%
+  crossing(sampling_freq = c(NA,3)) %>%
   mutate(test_times = pmap(
     .f = test_times,
     list(
@@ -69,15 +73,10 @@ inf_curve <- make_trajectories(n_cases = 100, n_sims = 100) %>%
   mutate(earliest_positive = map(.f = earliest_pos, .x = data)) %>%
   unnest(earliest_positive) %>%
   select(-data) %>%
-  crossing(trunc_by_onset = c(T,F)) %>%
-  mutate(
-    trunc_by_onset = case_when(
-      trunc_by_onset & type == "symptomatic" ~ T,
-      trunc_by_onset & type == "asymptomatic" ~ F,
-      TRUE ~ F
-    ),
-    infectiousness = pmap(inf_curve_func, .l = list(m = m))
-  )  %>%
+  mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m)))  %>%
+  crossing(prop_self_iso = c(0,0.25,0.5,0.75,1)) %>%
+  filter(!(prop_self_iso!=0&&type=="asymptomatic")) %>% 
+  mutate(self_iso=rbinom(n=n(),size=1,prob=prop_self_iso)) %>% 
   rowwise() %>%
   mutate(sum_inf = sum(infectiousness$culture)) %>%
   ungroup() %>%
@@ -140,12 +139,21 @@ prob_infect <-
         replace = T
       )
     ),
+    trunc_t=case_when(
+      # if symptomatic, adhering to self isolation, and either not tested or test neg,
+      # truncate at onset
+      type=="symptomatic"&is.infinite(test_t)&self_iso!=0~onset_t,
+      # if symptomatic, adhering to self isolation, and have onset before test, truncate at onset
+      type=="symptomatic"&is.finite(test_t)&onset_t<test_t&self_iso!=0~onset_t,
+      # if symptomatic, adhering to self isolation, and have onset after pos test, truncate at test
+      type=="symptomatic"&is.finite(test_t)&test_t<onset_t&self_iso!=0~test_t,
+      # if symptomatic, not adhering to self isolation, and have a positive test, truncate at test
+      TRUE ~ test_t), 
     #if symp onset, contacts outside of home should cease; for school/work, multiply 
-    #number of contacts by proportion of infection pre-onset
-    contacts_repeated_school_work=ifelse(trunc_by_onset,
-                                          ceiling(contacts_repeated_school_work*(onset_t/(end-start))),
-                                          contacts_repeated_school_work)
-  ) %>%
+    #number of contacts by proportion of time since infection which occurs pre-onset
+    contacts_repeated_school_work=case_when(!is.infinite(trunc_t)~ceiling(contacts_repeated_school_work*(trunc_t/(end-start))),
+                                            TRUE~ceiling(contacts_repeated_school_work))
+  ) %>% 
   mutate(
     contacts_repeated   = contacts_repeated_home + contacts_repeated_school_work,
     n_repeated_infected = rbinom(n = n(), 
@@ -155,7 +163,7 @@ prob_infect <-
   mutate(norm_daily = (culture / sum_inf) * norm_sum) %>%
   mutate(
     contacts_casual = case_when(
-      trunc_by_onset&t>onset_t~0L,
+      t>trunc_t  ~ 0L,
       time_period == "pre"        ~ sample(
         contact_data %>%
           filter(time_period == "pre") %>%
@@ -189,9 +197,10 @@ prob_infect <-
            type,
            time_period,
            norm_sum,
-           trunc_by_onset,
+           prop_self_iso,
            contacts_repeated,
-           n_repeated_infected) %>%
+           n_repeated_infected,
+           sampling_freq) %>%
   summarise(
     contacts_casual = sum(contacts_casual),
     n_casual_infected = sum(n_casual_infected)
@@ -200,7 +209,8 @@ prob_infect <-
 
 dists <- prob_infect %>% 
   group_by(time_period,
-         trunc_by_onset) %>% 
+         prop_self_iso,
+         sampling_freq) %>% 
   nest() %>% 
   mutate(dists=map(.x=data,.f= .%>% 
                      pull(n_total_infected) %>% 
@@ -213,9 +223,9 @@ dists <- prob_infect %>%
 prob_infect %>% 
   mutate(n_total_infected=factor(ifelse(round(n_total_infected)>=20,"\u2265 20",round(n_total_infected))),
          n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,19)),"\u2265 20"))) %>%
-  #filter(!trunc_by_onset) %>% 
   ggplot(aes(x=n_total_infected,
              y=..prop..,
+             fill=factor(sampling_freq),
              group=1))+
   geom_bar(width=0.8)+
   geom_text(data=dists,
@@ -228,11 +238,11 @@ prob_infect %>%
   theme(axis.line.x.bottom = element_line(),
         axis.ticks.x.bottom = element_line(),
         axis.line.y.left = element_line())+
-  facet_rep_grid(fct_rev(ifelse(trunc_by_onset,"Symptomatic self-isolation","No symptomatic self-isolation"))~time_period, scales='free_y',
+  facet_rep_grid(prop_self_iso~time_period+sampling_freq, scales='free_y',
                  labeller=labeller(time_period=c("pre"="Pre-pandemic (BBC 2018)",
                                                  "aug_sept"="Relaxed (Comix Aug/Sept 2020)",
                                                  "feb_mar"="Lockdown (Comix Feb/Mar 2021)"))) + 
   scale_x_discrete(breaks=c(as.character(seq(0,18,by=2)),"\u2265 20"),expand = expansion(add=0.7))+
   scale_y_continuous(limits=c(0,0.7),expand=c(0,0))
 
-ggsave("results/contacts_over_time.png",width=9,height=5,units="in",dpi=400)
+ggsave("results/contacts_over_time_prop_self_iso.png",width=9,height=7,units="in",dpi=400)

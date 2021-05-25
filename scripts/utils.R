@@ -170,8 +170,13 @@ test_times <- function(type,onset_t,sampling_freq=3){
     initial_t <- sample(size=1,x = c(0:onset_t))
   }
   
+  if(!is.na(sampling_freq)){
   test_timings <- data.frame(test_t = seq(from=initial_t,to=30,by=sampling_freq)) %>% 
     mutate(test_no = paste0("test_", row_number())) 
+  } else {
+    test_timings <- data.frame(test_t = Inf) %>% 
+    mutate(test_no = paste0("test_", row_number())) 
+  }
 
   
   return(test_timings)
