@@ -1,6 +1,7 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon")
+pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon","boot","furrr")
 
+plan(multisession,workers=8)
 
 # # McAloon et al. incubation period meta-analysis
 #https://bmjopen.bmj.com/content/10/8/e039652
@@ -52,6 +53,14 @@ asymp_fraction <- rriskDistributions::get.beta.par(
 
 approx_sd <- function(x1, x2){
   (x2-x1) / (qnorm(0.95) - qnorm(0.05) )
+}
+
+#bootstrap confidence interval function
+boot_ci <- function(x,nrep=100) {
+  bootdist(f=x,niter = nrep)$CI %>% 
+    as.data.frame() %>% 
+    select(-Median) %>% 
+    rownames_to_column("param")
 }
 
 make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asymp_fraction){

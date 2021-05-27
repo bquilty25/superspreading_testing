@@ -30,30 +30,31 @@ comix_high_low <- contacts_comix %>%
   mutate(year = year(as.Date(date)),
          month = month(as.Date(date))) %>%
   filter(year == 2020 & month %in% c(8, 9) |
-           year == 2021 & month %in% c(2, 3)) %>%
+           year == 2021 & month %in% c(1, 2)) %>%
   mutate(
     time_period = case_when(
       year == 2020 & month %in% c(8, 9) ~ "aug_sept",
-      year == 2021 &
-        month %in% c(2, 3) ~ "feb_mar"
+      year == 2021 & month %in% c(1, 2) ~ "jan_feb"
     )
   )
 
 #summarise number of contacts
 contact_data <- comix_high_low %>% bind_rows(contacts_bbc)
 
-contact_data %>% 
-  group_by(time_period) %>% 
-  nest() %>% 
-  mutate(dists=map(.x=data,.f= .%>% 
-                     mutate(e_all = rowSums(across(c(e_home,e_school,e_work,e_other)),na.rm = T)) %>% 
-                     pull(e_all) %>% 
-                     fitdist("nbinom"))) %>% 
-  mutate(dist_params=map(dists,~tibble(mu=.x$estimate[[2]],
-                                       size=.x$estimate[[1]]))) %>% 
-  unnest_wider(dist_params)
+# contact_data %>% 
+#   group_by(time_period) %>% 
+#   nest() %>% 
+#   mutate(dists=map(.x=data,.f= .%>% 
+#                      mutate(e_all = rowSums(across(c(e_home,e_school,e_work,e_other)),na.rm = T)) %>% 
+#                      pull(e_all) %>% 
+#                      fitdist("nbinom"))) %>% 
+#   mutate(dist_params=map(dists,~tibble(mu=.x$estimate[[2]],
+#                                        size=.x$estimate[[1]]))) %>% 
+#   ungroup() %>% 
+#   mutate(dist_ci=future_map(dists,~boot_ci(.x),.progress = T))
 
 inf_curve <- make_trajectories(n_cases = 100, n_sims = 100) %>%
+  #testing
   crossing(sampling_freq = c(NA,3)) %>%
   mutate(test_times = pmap(
     .f = test_times,
@@ -74,6 +75,7 @@ inf_curve <- make_trajectories(n_cases = 100, n_sims = 100) %>%
   unnest(earliest_positive) %>%
   select(-data) %>%
   mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m)))  %>%
+  #proportion who self-isolate
   crossing(prop_self_iso = c(0,0.25,0.5,0.75,1)) %>%
   filter(!(prop_self_iso!=0&&type=="asymptomatic")) %>% 
   mutate(self_iso=rbinom(n=n(),size=1,prob=prop_self_iso)) %>% 
@@ -86,9 +88,9 @@ prob_infect <-
   inf_curve %>%
   select(-u) %>%
   crossing(time_period = factor(
-    c("pre", "aug_sept", "feb_mar"),
+    c("pre", "aug_sept", "jan_feb"),
     ordered = T,
-    levels = c("pre", "aug_sept", "feb_mar")
+    levels = c("pre", "aug_sept", "jan_feb")
   )) %>%
   mutate(
     contacts_repeated_home = case_when(
@@ -106,9 +108,9 @@ prob_infect <-
         size = n(),
         replace = T
       ),
-      time_period == "feb_mar" ~ sample(
+      time_period == "jan_feb" ~ sample(
         contact_data %>%
-          filter(time_period == "feb_mar") %>%
+          filter(time_period == "jan_feb") %>%
           pull(e_home),
         size = n(),
         replace = T
@@ -130,9 +132,9 @@ prob_infect <-
         size = n(),
         replace = T
       ),
-      time_period == "feb_mar" ~ sample(
+      time_period == "jan_feb" ~ sample(
         contact_data %>%
-          filter(time_period == "feb_mar") %>%
+          filter(time_period == "jan_feb") %>%
           mutate(e_school_work =  e_work + e_school) %>%
           pull(e_school_work),
         size = n(),
@@ -178,9 +180,9 @@ prob_infect <-
         size = n(),
         replace = T
       ),
-      time_period == "feb_mar" ~ sample(
+      time_period == "jan_feb" ~ sample(
         contact_data %>%
-          filter(time_period == "feb_mar") %>%
+          filter(time_period == "jan_feb") %>%
           pull(e_other),
         size = n(),
         replace = T
@@ -217,22 +219,41 @@ dists <- prob_infect %>%
                      fitdist("nbinom"))) %>% 
   mutate(dist_params=map(dists,~tibble(mu=.x$estimate[[2]],
                                       size=.x$estimate[[1]]))) %>% 
-  unnest_wider(dist_params)
+  ungroup() %>% 
+  mutate(dist_ci=future_map(dists,~boot_ci(.x),.progress = T))
+  unnest_wider(dist_params) %>%  
+  mutate(sampling_freq=case_when(sampling_freq==3~"Testing every 3 days",
+                                 TRUE~ "No testing"))
 
+dists %>% 
+  ungroup() %>% 
+  select(-c(data,dists),"R"=mu,"k"=size) %>%
+  mutate(estimate=paste("R = ",round(R,2),"k = ",round(k,2))) %>% 
+  select(-c(R,k)) %>% 
+  pivot_wider(names_from = time_period,values_from = estimate) %>% 
+  #arrange(time_period,prop_self_iso,sampling_freq) %>% 
+  base::print(n=Inf)
 
-prob_infect %>% 
-  mutate(n_total_infected=factor(ifelse(round(n_total_infected)>=20,"\u2265 20",round(n_total_infected))),
-         n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,19)),"\u2265 20"))) %>%
-  ggplot(aes(x=n_total_infected,
-             y=..prop..,
-             fill=factor(sampling_freq),
-             group=1))+
-  geom_bar(width=0.8)+
-  geom_text(data=dists,
-             aes(label=paste0("R = ",as.character(round(mu,2)),"\n","k = ",as.character(round(size,2))),
-             x="18",
-             y=0.5),
-            hjust = 1)+
+p1 <- prob_infect %>% 
+  filter(prop_self_iso%in%c(0,0.5,1)) %>% 
+  mutate(sampling_freq=case_when(sampling_freq==3~"Testing every 3 days",
+                                 TRUE~ "No testing")) %>% 
+  mutate(n_total_infected=factor(ifelse(round(n_total_infected)>=10,"\u2265 10",round(n_total_infected))),
+         n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,9)),"\u2265 10"))) %>%
+  ggplot(aes(x = n_total_infected,
+             y = ..prop..,
+             fill = factor(sampling_freq),
+             group = 1))+
+  geom_bar(width = 0.8)+
+  geom_label(data = dists %>% 
+               filter(prop_self_iso%in%c(0,0.5,1)),
+             aes(label=paste0("R = ",round(mu,2),"\n","k = ",round(size,2)),
+                 x="\u2265 10",
+                 y=0.75),
+             colour = "white",
+             fill = rgb(0,0,0,0.4),
+             hjust = 1)+
+  scale_fill_brewer(type="qual",guide=F,palette = "Set2")+
   labs(x="Number of secondary cases",y="Probability")+
   theme_minimal()+
   theme(axis.line.x.bottom = element_line(),
@@ -241,8 +262,52 @@ prob_infect %>%
   facet_rep_grid(prop_self_iso~time_period+sampling_freq, scales='free_y',
                  labeller=labeller(time_period=c("pre"="Pre-pandemic (BBC 2018)",
                                                  "aug_sept"="Relaxed (Comix Aug/Sept 2020)",
-                                                 "feb_mar"="Lockdown (Comix Feb/Mar 2021)"))) + 
-  scale_x_discrete(breaks=c(as.character(seq(0,18,by=2)),"\u2265 20"),expand = expansion(add=0.7))+
-  scale_y_continuous(limits=c(0,0.7),expand=c(0,0))
+                                                 "jan_feb"="Lockdown (Comix Jan/Feb 2021)"),
+                                   prop_self_iso=function(x){scales::percent(as.numeric(x))})) + 
+  scale_x_discrete(breaks=c(as.character(seq(0,8,by=2)),"\u2265 10"),expand = expansion(add=0.7))+
+  scale_y_continuous(limits=c(0,1),expand=c(0,0))
 
-ggsave("results/contacts_over_time_prop_self_iso.png",width=9,height=7,units="in",dpi=400)
+ggsave(plot = p1,"results/contacts_over_time_prop_self_iso_0_1.png",width=12,height=5,units="in",dpi=400,scale=1.2)
+
+s1 <- prob_infect %>% 
+  mutate(sampling_freq=case_when(sampling_freq==3~"Testing every 3 days",
+                                 TRUE~ "No testing")) %>% 
+  mutate(n_total_infected=factor(ifelse(round(n_total_infected)>=10,"\u2265 10",round(n_total_infected))),
+         n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,9)),"\u2265 10"))) %>%
+  ggplot(aes(x = n_total_infected,
+             y = ..prop..,
+             fill = factor(sampling_freq),
+             group = 1))+
+  geom_bar(width = 0.8)+
+  geom_label(data = dists,
+             aes(label=paste0("R = ",round(mu,2),"\n","k = ",round(size,2)),
+             x="\u2265 10",
+             y=0.75),
+             colour = "white",
+             fill = rgb(0,0,0,0.4),
+            hjust = 1)+
+  scale_fill_brewer(type="qual",guide=F,palette = "Set2")+
+  labs(x="Number of secondary cases",y="Probability")+
+  theme_minimal()+
+  theme(axis.line.x.bottom = element_line(),
+        axis.ticks.x.bottom = element_line(),
+        axis.line.y.left = element_line())+
+  facet_rep_grid(prop_self_iso~time_period+sampling_freq, scales='free_y',
+                 labeller=labeller(time_period=c("pre"="Pre-pandemic (BBC 2018)",
+                                                 "aug_sept"="Relaxed (Comix Aug/Sept 2020)",
+                                                 "jan_feb"="Lockdown (Comix Jan/Feb 2021)"),
+                                   prop_self_iso=function(x){scales::percent(as.numeric(x))})) +  
+  scale_x_discrete(breaks=c(as.character(seq(0,8,by=2)),"\u2265 10"),expand = expansion(add=0.7))+
+  scale_y_continuous(limits=c(0,1),expand=c(0,0))
+
+ggsave(plot = s1,"results/contacts_over_time_prop_self_iso_full.png",width=12,height=7,units="in",dpi=400,scale=1.2)
+
+#repeated/casual split
+prob_infect %>% 
+  ungroup() %>% 
+  group_by(time_period,
+           prop_self_iso,
+           sampling_freq) %>% 
+  summarise(prop_repeated = sum(n_repeated_infected) / sum(n_total_infected),
+            prop_casual = sum(n_casual_infected) / sum(n_total_infected)) %>% 
+  base::print(n=Inf)
