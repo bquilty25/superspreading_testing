@@ -41,17 +41,15 @@ comix_high_low <- contacts_comix %>%
 #summarise number of contacts
 contact_data <- comix_high_low %>% bind_rows(contacts_bbc)
 
-# contact_data %>% 
-#   group_by(time_period) %>% 
-#   nest() %>% 
-#   mutate(dists=map(.x=data,.f= .%>% 
-#                      mutate(e_all = rowSums(across(c(e_home,e_school,e_work,e_other)),na.rm = T)) %>% 
-#                      pull(e_all) %>% 
-#                      fitdist("nbinom"))) %>% 
-#   mutate(dist_params=map(dists,~tibble(mu=.x$estimate[[2]],
-#                                        size=.x$estimate[[1]]))) %>% 
-#   ungroup() %>% 
-#   mutate(dist_ci=future_map(dists,~boot_ci(.x),.progress = T))
+contact_data %>%
+  group_by(time_period) %>%
+  nest() %>%
+  mutate(dists=map(.x=data,.f= .%>%
+                     mutate(e_all = rowSums(across(c(e_home,e_school,e_work,e_other)),na.rm = T)) %>%
+                     pull(e_all) %>%
+                     fitdist("nbinom"))) %>%
+  ungroup() %>%
+  mutate(dist_ci=future_map(dists,~boot_ci(.x),.progress = T))
 
 inf_curve <- make_trajectories(n_cases = 100, n_sims = 100) %>%
   #testing
@@ -217,28 +215,29 @@ dists <- prob_infect %>%
   mutate(dists=map(.x=data,.f= .%>% 
                      pull(n_total_infected) %>% 
                      fitdist("nbinom"))) %>% 
-  mutate(dist_params=map(dists,~tibble(mu=.x$estimate[[2]],
-                                      size=.x$estimate[[1]]))) %>% 
-  ungroup() %>% 
-  mutate(dist_ci=future_map(dists,~boot_ci(.x),.progress = T))
-  unnest_wider(dist_params) %>%  
+  ungroup() %>%
+  mutate(dist_ci=future_map(dists,~boot_ci(.x),.progress = T)) %>% 
+  unnest(dist_ci) %>%  
   mutate(sampling_freq=case_when(sampling_freq==3~"Testing every 3 days",
                                  TRUE~ "No testing"))
 
 dists %>% 
   ungroup() %>% 
-  select(-c(data,dists),"R"=mu,"k"=size) %>%
-  mutate(estimate=paste("R = ",round(R,2),"k = ",round(k,2))) %>% 
-  select(-c(R,k)) %>% 
-  pivot_wider(names_from = time_period,values_from = estimate) %>% 
-  #arrange(time_period,prop_self_iso,sampling_freq) %>% 
-  base::print(n=Inf)
+  select(-c(data,dists)) %>% 
+  pivot_wider(names_from=param,values_from=c(mean,`2.5%`,`97.5%`),names_glue = "{param}_{.value}") %>% 
+  mutate(R_estimate=paste0("R = ",sprintf("%.2f",mu_mean), " (",sprintf("%.2f",`mu_2.5%`)," - ",sprintf("%.2f",`mu_97.5%`),")"),
+         k_estimate = paste0("k = ",sprintf("%.2f",size_mean), " (",sprintf("%.2f",`size_2.5%`)," - ",sprintf("%.2f",`size_97.5%`),")")) %>% 
+  select(-c(mu_mean, size_mean, `mu_2.5%`, `size_2.5%`, `mu_97.5%`, `size_97.5%`)) %>% 
+  arrange(prop_self_iso,time_period,sampling_freq) %>% 
+  select(prop_self_iso,time_period,sampling_freq,everything()) %>% 
+  pivot_wider(names_from = c(time_period,sampling_freq),values_from = c(R_estimate,k_estimate)) %>% 
+  htmlTable::htmlTable()
 
 p1 <- prob_infect %>% 
   filter(prop_self_iso%in%c(0,0.5,1)) %>% 
   mutate(sampling_freq=case_when(sampling_freq==3~"Testing every 3 days",
                                  TRUE~ "No testing")) %>% 
-  mutate(n_total_infected=factor(ifelse(round(n_total_infected)>=10,"\u2265 10",round(n_total_infected))),
+  mutate(n_total_infected=factor(ifelse(sprintf("%.2f",n_total_infected)>=10,"\u2265 10",sprintf("%.2f",n_total_infected))),
          n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,9)),"\u2265 10"))) %>%
   ggplot(aes(x = n_total_infected,
              y = ..prop..,
@@ -247,7 +246,7 @@ p1 <- prob_infect %>%
   geom_bar(width = 0.8)+
   geom_label(data = dists %>% 
                filter(prop_self_iso%in%c(0,0.5,1)),
-             aes(label=paste0("R = ",round(mu,2),"\n","k = ",round(size,2)),
+             aes(label=paste0("R = ",sprintf("%.2f",mu),"\n","k = ",sprintf("%.2f",size)),
                  x="\u2265 10",
                  y=0.75),
              colour = "white",
@@ -272,7 +271,7 @@ ggsave(plot = p1,"results/contacts_over_time_prop_self_iso_0_1.png",width=12,hei
 s1 <- prob_infect %>% 
   mutate(sampling_freq=case_when(sampling_freq==3~"Testing every 3 days",
                                  TRUE~ "No testing")) %>% 
-  mutate(n_total_infected=factor(ifelse(round(n_total_infected)>=10,"\u2265 10",round(n_total_infected))),
+  mutate(n_total_infected=factor(ifelse(sprintf("%.2f",n_total_infected)>=10,"\u2265 10",sprintf("%.2f",n_total_infected))),
          n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,9)),"\u2265 10"))) %>%
   ggplot(aes(x = n_total_infected,
              y = ..prop..,
@@ -280,7 +279,7 @@ s1 <- prob_infect %>%
              group = 1))+
   geom_bar(width = 0.8)+
   geom_label(data = dists,
-             aes(label=paste0("R = ",round(mu,2),"\n","k = ",round(size,2)),
+             aes(label=paste0("R = ",sprintf("%.2f",mu),"\n","k = ",sprintf("%.2f",size)),
              x="\u2265 10",
              y=0.75),
              colour = "white",

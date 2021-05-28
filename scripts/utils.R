@@ -57,10 +57,17 @@ approx_sd <- function(x1, x2){
 
 #bootstrap confidence interval function
 boot_ci <- function(x,nrep=100) {
-  bootdist(f=x,niter = nrep)$CI %>% 
+
+  trueval <- tibble(param=c("mu","size"),
+                    mean=c(x$estimate[[2]],
+                           x$estimate[[1]])) 
+  
+  ci <- bootdist(f=x,niter = nrep)$CI %>% 
     as.data.frame() %>% 
     select(-Median) %>% 
     rownames_to_column("param")
+  
+  left_join(trueval,ci)
 }
 
 make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asymp_fraction){
