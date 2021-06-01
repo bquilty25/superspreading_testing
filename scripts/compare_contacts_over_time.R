@@ -91,7 +91,7 @@ contact_data %>%
 
 ggsave("results/contacts.png",width=12,height=7,units="in",dpi=400,scale=0.8)
 
-inf_curve <- make_trajectories(n_cases = 100, n_sims = 100) %>% 
+inf_curve <- make_trajectories(n_cases = 100, n_sims = 1000) %>% 
   as_tibble() %>% 
   mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m)))  %>% 
   unnest_wider(infectiousness) %>% 
@@ -356,3 +356,23 @@ prob_infect %>%
   summarise(prop_repeated = sum(n_repeated_infected) / sum(n_total_infected),
             prop_casual = sum(n_casual_infected) / sum(n_total_infected)) %>% 
   base::print(n=Inf)
+
+prob_infect %>% 
+  ungroup() %>% 
+  filter(time_period=="pre",
+         prop_self_iso%in%c(0,1)) %>% 
+  group_by(time_period,
+           prop_self_iso,
+           sampling_freq) %>%
+  mutate(plus_10=n_total_infected>=10) %>% 
+  count(plus_10) %>% 
+  mutate(prop = prop.table(n)) %>% 
+  group_by(time_period,
+           prop_self_iso,
+           sampling_freq) #%>% 
+  # nest() %>% 
+  # ungroup() %>% 
+  # mutate(est = map(.x = data, ~quantile(1-.$prop,
+  #                                       probs = c(0.5,0.025,0.975)))) %>% 
+  # unnest_wider(est) 
+
