@@ -1,5 +1,5 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon","boot","furrr")
+pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon","boot","furrr","dtplyr","data.table","tidytable")
 
 plan(multisession,workers=8)
 
@@ -74,56 +74,57 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
   
   set.seed(seed)
   #simulate CT trajectories
-  
+  #browser()
+
   inf <- data.frame(sim=1:n_sims) %>% 
-    mutate(prop_asy = rbeta(n = n(),
+    mutate.(prop_asy = rbeta(n = n(),
                             shape1 = asymp_parms$shape1,
-                            shape2 = asymp_parms$shape2)) 
-  
-  inf %<>%  
-    mutate(x = map(.x = prop_asy,
+                            shape2 = asymp_parms$shape2)) %>% 
+    mutate.(x = map.(.x = prop_asy,
                    .f = ~make_proportions(prop_asy     = .x,
                                           n_cases      = n_cases))) %>% 
-    unnest(x) 
-  
+    unnest.(x) 
   
   traj <- inf %>% 
-    crossing(start=0) %>% 
-    mutate(u = runif(n(),0,1)) %>%
+    mutate.(start=0,
+            u = runif(n(),0,1)) %>%
     # duration from: https://www.thelancet.com/journals/lanmic/article/PIIS2666-5247(20)30172-5/fulltext
     # scaling of asymptomatics taken from https://www.medrxiv.org/content/10.1101/2020.10.21.20217042v2
-    mutate(end=case_when(type == "symptomatic"  ~ qnormTrunc(p = u, mean=17, 
+    mutate.(end=case_when.(type == "symptomatic"  ~ qnormTrunc(p = u, mean=17, 
                                                              sd=approx_sd(15.5,18.6), min = 0),
                          type == "asymptomatic" ~ qnormTrunc(p = u, mean=17*0.6, 
                                                              sd=approx_sd(15.5,18.6), min = 0))) %>% 
     # incubation period from https://bmjopen.bmj.com/content/10/8/e039652.info
-    mutate(onset_t=qlnormTrunc(p = u,
+    mutate.(onset_t=qlnormTrunc(p = u,
                                meanlog=1.63,
                                sdlog=0.5,
                                min = 0,
                                max=end)) %>% 
-    pivot_longer(cols = -c(sim,prop_asy,idx,type,u),
+    pivot_longer.(cols = -c(sim,prop_asy,idx,type,u),
                  values_to = "x") %>% 
     # peak CT taken from https://www.medrxiv.org/content/10.1101/2020.10.21.20217042v2
-    mutate(y=case_when(name=="start"   ~ 40,
+    mutate.(y=case_when.(name=="start"   ~ 40,
                        name=="end"     ~ 40,
-                       name=="onset_t" ~ rnorm(n=n(),mean=22.3,sd=4.2)))
-  
-  models <- traj %>%
-    nest(data = -c(idx,type,u)) %>%  
-    dplyr::mutate(
+                       name=="onset_t" ~ rnorm(n=n(),mean=22.3,sd=4.2))) %>%
+    nest.(data = -c(idx,type,u)) %>%  
+    mutate.(
       # Perform loess calculation on each individual 
-      m  = purrr::map(data, ~splinefunH(x = .x$x, y = .x$y,
+      m  = map.(data, ~splinefunH(x = .x$x, y = .x$y,
                                         m = c(0,0,0))),
-      rx = purrr::map(data, ~range(.x$x)),
-      ry = purrr::map(data, ~range(.x$y))) 
+      rx = map.(data, ~range(.x$x)),
+      ry = map.(data, ~range(.x$y)))  %>% 
+    unnest.(data,.drop=F) %>%  
+    select.(-c(y))
   
-  models <- models %>% 
-    unnest(data) %>%  
-    select(-c(y)) %>% 
-    pivot_wider(names_from=name,values_from = x)
+  x_model <- traj %>% select.(sim,idx,type,m,rx,ry)
   
-  return(models)
+    traj <- traj %>% 
+    select.(-c(m,rx,ry)) %>% 
+    pivot_wider.(names_from=name,values_from = x) %>% 
+    left_join.(x_model)
+  
+  return(traj)
+
 }
 
 inf_curve_func <- function(m,start=0,end=30,trunc_t){
@@ -135,15 +136,11 @@ inf_curve_func <- function(m,start=0,end=30,trunc_t){
   x$ct <- m(x$t)
   
   #predict culture probability given CTs
-  x$culture <-  stats::predict(lee_mod, type = "response", newdata = x)
+  x$culture <-  stats::predict(culture_mod, type = "response", newdata = x)
 
-  # if(!is.na(trunc_t)){
-  # x <- filter(x,t<ceiling(trunc_t))
-  # }else{
-  #   x
-  # }
+  sum_inf <- sum(x$culture)
   
-  return(x)
+  return(list(infectiousness=x,sum_inf=sum_inf))
 }
 
 calc_sensitivity <- function(model, x){
@@ -220,4 +217,12 @@ detector <- function(test_p, u = NULL){
   # when uninfected, PCR will be 0
   TP <- test_p > u
   
+}
+
+group_nest_dt <- function(dt, ..., .key = "data"){
+  stopifnot(is.data.table(dt))
+  by <- substitute(list(...))
+  dt <- dt[, list(list(.SD)), by = eval(by)]
+  setnames(dt, old = "V1", new = .key)
+  dt
 }
