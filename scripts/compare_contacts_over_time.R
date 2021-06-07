@@ -91,7 +91,12 @@ contact_data %>%
 
 ggsave("results/contacts.png",width=12,height=7,units="in",dpi=400,scale=0.8)
 
-inf_curve <- make_trajectories(n_cases = 100, n_sims = 1000) %>% 
+scenarios <- crossing(data.frame(prop_self_iso = c(0,0.25,0.5,0.75,1),
+                                 type="symptomatic") %>% 
+                        add_row(prop_self_iso=0,
+                                type="asymptomatic"))
+
+inf_curve <- make_trajectories(n_cases = 100, n_sims = 100) %>% 
   as_tibble() %>% 
   mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m)))  %>% 
   unnest_wider(infectiousness) %>% 
@@ -118,8 +123,7 @@ inf_curve <- make_trajectories(n_cases = 100, n_sims = 1000) %>%
   unnest(earliest_positive) %>%
   select(-data) %>% 
   #proportion who self-isolate
-  crossing(prop_self_iso = c(0,0.25,0.5,0.75,1)) %>%
-  filter(!(prop_self_iso!=0&&type=="asymptomatic")) %>% 
+  right_join(scenarios) %>%
   mutate(self_iso=rbinom(n=n(),size=1,prob=prop_self_iso)) 
 
 prob_infect <- 
@@ -275,8 +279,8 @@ plot_labels <- dists %>%
   ungroup() %>% 
   select(-c(data)) %>% 
   pivot_wider(names_from=param,values_from=c(`50%`,`2.5%`,`97.5%`),names_glue = "{param}_{.value}") %>% 
-  mutate(R_estimate=paste0("R = ",sprintf("%.2f",`R_50%`), " (",sprintf("%.2f",`R_2.5%`)," - ",sprintf("%.2f",`R_97.5%`),")"),
-         k_estimate = paste0("k = ",sprintf("%.2f",`k_50%`), " (",sprintf("%.2f",`k_2.5%`)," - ",sprintf("%.2f",`k_97.5%`),")")) %>% 
+  mutate(R_estimate=paste0("R<sub>c</sub> = ",sprintf("%.2f",`R_50%`), " (",sprintf("%.2f",`R_2.5%`)," - ",sprintf("%.2f",`R_97.5%`),")"),
+         k_estimate = paste0("k<sub>c</sub> = ",sprintf("%.2f",`k_50%`), " (",sprintf("%.2f",`k_2.5%`)," - ",sprintf("%.2f",`k_97.5%`),")")) %>% 
   select(-c(`R_50%`, `k_50%`, `R_2.5%`, `k_2.5%`, `R_97.5%`, `k_97.5%`)) %>% 
   arrange(prop_self_iso,time_period,sampling_freq) %>% 
   select(prop_self_iso,time_period,sampling_freq,everything()) 
@@ -291,9 +295,9 @@ p1 <- prob_infect %>%
              fill = factor(sampling_freq),
              group = 1))+
   geom_bar(width = 0.8)+
-  geom_label(data = plot_labels %>% 
+  geom_richtext(data = plot_labels %>% 
                filter(prop_self_iso%in%c(0,0.75,1)),
-             aes(label=paste0(R_estimate,"\n",k_estimate),
+             aes(label=paste0(R_estimate,"<br>",k_estimate),
                  x="\u2265 10",
                  y=0.75),
              colour = "white",
@@ -324,8 +328,8 @@ s1 <- prob_infect %>%
              fill = factor(sampling_freq),
              group = 1))+
   geom_bar(width = 0.8)+
-  geom_label(data = plot_labels,
-             aes(label=paste0(R_estimate,"\n",k_estimate),
+  geom_richtext(data = plot_labels,
+             aes(label=paste0(R_estimate,"<br>",k_estimate),
              x="\u2265 10",
              y=0.75),
              colour = "white",
