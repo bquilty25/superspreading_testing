@@ -2,10 +2,10 @@ library(qs)
 library(data.table)
 
 # Participant info
-pt <- qread("~/Filr/Net Folders/EPH Shared/comix_shared/private_do_not_share/part_min.qs")
+pt <- qread("../comix/data/part_min.qs")
 
 # Contact count data
-cnt <- qread("../comix_analysis/data/part_cnts.qs")
+cnt <- qread("../comix/data/part_cnts.qs")
 
 # Merge with participant info
 pt_cnt <- merge(pt,cnt,by="part_wave_uid",all=T)
