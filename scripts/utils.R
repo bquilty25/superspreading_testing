@@ -116,7 +116,7 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
     unnest.(data,.drop=F) %>%  
     select.(-c(y))
   
-  x_model <- traj %>% select.(sim,idx,type,m,rx,ry)
+  x_model <- traj %>% nest(data = c(name,x)) %>% select.(sim,idx,type,m,rx,ry)
   
     traj <- traj %>% 
     select.(-c(m,rx,ry)) %>% 
