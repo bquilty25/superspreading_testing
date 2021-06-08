@@ -106,24 +106,26 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
     mutate.(y=case_when.(name=="start"   ~ 40,
                        name=="end"     ~ 40,
                        name=="onset_t" ~ rnorm(n=n(),mean=22.3,sd=4.2))) %>%
-    nest.(data = -c(idx,type,u)) %>%  
+    nest.(data = -c(sim,idx,type,u)) %>%  
     mutate.(
       # Perform loess calculation on each individual 
       m  = map.(data, ~splinefunH(x = .x$x, y = .x$y,
                                         m = c(0,0,0))),
       rx = map.(data, ~range(.x$x)),
-      ry = map.(data, ~range(.x$y)))  %>% 
-    unnest.(data,.drop=F) %>%  
-    select.(-c(y))
+      ry = map.(data, ~range(.x$y)))
   
-  x_model <- traj %>% select.(sim,idx,type,m,rx,ry)
+  #cannot pivot wider with "m" column - extract and rejoin
+  x_model <- traj %>% 
+    select.(-data)
   
-    traj <- traj %>% 
+  traj_ <- traj %>%  
     select.(-c(m,rx,ry)) %>% 
-    pivot_wider.(names_from=name,values_from = x) %>% 
-    left_join.(x_model)
+    unnest.(data,.drop=F) %>% 
+    select.(-y) %>% 
+  pivot_wider.(names_from=name,values_from = x) %>% 
+  left_join.(x_model)
   
-  return(traj)
+  return(traj_)
 
 }
 
