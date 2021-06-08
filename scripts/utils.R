@@ -200,12 +200,12 @@ test_times <- function(type,onset_t,sampling_freq=3){
 earliest_pos <- function(df){
   #browser()
   
-  x_q <- df %>% filter(test_label==TRUE) 
+  x_q <- df[(test_label)]
   
   if (nrow(x_q) == 0L){
-    return(data.frame(test_no="None",test_p=0,test_t=Inf))
+    return(tidytable(test_no="None",test_p=0,test_t=Inf))
   } else {
-    return((x_q %>% select(test_no,test_p,test_t) %>% slice_min(test_t)))
+    return(x_q %>% select.(test_no,test_p,test_t) %>% slice_min.(test_t))
   }
 }
 

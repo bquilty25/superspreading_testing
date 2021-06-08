@@ -96,15 +96,15 @@ scenarios <- crossing(data.frame(prop_self_iso = c(0,0.25,0.5,0.75,1),
                         add_row(prop_self_iso=0,
                                 type="asymptomatic"))
 
-inf_curve <- make_trajectories(n_cases = 100, n_sims = 100) %>% 
+inf_curve <- make_trajectories(n_cases = 1000, n_sims = 100) %>% 
   as_tibble() %>% 
   mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m)))  %>% 
   unnest_wider(infectiousness) %>% 
   ungroup() %>%
-  mutate(norm_sum = (sum_inf - min(sum_inf)) / (max(sum_inf) - min(sum_inf))) %>% 
+  mutate.(norm_sum = (sum_inf - min(sum_inf)) / (max(sum_inf) - min(sum_inf))) %>% 
   #testing
   crossing(sampling_freq = c(NA,3)) %>%
-  mutate(test_times = pmap(
+  mutate.(test_times = pmap(
     .f = test_times,
     list(
       sampling_freq = sampling_freq,
@@ -112,30 +112,33 @@ inf_curve <- make_trajectories(n_cases = 100, n_sims = 100) %>%
       type = type
     )
   )) %>%
-  unnest(test_times) %>%
-  mutate(
+  unnest.(test_times,.drop=F) %>%
+  mutate.(
     ct = pmap_dbl(.f = calc_sensitivity, list(model = m, x = test_t)),
     test_p = stats::predict(innova_mod, type = "response", newdata = data.frame(ct = ct)),
     test_label = detector(test_p = test_p,  u = runif(n = n(), 0, 1))
   ) %>%
   nest(ct, test_t, test_no, test_p, test_label) %>%
-  mutate(earliest_positive = map(.f = earliest_pos, .x = data)) %>%
-  unnest(earliest_positive) %>%
-  select(-data) %>% 
+  mutate.(earliest_positive = map(.f = earliest_pos, .x = data)) %>%
+  unnest.(earliest_positive,.drop=F) %>%
+  select.(-data) %>% 
   #proportion who self-isolate
-  right_join(scenarios) %>%
-  mutate(self_iso=rbinom(n=n(),size=1,prob=prop_self_iso)) 
+  right_join.(scenarios) %>%
+  mutate.(self_iso=rbinom(n=n(),size=1,prob=prop_self_iso)) 
 
-prob_infect <- 
-  inf_curve %>%
-  select(-u) %>%
+sec_case_gen <- function(df){
+  
+  message(sprintf("\n%s", Sys.time()))
+  
+  df %>%
+  select.(-u) %>%
   crossing(time_period = factor(
     c("pre", "aug_sept", "jan_feb"),
     ordered = T,
     levels = c("pre", "aug_sept", "jan_feb")
   )) %>%
-  mutate(
-    contacts_repeated_home = case_when(
+  mutate.(
+    contacts_repeated_home = case_when.(
       time_period == "pre" ~ sample(
         contact_data %>%
           filter(time_period == "pre") %>%
@@ -181,7 +184,7 @@ prob_infect <-
         replace = T
       )
     ),
-    trunc_t=case_when(
+    trunc_t=case_when.(
       # if symptomatic, adhering to self isolation, and either not tested or test neg,
       # truncate at onset
       type=="symptomatic"&is.infinite(test_t)&self_iso!=0~onset_t,
@@ -193,19 +196,19 @@ prob_infect <-
       TRUE ~ test_t), 
     #if symp onset, contacts outside of home should cease; for school/work, multiply 
     #number of contacts by proportion of time since infection which occurs pre-onset
-    contacts_repeated_work_school=case_when(!is.infinite(trunc_t)~ceiling(contacts_repeated_work_school*(trunc_t/(end-start))),
+    contacts_repeated_work_school=case_when.(!is.infinite(trunc_t)~ceiling(contacts_repeated_work_school*(trunc_t/(end-start))),
                                             TRUE~ceiling(contacts_repeated_work_school))
   ) %>% 
-  mutate(
+  mutate.(
     contacts_repeated   = contacts_repeated_home + contacts_repeated_work_school,
     n_repeated_infected = rbinom(n = n(), 
                                       size = contacts_repeated, 
                                       prob = norm_sum)) %>%
   #Daily casual contacts
-  unnest(infectiousness) %>%
-  mutate(norm_daily = (culture / sum_inf) * norm_sum) %>%
-  mutate(
-    contacts_casual = case_when(
+  unnest.(infectiousness) %>%
+  mutate.(norm_daily = (culture / sum_inf) * norm_sum) %>%
+  mutate.(
+    contacts_casual = case_when.(
       t>trunc_t  ~ 0L,
       time_period == "pre"        ~ sample(
         contact_data %>%
@@ -230,37 +233,43 @@ prob_infect <-
       )
     )
   ) %>%
-  ungroup() %>%
-  mutate(n_casual_infected = rbinom(n = n(), 
+  mutate.(n_casual_infected = rbinom(n = n(), 
                                     size = contacts_casual, 
                                     prob =
                                       norm_daily)) %>%
-  group_by(sim,
-           idx,
-           type,
-           time_period,
-           norm_sum,
-           prop_self_iso,
-           contacts_repeated,
-           n_repeated_infected,
-           sampling_freq) %>%
-  summarise(
+  summarise.(.by=c(sim,
+                   idx,
+                   type,
+                   time_period,
+                   norm_sum,
+                   prop_self_iso,
+                   contacts_repeated,
+                   n_repeated_infected,
+                   sampling_freq),
     contacts_casual = sum(contacts_casual),
     n_casual_infected = sum(n_casual_infected)
   ) %>%
-  mutate(n_total_infected = n_repeated_infected + n_casual_infected)
+  mutate.(n_total_infected = n_repeated_infected + n_casual_infected)
+  
+}
+
+res <- inf_curve %>% 
+  group_split.(sampling_freq,prop_self_iso) %>% 
+  map(~sec_case_gen(.x))
 
 
-dists <- prob_infect %>% 
-  mutate(sampling_freq=case_when(sampling_freq==3~"Testing every 3 days",
+dists <- res %>% bind_rows.() %>%  
+  mutate.(sampling_freq=case_when.(sampling_freq==3~"Testing every 3 days",
                                  TRUE~ "No testing")) %>% 
-  group_by(sim,
-           time_period,
-           prop_self_iso,
-           sampling_freq) %>% 
-  nest() %>% 
-  ungroup() %>% 
-  mutate(dists=map(.x=data,.f= .%>% 
+  nest.(data=c(idx,
+           type,
+           norm_sum,
+           contacts_repeated,
+           n_repeated_infected,
+          contacts_casual,
+          n_casual_infected, 
+          n_total_infected)) %>% 
+  mutate.(dists=map(.x=data,.f= .%>% 
                      pull(n_total_infected) %>% 
                      fitdist("nbinom")),
          params=map(dists,~c(R=.x$estimate[[2]],k=.x$estimate[[1]]))) %>% 
@@ -270,8 +279,7 @@ dists <- prob_infect %>%
            sampling_freq,
            param) %>% 
   nest() %>% 
-  ungroup() %>% 
-  mutate(est = map(.x = data, ~quantile(.$value,
+  mutate.(est = map(.x = data, ~quantile(.$value,
                                               probs = c(0.5,0.025,0.975)))) %>% 
   unnest_wider(est) 
 
@@ -285,18 +293,19 @@ plot_labels <- dists %>%
   arrange(prop_self_iso,time_period,sampling_freq) %>% 
   select(prop_self_iso,time_period,sampling_freq,everything()) 
 
-p1 <- prob_infect %>% 
-  filter(prop_self_iso%in%c(0,0.75,1)) %>% 
-  mutate(sampling_freq=if_else(!is.na(sampling_freq),"Testing every 3 days","No testing")) %>% 
-  mutate(n_total_infected=factor(ifelse(n_total_infected>=10,"\u2265 10",n_total_infected)),
+p1 <- res %>% bind_rows.() %>%  
+  filter.(prop_self_iso%in%c(0,0.5,1)) %>% 
+  mutate.(sampling_freq=ifelse(!is.na(sampling_freq),"Testing every 3 days","No testing")) %>% 
+  mutate.(n_total_infected=factor(ifelse(n_total_infected>=10,"\u2265 10",as.character(n_total_infected))),
          n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,9)),"\u2265 10"))) %>%
+  #as_tibble() %>% 
   ggplot(aes(x = n_total_infected,
              y = ..prop..,
              fill = factor(sampling_freq),
              group = 1))+
   geom_bar(width = 0.8)+
   geom_richtext(data = plot_labels %>% 
-               filter(prop_self_iso%in%c(0,0.75,1)),
+               filter(prop_self_iso%in%c(0,0.5,1)),
              aes(label=paste0(R_estimate,"<br>",k_estimate),
                  x="\u2265 10",
                  y=0.75),
@@ -319,10 +328,10 @@ p1 <- prob_infect %>%
 
 ggsave(plot = p1,"results/sec_cases_self_iso_0_1.png",width=12,height=5,units="in",dpi=400,scale=1.15)
 
-s1 <- prob_infect %>% 
-  mutate(sampling_freq=if_else(!is.na(sampling_freq),"Testing every 3 days","No testing"))%>% 
-  mutate(n_total_infected=factor(ifelse(n_total_infected>=10,"\u2265 10",n_total_infected)),
-         n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,9)),"\u2265 10"))) %>%
+s1 <- res %>% bind_rows.() %>%  
+  mutate.(sampling_freq=ifelse(!is.na(sampling_freq),"Testing every 3 days","No testing")) %>% 
+  mutate.(n_total_infected=factor(ifelse(n_total_infected>=10,"\u2265 10",as.character(n_total_infected))),
+          n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,9)),"\u2265 10"))) %>%
   ggplot(aes(x = n_total_infected,
              y = ..prop..,
              fill = factor(sampling_freq),
@@ -352,8 +361,7 @@ s1 <- prob_infect %>%
 ggsave(plot = s1,"results/sec_cases_prop_self_iso_full.png",width=12,height=9,units="in",dpi=400,scale=1.15)
 
 #repeated/casual split
-prob_infect %>% 
-  ungroup() %>% 
+res %>% bind_rows.()  %>% 
   group_by(time_period,
            prop_self_iso,
            sampling_freq) %>% 
@@ -361,8 +369,7 @@ prob_infect %>%
             prop_casual = sum(n_casual_infected) / sum(n_total_infected)) %>% 
   base::print(n=Inf)
 
-prob_infect %>% 
-  ungroup() %>% 
+res %>% bind_rows.() %>%  
   filter(time_period=="pre",
          prop_self_iso%in%c(0,1)) %>% 
   group_by(time_period,
