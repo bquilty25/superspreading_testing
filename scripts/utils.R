@@ -70,6 +70,10 @@ boot_ci <- function(x,nrep=100) {
   left_join(trueval,ci)
 }
 
+#https://science.sciencemag.org/content/sci/early/2021/05/24/science.abi5273.full.pdf
+#assuming 1 and 3 days are 95% interval:
+peak_to_onset <- rriskDistributions::get.norm.par(p=c(0.025,0.975),q=c(1,3),plot = F)
+
 make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asymp_fraction){
   
   set.seed(seed)
@@ -95,18 +99,19 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
                          type == "asymptomatic" ~ qnormTrunc(p = u, mean=17*0.6, 
                                                              sd=approx_sd(15.5,18.6), min = 0))) %>% 
     # incubation period from https://bmjopen.bmj.com/content/10/8/e039652.info
-    mutate.(onset_t=qlnormTrunc(p = u,
+    mutate.(onset_t = qlnormTrunc(p = u,
                                meanlog=1.63,
                                sdlog=0.5,
                                min = 0,
-                               max=end)) %>% 
-    pivot_longer.(cols = -c(sim,prop_asy,idx,type,u),
+                               max=end),
+            peak_t = onset_t-rnorm(n=n(),mean=peak_to_onset[[1]],sd=peak_to_onset[[2]])) %>% 
+    pivot_longer.(cols = -c(sim,prop_asy,idx,type,u,onset_t),
                  values_to = "x") %>% 
     # peak CT taken from https://www.medrxiv.org/content/10.1101/2020.10.21.20217042v2
     mutate.(y=case_when.(name=="start"   ~ 40,
                        name=="end"     ~ 40,
-                       name=="onset_t" ~ rnorm(n=n(),mean=22.3,sd=4.2))) %>%
-    nest.(data = -c(sim,idx,type,u)) %>%  
+                       name=="peak_t" ~ rnorm(n=n(),mean=22.3,sd=4.2))) %>%
+    nest.(data = -c(sim,idx,type,u,onset_t)) %>%  
     mutate.(
       # Perform loess calculation on each individual 
       m  = map.(data, ~splinefunH(x = .x$x, y = .x$y,
@@ -219,12 +224,4 @@ detector <- function(test_p, u = NULL){
   # when uninfected, PCR will be 0
   TP <- test_p > u
   
-}
-
-group_nest_dt <- function(dt, ..., .key = "data"){
-  stopifnot(is.data.table(dt))
-  by <- substitute(list(...))
-  dt <- dt[, list(list(.SD)), by = eval(by)]
-  setnames(dt, old = "V1", new = .key)
-  dt
 }
