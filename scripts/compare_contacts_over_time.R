@@ -91,10 +91,7 @@ contact_data %>%
 
 ggsave("results/contacts.png",width=12,height=7,units="in",dpi=400,scale=0.8)
 
-scenarios <- crossing(data.frame(prop_self_iso = c(0,0.25,0.5,0.75,1),
-                                 type="symptomatic") %>% 
-                        add_row(prop_self_iso=0,
-                                type="asymptomatic"))
+scenarios <- data.frame(prop_self_iso = c(0,0.25,0.5,0.75,1))
 
 inf_curve <- make_trajectories(n_cases = 1000, n_sims = 100) %>% 
   as_tibble() %>% 
@@ -123,8 +120,11 @@ inf_curve <- make_trajectories(n_cases = 1000, n_sims = 100) %>%
   unnest.(earliest_positive,.drop=F) %>%
   select.(-data) %>% 
   #proportion who self-isolate
-  right_join.(scenarios) %>%
-  mutate.(self_iso=rbinom(n=n(),size=1,prob=prop_self_iso)) 
+  crossing.(prop_self_iso_symp = c(0.75),
+            prop_self_iso_test = c(0,0.25,0.5,0.75,1)) %>%
+  mutate.(self_iso_symp=ifelse(type=="symptomatic",rbinom(n=n(),size=1,prob=prop_self_iso_symp),0),
+          self_iso_test=rbinom(n=n(),size=1,prob=prop_self_iso_symp),
+          test_t = ifelse(self_iso_test,Inf,self_iso_test))
 
 sec_case_gen <- function(df){
   
@@ -187,11 +187,11 @@ sec_case_gen <- function(df){
     trunc_t=case_when.(
       # if symptomatic, adhering to self isolation, and either not tested or test neg,
       # truncate at onset
-      type=="symptomatic"&is.infinite(test_t)&self_iso!=0~onset_t,
+      type=="symptomatic"&is.infinite(test_t)&self_iso_symp!=0~onset_t,
       # if symptomatic, adhering to self isolation, and have onset before test, truncate at onset
-      type=="symptomatic"&is.finite(test_t)&onset_t<test_t&self_iso!=0~onset_t,
+      type=="symptomatic"&is.finite(test_t)&onset_t<test_t&self_iso_symp!=0~onset_t,
       # if symptomatic, adhering to self isolation, and have onset after pos test, truncate at test
-      type=="symptomatic"&is.finite(test_t)&test_t<onset_t&self_iso!=0~test_t,
+      type=="symptomatic"&is.finite(test_t)&test_t<onset_t&self_iso_symp!=0~test_t,
       # if symptomatic, not adhering to self isolation, and have a positive test, truncate at test
       TRUE ~ test_t), 
     #if symp onset, contacts outside of home should cease; for school/work, multiply 
