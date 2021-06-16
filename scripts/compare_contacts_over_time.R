@@ -91,8 +91,6 @@ contact_data %>%
 
 ggsave("results/contacts.png",width=12,height=7,units="in",dpi=400,scale=0.8)
 
-scenarios <- data.frame(prop_self_iso = c(0,0.25,0.5,0.75,1))
-
 inf_curve <- make_trajectories(n_cases = 1000, n_sims = 100) %>% 
   as_tibble() %>% 
   mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m)))  %>% 
@@ -100,7 +98,7 @@ inf_curve <- make_trajectories(n_cases = 1000, n_sims = 100) %>%
   ungroup() %>%
   mutate.(norm_sum = (sum_inf - min(sum_inf)) / (max(sum_inf) - min(sum_inf))) %>% 
   #testing
-  crossing(sampling_freq = c(NA,3)) %>%
+  crossing(sampling_freq = c(NA,3)) %>% 
   mutate.(test_times = pmap(
     .f = test_times,
     list(
@@ -119,18 +117,17 @@ inf_curve <- make_trajectories(n_cases = 1000, n_sims = 100) %>%
   mutate.(earliest_positive = map(.f = earliest_pos, .x = data)) %>%
   unnest.(earliest_positive,.drop=F) %>%
   select.(-data) %>% 
-  #proportion who self-isolate
-  crossing.(prop_self_iso_symp = c(0.75),
-            prop_self_iso_test = c(0,0.25,0.5,0.75,1)) %>%
-  mutate.(self_iso_symp=ifelse(type=="symptomatic",rbinom(n=n(),size=1,prob=prop_self_iso_symp),0),
-          self_iso_test=rbinom(n=n(),size=1,prob=prop_self_iso_symp),
-          test_t = ifelse(self_iso_test,Inf,self_iso_test))
+  crossing(prop_self_iso_symp = c(0.75),
+            prop_self_iso_test = c(0,0.25,0.5,0.75,1)) 
 
 sec_case_gen <- function(df){
   
   message(sprintf("\n%s", Sys.time()))
   
   df %>%
+  mutate.(self_iso_symp=ifelse(type=="symptomatic",rbinom(n=n(),size=1,prob=prop_self_iso_symp),0),
+            self_iso_test=rbinom(n=n(),size=1,prob=prop_self_iso_test),
+            test_t = ifelse(self_iso_test==0,Inf,test_t)) %>% 
   select.(-u) %>%
   crossing(time_period = factor(
     c("pre", "aug_sept", "jan_feb"),
@@ -242,7 +239,8 @@ sec_case_gen <- function(df){
                    type,
                    time_period,
                    norm_sum,
-                   prop_self_iso,
+                   prop_self_iso_symp,
+                   prop_self_iso_test,
                    contacts_repeated,
                    n_repeated_infected,
                    sampling_freq),
@@ -254,7 +252,7 @@ sec_case_gen <- function(df){
 }
 
 res <- inf_curve %>% 
-  group_split.(sampling_freq,prop_self_iso) %>% 
+  group_split.(sampling_freq,prop_self_iso_symp,prop_self_iso_test) %>% 
   map(~sec_case_gen(.x))
 
 
@@ -275,7 +273,8 @@ dists <- res %>% bind_rows.() %>%
          params=map(dists,~c(R=.x$estimate[[2]],k=.x$estimate[[1]]))) %>% 
   unnest_longer(params,values_to = "value",indices_to = "param") %>% 
   group_by(time_period,
-           prop_self_iso,
+           prop_self_iso_symp,
+           prop_self_iso_test,
            sampling_freq,
            param) %>% 
   nest() %>% 
@@ -290,11 +289,11 @@ plot_labels <- dists %>%
   mutate(R_estimate=paste0("R<sub>c</sub> = ",sprintf("%.2f",`R_50%`), " (",sprintf("%.2f",`R_2.5%`)," - ",sprintf("%.2f",`R_97.5%`),")"),
          k_estimate = paste0("k<sub>c</sub> = ",sprintf("%.2f",`k_50%`), " (",sprintf("%.2f",`k_2.5%`)," - ",sprintf("%.2f",`k_97.5%`),")")) %>% 
   select(-c(`R_50%`, `k_50%`, `R_2.5%`, `k_2.5%`, `R_97.5%`, `k_97.5%`)) %>% 
-  arrange(prop_self_iso,time_period,sampling_freq) %>% 
-  select(prop_self_iso,time_period,sampling_freq,everything()) 
+  arrange(prop_self_iso_symp,prop_self_iso_test,time_period,sampling_freq) %>% 
+  select(prop_self_iso_symp,prop_self_iso_test,time_period,sampling_freq,everything()) 
 
 p1 <- res %>% bind_rows.() %>%  
-  filter.(prop_self_iso%in%c(0,0.5,1)) %>% 
+  filter.(prop_self_iso_test%in%c(0,0.5,1)) %>% 
   mutate.(sampling_freq=ifelse(!is.na(sampling_freq),"Testing every 3 days","No testing")) %>% 
   mutate.(n_total_infected=factor(ifelse(n_total_infected>=10,"\u2265 10",as.character(n_total_infected))),
          n_total_infected=fct_relevel(n_total_infected,c(as.character(seq(0,9)),"\u2265 10"))) %>%
@@ -305,7 +304,7 @@ p1 <- res %>% bind_rows.() %>%
              group = 1))+
   geom_bar(width = 0.8)+
   geom_richtext(data = plot_labels %>% 
-               filter(prop_self_iso%in%c(0,0.5,1)),
+               filter(prop_self_iso_test%in%c(0,0.5,1)),
              aes(label=paste0(R_estimate,"<br>",k_estimate),
                  x="\u2265 10",
                  y=0.75),
@@ -318,11 +317,11 @@ p1 <- res %>% bind_rows.() %>%
   theme(axis.line.x.bottom = element_line(),
         axis.ticks.x.bottom = element_line(),
         axis.line.y.left = element_line())+
-  facet_rep_grid(prop_self_iso~time_period+sampling_freq, scales='free_y',
+  facet_rep_grid(prop_self_iso_test~time_period+sampling_freq, scales='free_y',
                  labeller=labeller(time_period=c("pre"="Pre-pandemic (BBC 2018)",
                                                  "aug_sept"="Relaxed (Comix Aug/Sept 2020)",
                                                  "jan_feb"="Lockdown (Comix Jan/Feb 2021)"),
-                                   prop_self_iso=function(x){scales::percent(as.numeric(x))})) + 
+                                   prop_self_iso_test=function(x){scales::percent(as.numeric(x))})) + 
   scale_x_discrete(breaks=c(as.character(seq(0,8,by=2)),"\u2265 10"),expand = expansion(add=0.7))+
   scale_y_continuous(limits=c(0,1),expand=c(0,0))
 
@@ -350,11 +349,11 @@ s1 <- res %>% bind_rows.() %>%
   theme(axis.line.x.bottom = element_line(),
         axis.ticks.x.bottom = element_line(),
         axis.line.y.left = element_line())+
-  facet_rep_grid(prop_self_iso~time_period+sampling_freq, scales='free_y',
+  facet_rep_grid(prop_self_iso_test~time_period+sampling_freq, scales='free_y',
                  labeller=labeller(time_period=c("pre"="Pre-pandemic (BBC 2018)",
                                                  "aug_sept"="Relaxed (Comix Aug/Sept 2020)",
                                                  "jan_feb"="Lockdown (Comix Jan/Feb 2021)"),
-                                   prop_self_iso=function(x){scales::percent(as.numeric(x))})) +  
+                                   prop_self_iso_test=function(x){scales::percent(as.numeric(x))})) +  
   scale_x_discrete(breaks=c(as.character(seq(0,8,by=2)),"\u2265 10"),expand = expansion(add=0.7))+
   scale_y_continuous(limits=c(0,1),expand=c(0,0))
 
