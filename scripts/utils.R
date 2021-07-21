@@ -1,6 +1,55 @@
 # Load required packages scripts
 pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon","boot","furrr","dtplyr","data.table","tidytable","ggtext")
 
+
+#Load contact data
+contacts_bbc_o18 <-
+  read.csv(here("2020-cov-tracing", "data", "contact_distributions_o18.csv")) 
+
+contacts_bbc_u18 <-
+  read.csv(here("2020-cov-tracing", "data", "contact_distributions_u18.csv")) 
+
+contacts_bbc <- bind_rows(contacts_bbc_o18, contacts_bbc_u18) %>%
+  mutate(time_period = "pre",
+         e_school=0)
+
+contacts_comix_o18 <-
+  read.csv(here("data", "comix_contact_distributions_o18.csv")) %>%
+  mutate(
+    date = as.Date(date),
+    age="adults"
+  )
+
+contacts_comix_u18 <-
+  read.csv(here("data", "comix_contact_distributions_u18.csv")) %>%
+  mutate(
+    date = as.Date(date),
+    age="children"
+  )
+
+contacts_comix <- bind_rows(contacts_comix_o18, contacts_comix_u18)
+
+comix_high_low <- contacts_comix %>%
+  mutate(year = year(as.Date(date)),
+         month = month(as.Date(date))) %>%
+  filter(year == 2020 & month %in% c(8, 9) |
+           year == 2021 & month %in% c(1, 2)) %>%
+  mutate(
+    time_period = case_when(
+      year == 2020 & month %in% c(8, 9) ~ "aug_sept",
+      year == 2021 & month %in% c(1, 2) ~ "jan_feb"
+    )
+  )
+
+#summarise number of contacts
+contact_data <- comix_high_low %>% 
+  bind_rows(contacts_bbc)%>% 
+  mutate(time_period=fct_relevel(time_period,"pre","aug_sept","jan_feb"),
+         e_work_school=rowSums(across(c(e_work,e_school),na.rm = T)),
+         e_all = rowSums(across(c(e_home,e_work_school,e_other)),na.rm = T)) %>% 
+  select(-c(e_work,e_school))
+
+
 plan(multisession,workers=8)
 
 # # McAloon et al. incubation period meta-analysis
