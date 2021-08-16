@@ -132,52 +132,67 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
   inf <- data.frame(sim=1:n_sims) %>% 
     mutate.(prop_asy = rbeta(n = n(),
                             shape1 = asymp_parms$shape1,
-                            shape2 = asymp_parms$shape2)) %>% 
+                            shape2 = asymp_parms$shape2)) 
+  
+  inf %<>%  
     mutate.(x = map.(.x = prop_asy,
                    .f = ~make_proportions(prop_asy     = .x,
                                           n_cases      = n_cases))) %>% 
     unnest.(x) 
   
   traj <- inf %>% 
-    mutate.(start=0,
-            u = runif(n(),0,1)) %>%
+    crossing.(start=0) %>% 
+    crossing.(variant=variant) %>% 
     # duration from: https://www.thelancet.com/journals/lanmic/article/PIIS2666-5247(20)30172-5/fulltext
     # scaling of asymptomatics taken from https://www.medrxiv.org/content/10.1101/2020.10.21.20217042v2
-    mutate.(end=case_when.(type == "symptomatic"  ~ qnormTrunc(p = u, mean=17, 
-                                                             sd=approx_sd(15.5,18.6), min = 0),
-                         type == "asymptomatic" ~ qnormTrunc(p = u, mean=17*0.6, 
-                                                             sd=approx_sd(15.5,18.6), min = 0))) %>% 
+    # mutate(end=case_when(type == "symptomatic"  ~ qnormTrunc(p = u, mean=17, 
+    #                                                          sd=approx_sd(15.5,18.6), min = 0),
+    #                      type == "asymptomatic" ~ qnormTrunc(p = u, mean=17*0.6, 
+    #                                                          sd=approx_sd(15.5,18.6), min = 0))) %>% 
     # incubation period from https://bmjopen.bmj.com/content/10/8/e039652.info
-    mutate.(onset_t = qlnormTrunc(p = u,
-                               meanlog=1.63,
-                               sdlog=0.5,
-                               min = 0,
-                               max=end),
-            peak_t = onset_t-rnorm(n=n(),mean=peak_to_onset[[1]],sd=peak_to_onset[[2]])) %>% 
-    pivot_longer.(cols = -c(sim,prop_asy,idx,type,u,onset_t),
-                 values_to = "x") %>% 
+    mutate.(peak=rnormTrunc(n=n(),mean=3.2,sd=approx_sd(2.4, 4.2),min=0),
+           clear=case_when.(type == "symptomatic"  ~ rnormTrunc(n=n(), mean=10.9, 
+                                                               sd=approx_sd(7.8, 14.2), min = 0),
+                           type == "asymptomatic" ~ rnormTrunc(n=n(), mean=7.8, 
+                                                               sd=approx_sd(6.1, 9.7), min = 0)),
+           clear=case_when.(variant=="delta"~1.4*clear,
+                           #variant=="delta"&name=="end"~0.71*y,
+                           TRUE~clear),
+           end=peak+clear,
+           onset_t=peak+rnormTrunc(n=n(),mean = 2,sd=1.5,min=start-peak,max=end-peak)
+           
+           #onset_t=qlnormTrunc(p = u,
+           #                            meanlog=1.63,
+           #                            sdlog=0.5,
+           #                            min = 0,
+           #                            max=end)
+    ) %>% 
+    select.(-clear) %>% 
+    pivot_longer.(cols = -c(sim,prop_asy,idx,type,variant,onset_t),
+                 values_to = "x") %>%
     # peak CT taken from https://www.medrxiv.org/content/10.1101/2020.10.21.20217042v2
-    mutate.(y=case_when.(name=="start"   ~ 40,
-                       name=="end"     ~ 40,
-                       name=="peak_t" ~ rnorm(n=n(),mean=22.3,sd=4.2))) %>%
-    nest.(data = -c(sim,idx,type,u,onset_t)) %>%  
-    mutate.(
+    mutate.(y=case_when(name=="start" ~ 40,
+                       name=="end"  ~ 40,
+                       name=="peak"&variant!="delta" ~ rnorm(n=n(),mean=22.4,sd=approx_sd(20.7, 24)),
+                       name=="peak"&variant=="delta" ~ 0.7*rnorm(n=n(),mean=22.4,sd=approx_sd(20.7, 24))
+    ))  #multiply Ct by 0.7 for Delta variant (24Ct /34Ct): https://virological.org/t/viral-infection-and-transmission-in-a-large-well-traced-outbreak-caused-by-the-delta-sars-cov-2-variant/724
+  
+  #browser()
+  
+  models <- traj %>%
+    nest.(data = -c(idx,type,variant,onset_t)) %>%  
+    dplyr::mutate.(
       # Perform loess calculation on each individual 
-      m  = map.(data, ~splinefunH(x = .x$x, y = .x$y,
-                                        m = c(0,0,0))),
-      rx = map.(data, ~range(.x$x)),
-      ry = map.(data, ~range(.x$y)))
+      m  = purrr::map(data, ~approxfun(x=.x$x,y=.x$y)),
+      #splinefunH(x = .x$x, y = .x$y
+      #m = c(0,0,0))),
+      rx = purrr::map(data, ~range(.x$x)),
+      ry = purrr::map(data, ~range(.x$y))) 
   
-  #cannot pivot wider with "m" column - extract and rejoin
-  x_model <- traj %>% 
-    select.(-data)
-  
-  traj_ <- traj %>%  
-    select.(-c(m,rx,ry)) %>% 
-    unnest.(data,.drop=F) %>% 
-    select.(-y) %>% 
-  pivot_wider.(names_from=name,values_from = x) %>% 
-  left_join.(x_model)
+  models <- models %>% 
+    unnest.(data) %>%  
+    select.(-c(y)) %>% 
+    pivot_wider.(names_from=name,values_from = x) 
   
   return(traj_)
 
