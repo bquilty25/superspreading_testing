@@ -1,5 +1,5 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon","boot","furrr","dtplyr","data.table","tidytable","ggtext")
+pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon","boot","furrr","data.table","tidytable","ggtext")
 
 
 #Load contact data
@@ -123,7 +123,7 @@ boot_ci <- function(x,nrep=100) {
 #assuming 1 and 3 days are 95% interval:
 peak_to_onset <- rriskDistributions::get.norm.par(p=c(0.025,0.975),q=c(1,3),plot = F)
 
-make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asymp_fraction){
+make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asymp_fraction,variant=c("delta")){
   
   set.seed(seed)
   #simulate CT trajectories
@@ -181,26 +181,26 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
   
   models <- traj %>%
     nest.(data = -c(idx,type,variant,onset_t)) %>%  
-    dplyr::mutate.(
-      # Perform loess calculation on each individual 
-      m  = purrr::map(data, ~approxfun(x=.x$x,y=.x$y)),
-      #splinefunH(x = .x$x, y = .x$y
-      #m = c(0,0,0))),
-      rx = purrr::map(data, ~range(.x$x)),
-      ry = purrr::map(data, ~range(.x$y))) 
+    mutate.(
+      # Perform approxfun on each set of points
+      m  = map.(data, ~approxfun(x=.x$x,y=.x$y))) 
+  
+  #cannot pivot wider with "m" column - extract and rejoin
+  x_model <- models %>% 
+    select.(-data)
   
   models <- models %>% 
-    unnest.(data) %>%  
+    select.(-m) %>% 
+    unnest.(data,.drop=F) %>%  
     select.(-c(y)) %>% 
-    pivot_wider.(names_from=name,values_from = x) 
-  
-  return(traj_)
+    pivot_wider.(names_from=name,values_from = x) %>% 
+    left_join.(x_model)
 
 }
 
 inf_curve_func <- function(m,start=0,end=30,trunc_t){
   #browser()
-  x <- data.frame(t=seq(start,end,length.out = 31)) %>% 
+  x <- data.frame(t=seq(start,end,by=0.25)) %>% 
     mutate(u=runif(n=n(),0,1))
   
   #predict CTs for each individual per day
