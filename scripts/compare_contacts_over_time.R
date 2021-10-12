@@ -93,20 +93,20 @@ contact_data %>%
 
 ggsave("results/contacts.png",width=12,height=7,units="in",dpi=400,scale=0.8)
 
+traj <- make_trajectories(n_cases = 500, n_sims = 200,variant="delta")
 
-if(file.exists("results_inf_curve.fst")){
-  inf_curve <- read.fst("results_inf_curve.fst")
+inf_and_test <- function(traj,sampling_freq=c(NA,3)){
+  #browser()
   
-}else{
+  message(sprintf("\n%s == SCENARIO %d ======", Sys.time(), traj$sim[1]))
   
-  inf_curve <- make_trajectories(n_cases = 500, n_sims = 200) %>% 
-  as_tibble() %>% 
-  mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m)))  %>% 
+  traj %>% as.data.frame() %>% 
+  mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m,start=start,end=end)))  %>% 
   unnest_wider(infectiousness) %>% 
   ungroup() %>%
   mutate.(norm_sum = (sum_inf - min(sum_inf)) / (max(sum_inf) - min(sum_inf))) %>% 
   #testing
-  crossing(sampling_freq = c(NA,3)) %>% 
+  crossing(sampling_freq = sampling_freq) %>% 
   mutate.(test_times = pmap(
     .f = test_times,
     list(
@@ -124,13 +124,19 @@ if(file.exists("results_inf_curve.fst")){
   nest(ct, test_t, test_no, test_p, test_label) %>%
   mutate.(earliest_positive = map(.f = earliest_pos, .x = data)) %>%
   unnest.(earliest_positive,.drop=F) %>%
-  select.(-data) %>% 
-  crossing(prop_self_iso_symp = c(0,0.25,0.5,0.75,1),
-           prop_self_iso_test = c(1)) 
-            
-  fst::write.fst(inf_curve,"results_inf_curve.fst")
-  
-}
+  select.(-data)
+} 
+
+traj_ <- traj %>% 
+  arrange(sim) %>% 
+  group_split.(sim) %>% 
+  map.(.f=inf_and_test) %>% 
+  flatten() %>% 
+  bind_rows.() %>% 
+crossing(prop_self_iso_symp = c(0,0.25,0.5,0.75,1),
+            prop_self_iso_test = c(1)) 
+
+fst::write.fst(traj_,"results_inf_curve.fst")
 
 sec_case_gen <- function(df){
   
@@ -219,7 +225,7 @@ sec_case_gen <- function(df){
   mutate.(
     contacts_casual = case_when.(
       t>trunc_t  ~ 0L,
-      time_period == "pre"        ~ sample(
+      time_period == "pre" ~ sample(
         contact_data %>%
           filter(time_period == "pre") %>%
           pull(e_other),
@@ -289,7 +295,7 @@ dists <- res %>% bind_rows.() %>%
            sampling_freq,
            param) %>% 
   nest() %>% 
-  mutate.(mod = map(.x = data, ~mgcv::gam(value~s(prop_self_iso_symp,k=2),data = .x,family = "Gamma"))) 
+  mutate.(mod = map(.x = data, ~approxfun(.x$value~.x$prop_self_iso_symp))) 
   #mutate.(q = map(.x = data, ~quantile(.x$value,probs=c(0.5,0.025,0.975)))) %>% 
   #unnest_wider(q) 
 
