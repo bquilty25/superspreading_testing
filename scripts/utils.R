@@ -1,5 +1,5 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon","boot","furrr","dtplyr","data.table","tidytable","ggtext")
+pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon","boot","furrr","dtplyr","data.table","tidytable","ggtext","fst")
 
 
 #Load contact data

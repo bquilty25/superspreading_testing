@@ -93,7 +93,13 @@ contact_data %>%
 
 ggsave("results/contacts.png",width=12,height=7,units="in",dpi=400,scale=0.8)
 
-inf_curve <- make_trajectories(n_cases = 500, n_sims = 200) %>% 
+
+if(file.exists("results_inf_curve.fst")){
+  inf_curve <- read.fst("results_inf_curve.fst")
+  
+}else{
+  
+  inf_curve <- make_trajectories(n_cases = 500, n_sims = 200) %>% 
   as_tibble() %>% 
   mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m)))  %>% 
   unnest_wider(infectiousness) %>% 
@@ -120,9 +126,11 @@ inf_curve <- make_trajectories(n_cases = 500, n_sims = 200) %>%
   unnest.(earliest_positive,.drop=F) %>%
   select.(-data) %>% 
   crossing(prop_self_iso_symp = c(0,0.25,0.5,0.75,1),
-            prop_self_iso_test = c(1)) 
-
-fst::write.fst(inf_curve,"results_inf_curve.fst")
+           prop_self_iso_test = c(1)) 
+            
+  fst::write.fst(inf_curve,"results_inf_curve.fst")
+  
+}
 
 sec_case_gen <- function(df){
   
