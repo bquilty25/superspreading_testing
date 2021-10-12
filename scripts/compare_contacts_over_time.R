@@ -127,16 +127,22 @@ inf_and_test <- function(traj,sampling_freq=c(NA,3)){
   select.(-data)
 } 
 
+if(file.exists("results_inf_curve.fst")){
+  
+  traj_ <- read.fst("results_inf_curve.fst")
+  
+}else{
 traj_ <- traj %>% 
   arrange(sim) %>% 
   group_split.(sim) %>% 
   map.(.f=inf_and_test) %>% 
   flatten() %>% 
-  bind_rows.() %>% 
-crossing(prop_self_iso_symp = c(0,0.25,0.5,0.75,1),
-            prop_self_iso_test = c(1)) 
+  bind_rows.() #%>% 
+#crossing(prop_self_iso_symp = c(0,0.25,0.5,0.75,1),
+#            prop_self_iso_test = c(1)) 
 
 fst::write.fst(traj_,"results_inf_curve.fst")
+}
 
 sec_case_gen <- function(df){
   
