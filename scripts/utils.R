@@ -1,5 +1,5 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon","boot","furrr","dtplyr","data.table","tidytable","ggtext","fst")
+pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","rms","DescTools","MESS","lubridate","lemon","boot","furrr","data.table","tidytable","ggtext")
 
 
 #Load contact data
@@ -200,7 +200,7 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
 
 inf_curve_func <- function(m,start=0,end=30,trunc_t){
   #browser()
-  x <- data.frame(t=seq(start,end,by=0.25)) %>% 
+  x <- data.frame(t=seq(start,end,by=1)) %>% 
     mutate(u=runif(n=n(),0,1))
   
   #predict CTs for each individual per day
@@ -288,4 +288,202 @@ detector <- function(test_p, u = NULL){
   # when uninfected, PCR will be 0
   TP <- test_p > u
   
+}
+
+inf_and_test <- function(traj,sampling_freq=c(NA,3)){
+  #browser()
+  
+  message(sprintf("\n%s == SCENARIO %d ======", Sys.time(), traj$sim[1]))
+  
+  traj %>% as.data.frame() %>% 
+    mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m,start=start,end=end)))  %>% 
+    unnest_wider(infectiousness) %>% 
+    ungroup() %>%
+    mutate.(norm_sum = (sum_inf - min(sum_inf)) / (max(sum_inf) - min(sum_inf))) %>% 
+    #testing
+    crossing(sampling_freq = sampling_freq) %>% 
+    mutate.(test_times = pmap(
+      .f = test_times,
+      list(
+        sampling_freq = sampling_freq,
+        onset_t = onset_t,
+        type = type
+      )
+    )) %>%
+    unnest.(test_times,.drop=F) %>%
+    mutate.(
+      ct = pmap_dbl(.f = calc_sensitivity, list(model = m, x = test_t)),
+      test_p = stats::predict(innova_mod, type = "response", newdata = data.frame(ct = ct)),
+      test_label = detector(test_p = test_p,  u = runif(n = n(), 0, 1))
+    ) %>%
+    nest(ct, test_t, test_no, test_p, test_label) %>%
+    mutate.(earliest_positive = map(.f = earliest_pos, .x = data)) %>%
+    unnest.(earliest_positive,.drop=F) %>%
+    select.(-data)
+} 
+
+sec_case_gen <- function(df){
+  #browser()
+  
+  message(sprintf("\n%s", Sys.time()))
+  
+  df %>%
+    mutate.(self_iso_symp=ifelse(type=="symptomatic",rbinom(n=n(),size=1,prob=prop_self_iso_symp),0),
+            self_iso_test=rbinom(n=n(),size=1,prob=prop_self_iso_test),
+            test_t = ifelse(self_iso_test==0,Inf,test_t)) %>% 
+    #select.(-u) %>%
+    crossing(time_period = factor(
+      c("pre", "aug_sept", "jan_feb"),
+      ordered = T,
+      levels = c("pre", "aug_sept", "jan_feb")
+    )) %>%
+    mutate.(
+      contacts_repeated = case_when.(
+        time_period == "pre" ~ sample(
+          contact_data %>%
+            filter(time_period == "pre") %>%
+            pull(e_home),
+          size = n(),
+          replace = T
+        ),
+        time_period == "aug_sept" ~ sample(
+          contact_data %>%
+            filter(time_period == "aug_sept") %>%
+            pull(e_home),
+          size = n(),
+          replace = T
+        ),
+        time_period == "jan_feb" ~ sample(
+          contact_data %>%
+            filter(time_period == "jan_feb") %>%
+            pull(e_home),
+          size = n(),
+          replace = T
+        )
+      ),
+      # contacts_repeated_work_school = case_when(
+      #   time_period == "pre" ~ sample(
+      #     contact_data %>%
+      #       filter(time_period == "pre") %>%
+      #       pull(e_work_school),
+      #     size = n(),
+      #     replace = T
+      #   ),
+      #   time_period == "aug_sept" ~ sample(
+      #     contact_data %>%
+      #       filter(time_period == "aug_sept") %>%
+      #       pull(e_work_school),
+      #     size = n(),
+      #     replace = T
+      #   ),
+      #   time_period == "jan_feb" ~ sample(
+      #     contact_data %>%
+      #       filter(time_period == "jan_feb") %>%
+      #       pull(e_work_school),
+      #     size = n(),
+      #     replace = T
+      #   )
+      # ),
+      trunc_t=case_when.(
+        # if symptomatic, adhering to self isolation, and either not tested or test neg,
+        # truncate at onset
+        type == "symptomatic" & is.infinite(test_t) & self_iso_symp != 0 ~ onset_t,
+        # if symptomatic, adhering to self isolation, and have onset before test, truncate at onset
+        type == "symptomatic" &
+          is.finite(test_t) & onset_t < test_t & self_iso_symp != 0 ~ onset_t,
+        # if symptomatic, adhering to self isolation, and have onset after pos test, truncate at test
+        type == "symptomatic" &
+          is.finite(test_t) & test_t < onset_t & self_iso_symp != 0 ~ test_t,
+        # if symptomatic, not adhering to self isolation, and have a positive test, truncate at test
+        TRUE ~ test_t)#, 
+      #if symp onset, contacts outside of home should cease; for school/work, multiply 
+      #number of contacts by proportion of time since infection which occurs pre-onset
+    #   contacts_repeated_work_school=case_when.(!is.infinite(trunc_t)~ceiling(contacts_repeated_work_school*(trunc_t/(end-start))),
+    #                                            TRUE~ceiling(contacts_repeated_work_school))
+    # 
+    ) %>% 
+    # mutate.(
+    #   contacts_repeated   = contacts_repeated_home# + contacts_repeated_work_school
+    #   )  %>%
+    #Daily casual contacts
+    unnest.(infectiousness) %>%
+    #(culture / sum_inf) * norm_sum) %>%
+    mutate.(
+      contacts_casual = case_when.(
+        t>=trunc_t  ~ 0L,
+        time_period == "pre" ~ sample(
+          contact_data %>%
+            filter(time_period == "pre") %>%
+            pull(e_other),
+          size = n(),
+          replace = T
+        ),
+        time_period == "aug_sept" ~ sample(
+          contact_data %>%
+            filter(time_period == "aug_sept") %>%
+            pull(e_other),
+          size = n(),
+          replace = T
+        ),
+        time_period == "jan_feb" ~ sample(
+          contact_data %>%
+            filter(time_period == "jan_feb") %>%
+            pull(e_other),
+          size = n(),
+          replace = T
+        )
+      )
+    ) %>%
+    mutate.(n_casual_infected = rbinom(n = n(), 
+                                       size = contacts_casual, 
+                                       prob =
+                                         culture*sample(contacts_nhh_duration))) %>% #avg contact duration = 45 minutes
+    group_by(sim,
+             idx,
+             type,
+             variant,
+             time_period,
+             prop_self_iso_symp,
+             prop_self_iso_test,
+             sampling_freq) %>% 
+    #chance of infecting repeated contacts on a given day is binomial w/o replacement
+    nest() %>% 
+    mutate.(data=map(.x=data,~repeated_contacts_inf(.x))) %>% 
+    unnest(data) %>%
+    summarise.(.by=c(sim,
+                     idx,
+                     type,
+                     variant,
+                     time_period,
+                     prop_self_iso_symp,
+                     prop_self_iso_test,
+                     contacts_repeated,
+                     sampling_freq),
+               contacts_casual = sum(contacts_casual),
+               n_casual_infected = sum(n_casual_infected),
+               n_repeated_infected = sum(n_repeated_infected)) %>%
+    mutate.(n_total_contacts=contacts_repeated+contacts_casual,
+            n_total_infected = n_repeated_infected + n_casual_infected)
+}
+
+repeated_contacts_inf <- function(x){
+  #browser()
+  # initial values at t=0
+  infected <- c()
+  infected[1] <- 0
+  from <- 2
+  for(i in 2:nrow(x)){
+    infected[i] <- infected[i-1] + rbinom(1,prob=x$culture[i],size=x$contacts_repeated[i]-infected[i-1])
+  }
+  
+  x$n_repeated_infected <- c(infected[1],diff(infected))
+  
+ return(x)
+}
+
+hush=function(code){
+  sink("NUL") # use /dev/null in UNIX
+  tmp = code
+  sink()
+  return(tmp)
 }

@@ -45,13 +45,13 @@ comix_high_low <- contacts_comix %>%
 contact_data <- comix_high_low %>% 
   bind_rows(contacts_bbc)%>% 
   mutate(time_period=fct_relevel(time_period,"pre","aug_sept","jan_feb"),
-         e_work_school=rowSums(across(c(e_work,e_school),na.rm = T)),
-         e_all = rowSums(across(c(e_home,e_work_school,e_other)),na.rm = T)) %>% 
+         e_other=rowSums(across(c(e_work,e_school,e_other),na.rm = T)),
+         e_all = rowSums(across(c(e_home,e_other)),na.rm = T)) %>% 
   select(-c(e_work,e_school))
 
 contact_data_dists <- contact_data %>%
-  pivot_longer(c(e_all,e_home,e_work_school,e_other)) %>% 
-  mutate(name=fct_relevel(name,"e_all","e_home","e_work_school","e_other")) %>% 
+  pivot_longer(c(e_all,e_home,e_other)) %>% 
+  mutate(name=fct_relevel(name,"e_all","e_home","e_other")) %>% 
   drop_na(value) %>% 
   group_by(time_period,name) %>%
   nest() %>%
@@ -93,230 +93,86 @@ contact_data %>%
 
 ggsave("results/contacts.png",width=12,height=7,units="in",dpi=400,scale=0.8)
 
-traj <- make_trajectories(n_cases = 500, n_sims = 200,variant="delta")
+traj <- make_trajectories(n_cases = 500, n_sims = 200,variant=c("delta","wild"))
 
-inf_and_test <- function(traj,sampling_freq=c(NA,3)){
-  #browser()
+if(file.exists("results_traj.fst")){
   
-  message(sprintf("\n%s == SCENARIO %d ======", Sys.time(), traj$sim[1]))
+  traj_ <- read_fst("results_traj.fst")
   
-  traj %>% as.data.frame() %>% 
-  mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m,start=start,end=end)))  %>% 
-  unnest_wider(infectiousness) %>% 
-  ungroup() %>%
-  mutate.(norm_sum = (sum_inf - min(sum_inf)) / (max(sum_inf) - min(sum_inf))) %>% 
-  #testing
-  crossing(sampling_freq = sampling_freq) %>% 
-  mutate.(test_times = pmap(
-    .f = test_times,
-    list(
-      sampling_freq = sampling_freq,
-      onset_t = onset_t,
-      type = type
-    )
-  )) %>%
-  unnest.(test_times,.drop=F) %>%
-  mutate.(
-    ct = pmap_dbl(.f = calc_sensitivity, list(model = m, x = test_t)),
-    test_p = stats::predict(innova_mod, type = "response", newdata = data.frame(ct = ct)),
-    test_label = detector(test_p = test_p,  u = runif(n = n(), 0, 1))
-  ) %>%
-  nest(ct, test_t, test_no, test_p, test_label) %>%
-  mutate.(earliest_positive = map(.f = earliest_pos, .x = data)) %>%
-  unnest.(earliest_positive,.drop=F) %>%
-  select.(-data)
-} 
+  } else {
+    
+  traj_ <- traj %>% 
+    arrange(sim) %>% 
+    group_split.(sim) %>% 
+    map.(.f=inf_and_test,sampling_freq=NA) %>% 
+    bind_rows.() 
 
-if(file.exists("results_inf_curve.fst")){
-  
-  traj_ <- read.fst("results_inf_curve.fst")
-  
-}else{
-traj_ <- traj %>% 
-  arrange(sim) %>% 
-  group_split.(sim) %>% 
-  map.(.f=inf_and_test) %>% 
-  flatten() %>% 
-  bind_rows.() #%>% 
-#crossing(prop_self_iso_symp = c(0,0.25,0.5,0.75,1),
-#            prop_self_iso_test = c(1)) 
+write_fst(traj_,"results_traj.fst")
 
-fst::write.fst(traj_,"results_inf_curve.fst")
 }
 
-sec_case_gen <- function(df){
-  
-  message(sprintf("\n%s", Sys.time()))
-  
-  df %>%
-  mutate.(self_iso_symp=ifelse(type=="symptomatic",rbinom(n=n(),size=1,prob=prop_self_iso_symp),0),
-            self_iso_test=rbinom(n=n(),size=1,prob=prop_self_iso_test),
-            test_t = ifelse(self_iso_test==0,Inf,test_t)) %>% 
-  select.(-u) %>%
-  crossing(time_period = factor(
-    c("pre", "aug_sept", "jan_feb"),
-    ordered = T,
-    levels = c("pre", "aug_sept", "jan_feb")
-  )) %>%
-  mutate.(
-    contacts_repeated_home = case_when.(
-      time_period == "pre" ~ sample(
-        contact_data %>%
-          filter(time_period == "pre") %>%
-          pull(e_home),
-        size = n(),
-        replace = T
-      ),
-      time_period == "aug_sept" ~ sample(
-        contact_data %>%
-          filter(time_period == "aug_sept") %>%
-          pull(e_home),
-        size = n(),
-        replace = T
-      ),
-      time_period == "jan_feb" ~ sample(
-        contact_data %>%
-          filter(time_period == "jan_feb") %>%
-          pull(e_home),
-        size = n(),
-        replace = T
-      )
-    ),
-    contacts_repeated_work_school = case_when(
-      time_period == "pre" ~ sample(
-        contact_data %>%
-          filter(time_period == "pre") %>%
-          pull(e_work_school),
-        size = n(),
-        replace = T
-      ),
-      time_period == "aug_sept" ~ sample(
-        contact_data %>%
-          filter(time_period == "aug_sept") %>%
-          pull(e_work_school),
-        size = n(),
-        replace = T
-      ),
-      time_period == "jan_feb" ~ sample(
-        contact_data %>%
-          filter(time_period == "jan_feb") %>%
-          pull(e_work_school),
-        size = n(),
-        replace = T
-      )
-    ),
-    trunc_t=case_when.(
-      # if symptomatic, adhering to self isolation, and either not tested or test neg,
-      # truncate at onset
-      type=="symptomatic"&is.infinite(test_t)&self_iso_symp!=0~onset_t,
-      # if symptomatic, adhering to self isolation, and have onset before test, truncate at onset
-      type=="symptomatic"&is.finite(test_t)&onset_t<test_t&self_iso_symp!=0~onset_t,
-      # if symptomatic, adhering to self isolation, and have onset after pos test, truncate at test
-      type=="symptomatic"&is.finite(test_t)&test_t<onset_t&self_iso_symp!=0~test_t,
-      # if symptomatic, not adhering to self isolation, and have a positive test, truncate at test
-      TRUE ~ test_t), 
-    #if symp onset, contacts outside of home should cease; for school/work, multiply 
-    #number of contacts by proportion of time since infection which occurs pre-onset
-    contacts_repeated_work_school=case_when.(!is.infinite(trunc_t)~ceiling(contacts_repeated_work_school*(trunc_t/(end-start))),
-                                            TRUE~ceiling(contacts_repeated_work_school))
-  ) %>% 
-  mutate.(
-    contacts_repeated   = contacts_repeated_home + contacts_repeated_work_school,
-    n_repeated_infected = rbinom(n = n(), 
-                                      size = contacts_repeated, 
-                                      prob = norm_sum)) %>%
-  #Daily casual contacts
-  unnest.(infectiousness) %>%
-  mutate.(norm_daily = (culture / sum_inf) * norm_sum) %>%
-  mutate.(
-    contacts_casual = case_when.(
-      t>trunc_t  ~ 0L,
-      time_period == "pre" ~ sample(
-        contact_data %>%
-          filter(time_period == "pre") %>%
-          pull(e_other),
-        size = n(),
-        replace = T
-      ),
-      time_period == "aug_sept" ~ sample(
-        contact_data %>%
-          filter(time_period == "aug_sept") %>%
-          pull(e_other),
-        size = n(),
-        replace = T
-      ),
-      time_period == "jan_feb" ~ sample(
-        contact_data %>%
-          filter(time_period == "jan_feb") %>%
-          pull(e_other),
-        size = n(),
-        replace = T
-      )
-    )
-  ) %>%
-  mutate.(n_casual_infected = rbinom(n = n(), 
-                                    size = contacts_casual, 
-                                    prob =
-                                      norm_daily)) %>%
-  summarise.(.by=c(sim,
-                   idx,
-                   type,
-                   time_period,
-                   norm_sum,
-                   prop_self_iso_symp,
-                   prop_self_iso_test,
-                   contacts_repeated,
-                   n_repeated_infected,
-                   sampling_freq),
-    contacts_casual = sum(contacts_casual),
-    n_casual_infected = sum(n_casual_infected)) %>%
-  mutate.(n_total_infected = n_repeated_infected + n_casual_infected) 
+if(file.exists("results_ss.fst")){
+  res <- fst::read_fst("results_ss.fst") %>% 
+    crossing(prop_self_iso_symp = c(0,0.25,0.5,0.75,1),
+             prop_self_iso_test = c(1))
+  } else {
+    
+res <- traj_ %>%
+  filter(is.na(sampling_freq)) %>% 
+crossing(prop_self_iso_symp = 1,#c(0,0.25,0.5,0.75,1),
+         prop_self_iso_test = c(1)) %>%
+group_split.(sampling_freq,prop_self_iso_symp,prop_self_iso_test) %>% 
+map(~sec_case_gen(.x)) %>% 
+bind_rows.()
+
+ fst::write_fst(res, "results_ss.fst")
+ 
 }
 
-res <- inf_curve %>% 
-  group_split.(sampling_freq,prop_self_iso_symp,prop_self_iso_test) %>% 
-  map(~sec_case_gen(.x))
-
-fst::write.fst(res %>% bind_rows.(),path = "results_ss.fst")
-
-dists <- res %>% bind_rows.() %>%  
+dists <- res %>%  
   mutate.(sampling_freq=case_when.(sampling_freq==3~"Testing every 3 days",
                                  TRUE~ "No testing")) %>% 
   nest.(data=c(idx,
-           type,
-           norm_sum,
            contacts_repeated,
            n_repeated_infected,
           contacts_casual,
+          n_total_contacts,
           n_casual_infected, 
           n_total_infected)) %>% 
-  mutate.(dists=map(.x=data,.f= .%>% 
-                     pull(n_total_infected) %>% 
-                     fitdist("nbinom")),
+  mutate.(dists=map(.x=data,~hush(fitdist(.x$n_total_infected ,"nbinom"))),
          params=map(dists,~c(R=.x$estimate[[2]],k=.x$estimate[[1]]))) %>% 
   unnest_longer(params,values_to = "value",indices_to = "param") %>% 
-  group_by(sim,time_period,
-           #prop_self_iso_symp,
-           #prop_self_iso_test,
+  group_by(variant,
+           time_period,
+           prop_self_iso_symp,
+           prop_self_iso_test,
            sampling_freq,
            param) %>% 
-  nest() %>% 
-  mutate.(mod = map(.x = data, ~approxfun(.x$value~.x$prop_self_iso_symp))) 
-  #mutate.(q = map(.x = data, ~quantile(.x$value,probs=c(0.5,0.025,0.975)))) %>% 
-  #unnest_wider(q) 
+  summarise(x = quantile(value,probs=c(0.5,0.025,0.975)),q=c(0.5,0.025,0.975)) 
 
-dists %>% 
-  mutate.(pred=map(mod,~broom::augment(.x,newdata=newdata1,type.predict="response"))) %>% 
-  unnest.(pred) %>% 
-  nest.(data=c(sim,.fitted,.se.fit)) %>% 
-  mutate.(q = map(.x = data, ~quantile(.x$.fitted,probs=c(0.5,0.025,0.975)))) %>%  
-  unnest_wider(q) %>% 
-  #filter.(param=="R",time_period!="jan_feb") %>% 
-  ggplot(aes(x=prop_self_iso_symp,y=`50%`))+
+dists %>% pivot_wider(names_from = q,values_from = x) %>% 
+  ggplot(aes(x=time_period,y=`0.5`,ymin=`0.025`,ymax=`0.975`))+
+  geom_pointrange()+
+  facet_grid(param~sampling_freq+time_period+variant,scales="free")+
+  scale_y_log10()
+
+dists %>%
+  group_by(variant,
+           time_period,
+           sampling_freq,
+           param,
+           q) %>% 
+  nest() %>% 
+ mutate.(mod = map(.x = data, ~approxfun(y=.x$x,x=.x$prop_self_iso_symp)),
+         pred= map(.x=mod, 
+                           ~data.frame(prop_self_iso_symp = seq(0, 1, length.out = 101)) %>% 
+                                   mutate(fitted=.x(prop_self_iso_symp)))) %>% 
+  unnest.(pred) %>% mutate(q=as.character(q)) %>% pivot_wider(names_from = q,values_from = fitted) %>% 
+  ggplot(aes(x=prop_self_iso_symp,y=`0.5`))+
   geom_line()+
-  geom_ribbon(aes(x=prop_self_iso_symp,ymax=`97.5%`,ymin=`2.5%`),alpha=0.5)+
+  geom_ribbon(aes(x=prop_self_iso_symp,ymax=`0.975`,ymin=`0.025`),alpha=0.5)+
   #scale_y_log10()+
-  facet_grid(param~sampling_freq+time_period,scales="free")
+  facet_grid(param~sampling_freq+time_period+variant,scales="free")
 
 ggsave("results/smooths.png",width=210,height=120,dpi=600,units="mm")
 
