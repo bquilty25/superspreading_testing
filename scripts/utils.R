@@ -1,56 +1,22 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","rms","DescTools","MESS","lubridate","lemon","boot","furrr","data.table","tidytable","ggtext")
+pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","DescTools","MESS","lubridate","lemon","boot","furrr","data.table","tidytable","ggtext","fst","qs","tictoc","scales")
 
-
-#Load contact data
-contacts_bbc_o18 <-
-  read.csv(here("2020-cov-tracing", "data", "contact_distributions_o18.csv")) 
-
-contacts_bbc_u18 <-
-  read.csv(here("2020-cov-tracing", "data", "contact_distributions_u18.csv")) 
-
-contacts_bbc <- bind_rows(contacts_bbc_o18, contacts_bbc_u18) %>%
-  mutate(time_period = "pre",
-         e_school=0)
-
-contacts_comix_o18 <-
-  read.csv(here("data", "comix_contact_distributions_o18.csv")) %>%
-  mutate(
-    date = as.Date(date),
-    age="adults"
-  )
-
-contacts_comix_u18 <-
-  read.csv(here("data", "comix_contact_distributions_u18.csv")) %>%
-  mutate(
-    date = as.Date(date),
-    age="children"
-  )
-
-contacts_comix <- bind_rows(contacts_comix_o18, contacts_comix_u18)
-
-comix_high_low <- contacts_comix %>%
-  mutate(year = year(as.Date(date)),
-         month = month(as.Date(date))) %>%
-  filter(year == 2020 & month %in% c(8, 9) |
-           year == 2021 & month %in% c(1, 2)) %>%
-  mutate(
-    time_period = case_when(
-      year == 2020 & month %in% c(8, 9) ~ "aug_sept",
-      year == 2021 & month %in% c(1, 2) ~ "jan_feb"
-    )
-  )
-
-#summarise number of contacts
-contact_data <- comix_high_low %>% 
-  bind_rows(contacts_bbc)%>% 
-  mutate(time_period=fct_relevel(time_period,"pre","aug_sept","jan_feb"),
-         e_work_school=rowSums(across(c(e_work,e_school),na.rm = T)),
-         e_all = rowSums(across(c(e_home,e_work_school,e_other)),na.rm = T)) %>% 
-  select(-c(e_work,e_school))
-
-
+set.seed(2021)
 plan(multisession,workers=8)
+
+covid_pal <- c("#e66101", "#5e3c99", "#0571b0")
+`%!in%` = Negate(`%in%`)
+
+plotting_theme <- theme_minimal()+
+  theme(axis.ticks = element_line(),
+        panel.border = element_rect(fill=NA),
+        legend.position = "bottom",
+        strip.placement = "outside")
+
+capitalize <- function(string) {
+  substr(string, 1, 1) <- toupper(substr(string, 1, 1))
+  string
+}
 
 # # McAloon et al. incubation period meta-analysis
 #https://bmjopen.bmj.com/content/10/8/e039652
@@ -159,7 +125,7 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
                            #variant=="delta"&name=="end"~0.71*y,
                            TRUE~clear),
            end=peak+clear,
-           onset_t=peak+rnormTrunc(n=n(),mean = 2,sd=1.5,min=start-peak,max=end-peak)
+           onset_t=peak+rnormTrunc(n=n(),mean = 1,sd=1.5,min=0,max=end)
            
            #onset_t=qlnormTrunc(p = u,
            #                            meanlog=1.63,
@@ -327,7 +293,8 @@ sec_case_gen <- function(df){
   
   message(sprintf("\n%s", Sys.time()))
   
-  df %>%
+  tic()
+  df1 <- df %>%
     mutate.(self_iso_symp=ifelse(type=="symptomatic",rbinom(n=n(),size=1,prob=prop_self_iso_symp),0),
             self_iso_test=rbinom(n=n(),size=1,prob=prop_self_iso_test),
             test_t = ifelse(self_iso_test==0,Inf,test_t)) %>% 
@@ -361,29 +328,6 @@ sec_case_gen <- function(df){
           replace = T
         )
       ),
-      # contacts_repeated_work_school = case_when(
-      #   time_period == "pre" ~ sample(
-      #     contact_data %>%
-      #       filter(time_period == "pre") %>%
-      #       pull(e_work_school),
-      #     size = n(),
-      #     replace = T
-      #   ),
-      #   time_period == "aug_sept" ~ sample(
-      #     contact_data %>%
-      #       filter(time_period == "aug_sept") %>%
-      #       pull(e_work_school),
-      #     size = n(),
-      #     replace = T
-      #   ),
-      #   time_period == "jan_feb" ~ sample(
-      #     contact_data %>%
-      #       filter(time_period == "jan_feb") %>%
-      #       pull(e_work_school),
-      #     size = n(),
-      #     replace = T
-      #   )
-      # ),
       trunc_t=case_when.(
         # if symptomatic, adhering to self isolation, and either not tested or test neg,
         # truncate at onset
@@ -395,19 +339,10 @@ sec_case_gen <- function(df){
         type == "symptomatic" &
           is.finite(test_t) & test_t < onset_t & self_iso_symp != 0 ~ test_t,
         # if symptomatic, not adhering to self isolation, and have a positive test, truncate at test
-        TRUE ~ test_t)#, 
-      #if symp onset, contacts outside of home should cease; for school/work, multiply 
-      #number of contacts by proportion of time since infection which occurs pre-onset
-    #   contacts_repeated_work_school=case_when.(!is.infinite(trunc_t)~ceiling(contacts_repeated_work_school*(trunc_t/(end-start))),
-    #                                            TRUE~ceiling(contacts_repeated_work_school))
-    # 
-    ) %>% 
-    # mutate.(
-    #   contacts_repeated   = contacts_repeated_home# + contacts_repeated_work_school
-    #   )  %>%
-    #Daily casual contacts
-    unnest.(infectiousness) %>%
-    #(culture / sum_inf) * norm_sum) %>%
+        TRUE ~ test_t)) %>% 
+    mutate.(data=pmap(.l=list(x=infectiousness,
+                              contacts_repeated=contacts_repeated),.f=rep_contacts_inf)) %>% 
+    unnest.(data) %>% 
     mutate.(
       contacts_casual = case_when.(
         t>=trunc_t  ~ 0L,
@@ -434,46 +369,37 @@ sec_case_gen <- function(df){
         )
       )
     ) %>%
-    mutate.(n_casual_infected = rbinom(n = n(), 
-                                       size = contacts_casual, 
-                                       prob =
-                                         culture*sample(contacts_nhh_duration))) %>% #avg contact duration = 45 minutes
-    group_by(sim,
-             idx,
-             type,
-             variant,
-             time_period,
-             prop_self_iso_symp,
-             prop_self_iso_test,
-             sampling_freq) %>% 
-    #chance of infecting repeated contacts on a given day is binomial w/o replacement
-    nest() %>% 
-    mutate.(data=map(.x=data,~repeated_contacts_inf(.x))) %>% 
-    unnest(data) %>%
+    uncount.(contacts_casual) %>% 
+    mutate.(nhh_duration=sample(contacts_nhh_duration,size=n(),replace=T),
+      n_casual_infected = rbernoulli(n=n(),p = culture*nhh_duration)) %>%
     summarise.(.by=c(sim,
-                     idx,
-                     type,
-                     variant,
-                     time_period,
-                     prop_self_iso_symp,
-                     prop_self_iso_test,
-                     contacts_repeated,
-                     sampling_freq),
-               contacts_casual = sum(contacts_casual),
-               n_casual_infected = sum(n_casual_infected),
-               n_repeated_infected = sum(n_repeated_infected)) %>%
-    mutate.(n_total_contacts=contacts_repeated+contacts_casual,
-            n_total_infected = n_repeated_infected + n_casual_infected)
+                       idx,
+                       type,
+                       variant,
+                       time_period,
+                       prop_self_iso_symp,
+                       prop_self_iso_test,
+                       contacts_repeated,
+                       n_repeated_infected,
+                       sampling_freq),
+                       contacts_casual=n(),
+                       n_casual_infected=sum(n_casual_infected))
+
 }
 
-repeated_contacts_inf <- function(x){
+rep_contacts_inf <- function(x,contacts_repeated){
   #browser()
+  
+  #repeated contacts
   # initial values at t=0
+
   infected <- c()
   infected[1] <- 0
-  from <- 2
+
+  #chance of infecting repeated contacts on a given day is binomial w/o replacement
+  
   for(i in 2:nrow(x)){
-    infected[i] <- infected[i-1] + rbinom(1,prob=x$culture[i],size=x$contacts_repeated[i]-infected[i-1])
+    infected[i] <- infected[i-1] + rbinom(1,prob=x$culture[i],size=contacts_repeated-infected[i-1])
   }
   
   x$n_repeated_infected <- c(infected[1],diff(infected))
