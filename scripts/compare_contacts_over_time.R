@@ -1,53 +1,9 @@
 #Estimate secondary case distribution pre-pandemic (R0, BBC) and with various levels of contact reduction from Comix
 source("scripts/utils.R")
-source("scripts/lee_infectivity.R")
+source("scripts/duration.R")
 
-#Load contact data
-contacts_bbc_o18 <-
-  read.csv(here("2020-cov-tracing", "data", "contact_distributions_o18.csv")) 
 
-contacts_bbc_u18 <-
-  read.csv(here("2020-cov-tracing", "data", "contact_distributions_u18.csv")) 
 
-contacts_bbc <- bind_rows(contacts_bbc_o18, contacts_bbc_u18) %>%
-  mutate(time_period = "pre",
-         e_school=0)
-
-contacts_comix_o18 <-
-  read.csv(here("data", "comix_contact_distributions_o18.csv")) %>%
-  mutate(
-    date = as.Date(date),
-    age="adults"
-  )
-
-contacts_comix_u18 <-
-  read.csv(here("data", "comix_contact_distributions_u18.csv")) %>%
-  mutate(
-    date = as.Date(date),
-    age="children"
-  )
-
-contacts_comix <- bind_rows(contacts_comix_o18, contacts_comix_u18)
-
-comix_high_low <- contacts_comix %>%
-  mutate(year = year(as.Date(date)),
-         month = month(as.Date(date))) %>%
-  filter(year == 2020 & month %in% c(8, 9) |
-           year == 2021 & month %in% c(1, 2)) %>%
-  mutate(
-    time_period = case_when(
-      year == 2020 & month %in% c(8, 9) ~ "aug_sept",
-      year == 2021 & month %in% c(1, 2) ~ "jan_feb"
-    )
-  )
-
-#summarise number of contacts
-contact_data <- comix_high_low %>% 
-  bind_rows(contacts_bbc)%>% 
-  mutate(time_period=fct_relevel(time_period,"pre","aug_sept","jan_feb"),
-         e_other=rowSums(across(c(e_work,e_school,e_other),na.rm = T)),
-         e_all = rowSums(across(c(e_home,e_other)),na.rm = T)) %>% 
-  select(-c(e_work,e_school)) 
 
 contact_data_dists <- contact_data %>%
   pivot_longer(c(e_all,e_home,e_other)) %>% 
@@ -119,10 +75,13 @@ if(file.exists("processing/results_ss.qs")){
 res <- traj_ %>%
   filter(variant=="wild") %>% 
 right_join.(tribble(~sampling_freq,~prop_self_iso_test, ~prop_self_iso_symp,
-                    NA, 1, 1,
-                    3,  1, 0,
-                    3,  1, 1)) %>% 
-group_split.(variant,sampling_freq,prop_self_iso_symp,prop_self_iso_test) %>% 
+                    NA,  1, 1,
+                    NA,  1, 0.5,
+                    #3, 0.5, 0.5,
+                    3, 0.5, 1,
+                    3,   1, 1)) %>% 
+  crossing(time_period=c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+group_split.(variant,sampling_freq,prop_self_iso_symp,prop_self_iso_test,time_period) %>% 
 map(~sec_case_gen(.x)) %>% 
 bind_rows.()
 
@@ -131,7 +90,7 @@ bind_rows.()
 }
 
 sum_res <- res %>%
-  summarise.(.by=c(sim,
+  summarise.(.by = c(sim,
                    idx,
                    type,
                    variant,
@@ -140,11 +99,11 @@ sum_res <- res %>%
                    prop_self_iso_test,
                    contacts_repeated,
                    sampling_freq),
-             contacts_casual = sum(contacts_casual),
-             n_casual_infected = sum(n_casual_infected),
+             contacts_casual     = sum(contacts_casual),
+             n_casual_infected   = sum(n_casual_infected),
              n_repeated_infected = sum(n_repeated_infected)) %>%
-  mutate.(n_total_contacts=contacts_repeated+contacts_casual,
-          n_total_infected = (n_repeated_infected + n_casual_infected))
+  mutate.(n_total_contacts       = contacts_repeated + contacts_casual,
+          n_total_infected       = n_repeated_infected + n_casual_infected)
 
 dists <- sum_res %>%  
   mutate.(sampling_freq=case_when.(sampling_freq==3~"Testing every 3 days",
@@ -168,13 +127,15 @@ dists <- sum_res %>%
   summarise(x = quantile(value,probs=c(0.5,0.025,0.975)),q=c(0.5,0.025,0.975)) %>% 
   pivot_wider(names_from = q,values_from = x)
 
-dists %>% filter(prop_self_iso_symp==1,prop_self_iso_test%!in%c(0,0.5)) %>% 
+dists %>% 
+  filter(prop_self_iso_symp==1,prop_self_iso_test%!in%c(0,0.5)) %>% 
   ggplot(aes(x=sampling_freq,y=`0.5`,ymin=`0.025`,ymax=`0.975`))+
   geom_hline(aes(yintercept = ifelse(param=="R",1,NA)),linetype="dashed")+
   facet_grid(fct_rev(param)~time_period,#,scales="free",
-             labeller=labeller(time_period=c("pre"="Pre-pandemic (BBC 2018)",
-                                             "aug_sept"="Relaxed (Comix Aug/Sept 2020)",
-                                             "jan_feb"="Lockdown (Comix Jan/Feb 2021)"),
+             labeller=labeller(time_period=c("BBC Pandemic"="Pre-pandemic (BBC 2017-18)",
+                                             "Relaxed restrictions"="Relaxed (Comix Aug 2020)",
+                                             "School reopening"="Schools reopening (Comix Sept 2020)",
+                                             "Lockdown 1"="Lockdown (Comix Apr-Jul 2021)"),
                                name=c("e_all"="All","e_home"="Home","e_work_school"="Work/School","e_other"="Other"),
                                prop_self_iso=function(x){scales::percent(as.numeric(x))}))+
   geom_linerange(aes(ymin  = `0.025`, 
@@ -200,7 +161,7 @@ dists %>% filter(prop_self_iso_symp==1,prop_self_iso_test%!in%c(0,0.5)) %>%
         legend.position = "bottom",
         strip.placement = "outside")
 
-ggsave("results/R_k.png",width=210,height=150,dpi=600,units="mm")
+ggsave("results/R_k.png",width=250,height=150,dpi=600,units="mm")
 
 #prop infecting 0, >10, >20...
 ss_dat <- sum_res %>% 
@@ -307,18 +268,6 @@ sum_res %>%
 #Heatmap
 heatmap <- res %>% 
   filter( prop_self_iso_symp==1,prop_self_iso_test==1,is.na(sampling_freq)) %>%   
-  summarise.(.by=c(sim,
-                  idx,
-                  type,t,ct,
-                  variant,
-                  time_period,
-              prop_self_iso_symp,
-              prop_self_iso_test,
-              contacts_repeated,
-              n_repeated_infected,
-                  sampling_freq),
-            contacts_casual=n(),
-            n_casual_infected=sum(n_casual_infected)) %>% 
   filter(n_casual_infected>0,n_repeated_infected>0) %>%  
   ggplot(aes(x=ct,
              y=contacts_repeated+contacts_casual,
@@ -342,18 +291,6 @@ ggsave("results/heatmap.png",width=210,height=150,dpi=600,units="mm")
 
 hex_map <- res %>% 
   filter( prop_self_iso_symp==1,prop_self_iso_test==1,is.na(sampling_freq)) %>%   
-  summarise.(.by=c(sim,
-                   idx,
-                   type,t,ct,
-                   variant,
-                   time_period,
-                   prop_self_iso_symp,
-                   prop_self_iso_test,
-                   contacts_repeated,
-                   n_repeated_infected,
-                   sampling_freq),
-             contacts_casual=n(),
-             n_casual_infected=sum(n_casual_infected)) %>% 
   filter(n_casual_infected>0,n_repeated_infected>0) %>%  
   ggplot(aes(x=ct,
              y=contacts_repeated+contacts_casual))+
@@ -375,6 +312,52 @@ hex_map <- res %>%
 heatmap/hex_map+plot_layout(guides="collect")
 ggsave("results/heatmap_hexmap.png",width=300,height=200,dpi=600,units="mm")
 
+# Generation time
+res %>% 
+  filter( prop_self_iso_symp==1,prop_self_iso_test==1,is.na(sampling_freq)) %>%   
+  filter(n_casual_infected>0,n_repeated_infected>0) %>%  
+  pivot_longer(cols=c(n_repeated_infected,n_casual_infected)) %>% 
+  ggplot(aes(x=t,
+             y=value,
+             fill=name))+
+  geom_col()+
+  scale_fill_brewer(type="qual")+
+  labs(x="Viral load (CT)",y="Exposed contacts",colour="Infected contacts")+
+  theme_minimal()+
+  theme(axis.ticks = element_line(),
+        panel.border = element_rect(fill=NA),
+        legend.position = "right",
+        strip.placement = "outside")+
+  facet_grid(type~time_period,labeller=labeller(time_period=c("pre"="Pre-pandemic (BBC 2018)",
+                                                          "aug_sept"="Relaxed (Comix Aug/Sept 2020)",
+                                                          "jan_feb"="Lockdown (Comix Jan/Feb 2021)"),
+                                            name=c("e_all"="All","e_home"="Home","e_work_school"="Work/School","e_other"="Other"),
+                                            prop_self_iso=function(x){scales::percent(as.numeric(x))}))
+
+# Proportion asymptomatic
+res %>% 
+  filter(prop_self_iso_test==1,is.na(sampling_freq)) %>%   
+  mutate(onset_t=case_when(type=="asymptomatic"~Inf,
+                        TRUE~onset_t),
+         asymp=t<onset_t) %>%  
+  filter(n_casual_infected>0,n_repeated_infected>0) %>%  
+  pivot_longer(cols=c(n_repeated_infected,n_casual_infected)) %>% 
+  ggplot(aes(x=t,
+             y=value,
+             fill=asymp))+
+  geom_col()+
+  scale_fill_brewer(type="qual")+
+  labs(x="Viral load (CT)",y="Exposed contacts",colour="Infected contacts")+
+  theme_minimal()+
+  theme(axis.ticks = element_line(),
+        panel.border = element_rect(fill=NA),
+        legend.position = "right",
+        strip.placement = "outside")+
+  facet_grid(type~time_period+prop_self_iso_symp,labeller=labeller(time_period=c("pre"="Pre-pandemic (BBC 2018)",
+                                                              "aug_sept"="Relaxed (Comix Aug/Sept 2020)",
+                                                              "jan_feb"="Lockdown (Comix Jan/Feb 2021)"),
+                                                name=c("e_all"="All","e_home"="Home","e_work_school"="Work/School","e_other"="Other"),
+                                                prop_self_iso=function(x){scales::percent(as.numeric(x))}))
 
 #  Deprecated 
 # 

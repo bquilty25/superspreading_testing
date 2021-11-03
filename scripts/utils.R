@@ -1,5 +1,5 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","DescTools","MESS","lubridate","lemon","boot","furrr","data.table","tidytable","ggtext","fst","qs","tictoc","scales")
+pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","DescTools","MESS","lubridate","lemon","boot","furrr","data.table","tidytable","ggtext","fst","qs","tictoc","scales","fuzzyjoin")
 
 set.seed(2021)
 plan(multisession,workers=8)
@@ -18,30 +18,83 @@ capitalize <- function(string) {
   string
 }
 
+time_periods <- tribble(~idx,~period,~date_start,~date_end,
+                        -1, "POLYMOD",             as_date("01/01/2008",format="%d/%m/%Y"), as_date("01/01/2008",format="%d/%m/%Y"),
+                        0, "BBC Pandemic",         as_date("01/09/2017",format="%d/%m/%Y"), as_date("01/12/2018",format="%d/%m/%Y"),
+                        1, "Lockdown 1",           as_date("23/03/2020",format="%d/%m/%Y"), as_date("03/06/2020",format="%d/%m/%Y"),
+                        2, "Lockdown 1 easing",    as_date("04/06/2020",format="%d/%m/%Y"), as_date("29/07/2020",format="%d/%m/%Y"),
+                        3, "Relaxed restrictions", as_date("30/07/2020",format="%d/%m/%Y"), as_date("03/09/2020",format="%d/%m/%Y"),
+                        4, "School reopening",     as_date("04/09/2020",format="%d/%m/%Y"), as_date("24/10/2020",format="%d/%m/%Y"),
+                        5, "Lockdown 2",           as_date("05/11/2020",format="%d/%m/%Y"), as_date("02/12/2020",format="%d/%m/%Y"),
+                        6, "Lockdown 2 easing",    as_date("03/12/2020",format="%d/%m/%Y"), as_date("19/12/2020",format="%d/%m/%Y"),
+                        7, "Lockdown 3",           as_date("05/01/2021",format="%d/%m/%Y"), as_date("07/03/2021",format="%d/%m/%Y"),
+                        8, "Lockdown 3 + schools", as_date("08/03/2021",format="%d/%m/%Y"), as_date("31/03/2021",format="%d/%m/%Y"),
+                        9, "Step 2 + schools",     as_date("16/04/2021",format="%d/%m/%Y"), as_date("16/05/2021",format="%d/%m/%Y"))
+
+#Load contact data
+contacts_polymod <- 
+  read.csv(here("data","2008_Mossong_POLYMOD_contact_common.csv")) %>% 
+  pivot_longer.(cols=c(cnt_home,cnt_school,cnt_work,cnt_transport,cnt_leisure,cnt_otherplace)) %>% 
+  filter(value) %>% 
+  select.(-value) %>% 
+  count.(name,part_id) %>% 
+  pivot_wider(names_from = name,values_from = N) %>% 
+  mutate(e_home=cnt_home,
+    e_other=rowSums(across(c(cnt_work,cnt_school,cnt_transport,cnt_leisure,cnt_otherplace)),na.rm = T)) %>% 
+  select.(part_id,e_home,e_other) %>% 
+  complete(part_id=full_seq(part_id,1),fill=list(e_home=0,e_other=0)) %>% 
+  mutate(date=as_date("01/01/2008",format="%d/%m/%Y"))
+
+contacts_bbc_o18 <-
+  read.csv(here("2020-cov-tracing", "data", "contact_distributions_o18.csv")) 
+
+contacts_bbc_u18 <-
+  read.csv(here("2020-cov-tracing", "data", "contact_distributions_u18.csv")) 
+
+contacts_bbc <- bind_rows(contacts_bbc_o18, contacts_bbc_u18) %>%
+  mutate(date=as_date("01/09/2017",format="%d/%m/%Y"),
+         e_school=0)
+
+contacts_comix_o18 <-
+  read.csv(here("data", "comix_contact_distributions_o18.csv")) %>%
+  mutate(
+    date = as_date(date),
+    age="adults"
+  )
+
+contacts_comix_u18 <-
+  read.csv(here("data", "comix_contact_distributions_u18.csv")) %>%
+  mutate(
+    date = as_date(date),
+    age="children"
+  )
+
+contacts_comix <- bind_rows(contacts_comix_o18, contacts_comix_u18)
+
+#summarise number of contacts
+contact_data <- contacts_comix %>% 
+  bind_rows(contacts_bbc)%>% 
+  mutate(e_other=rowSums(across(c(e_work,e_school,e_other)),na.rm = T)) %>% 
+  select(date,e_home,e_other) %>% 
+  bind_rows(contacts_polymod) %>% 
+  mutate(e_all = rowSums(across(c(e_home,e_other)),na.rm = T),
+         date=as_date(date))%>% 
+  fuzzy_inner_join(time_periods,
+                   by=c("date"="date_start","date"="date_end"),
+                   match_fun=list(`>=`,`<=`))
+
+prop_n <- function(df, threshold=10, col=e_all, op=">="){
+  df %>% 
+    summarise(n=n(),
+              s = sum(match.fun(op)({{col}},{{threshold}})),
+              "prop_{{threshold}}":= s/n) %>% 
+    rename("n_{{threshold}}":= s)
+}
+
 # # McAloon et al. incubation period meta-analysis
 #https://bmjopen.bmj.com/content/10/8/e039652
 inc_parms <- list(mu_inc = 1.63,
                   sigma_inc = 0.5)
-
-#### LIVERPOOL INNOVA ANALYSIS ----
-innova_liv <- tribble(~left,~right,~pos,~neg,
-                      30,35,1,18,
-                      25,30,3,9,
-                      20,25,18,5,
-                      15,20,17,2) %>% 
-  pivot_longer(c(pos,neg))  
-
-# random sample from binned intervals 
-innova_liv_sim <- innova_liv %>% 
-  group_by(left,right,name) %>% 
-  uncount(value) %>% 
-  ungroup() %>% 
-  mutate(id=row_number()) %>% 
-  crossing(sim=c(1:100)) %>% 
-  mutate(ct=runif(n=n(),min = left,max=right),
-         Innova=as.numeric(as.factor(name))-1)
-
-liv_mod <- glm(Innova~ct,data=innova_liv_sim,family="binomial") 
 
 ##### KCL ANALYSIS ----
 pickering <- readxl::read_xlsx(here("data","pickering_dat.xlsx")) %>% 
@@ -125,7 +178,7 @@ make_trajectories <- function(n_cases=100, n_sims=100, seed=1000,asymp_parms=asy
                            #variant=="delta"&name=="end"~0.71*y,
                            TRUE~clear),
            end=peak+clear,
-           onset_t=peak+rnormTrunc(n=n(),mean = 1,sd=1.5,min=0,max=end)
+           onset_t=peak+rnormTrunc(n=n(),mean = 2,sd=0.5,min=0,max=end)
            
            #onset_t=qlnormTrunc(p = u,
            #                            meanlog=1.63,
@@ -288,46 +341,21 @@ inf_and_test <- function(traj,sampling_freq=c(NA,3)){
     select.(-data)
 } 
 
+sample_contacts <- function(time_period){
+  sample(contact_data %>% filter(period==time_period) %>% pull(e_home),size=1)
+}
+
 sec_case_gen <- function(df){
-  #browser()
   
   message(sprintf("\n%s", Sys.time()))
-  
-  tic()
+
   df1 <- df %>%
     mutate.(self_iso_symp=ifelse(type=="symptomatic",rbinom(n=n(),size=1,prob=prop_self_iso_symp),0),
             self_iso_test=rbinom(n=n(),size=1,prob=prop_self_iso_test),
             test_t = ifelse(self_iso_test==0,Inf,test_t)) %>% 
     #select.(-u) %>%
-    crossing(time_period = factor(
-      c("pre", "aug_sept", "jan_feb"),
-      ordered = T,
-      levels = c("pre", "aug_sept", "jan_feb")
-    )) %>%
-    mutate.(
-      contacts_repeated = case_when.(
-        time_period == "pre" ~ sample(
-          contact_data %>%
-            filter(time_period == "pre") %>%
-            pull(e_home),
-          size = n(),
-          replace = T
-        ),
-        time_period == "aug_sept" ~ sample(
-          contact_data %>%
-            filter(time_period == "aug_sept") %>%
-            pull(e_home),
-          size = n(),
-          replace = T
-        ),
-        time_period == "jan_feb" ~ sample(
-          contact_data %>%
-            filter(time_period == "jan_feb") %>%
-            pull(e_home),
-          size = n(),
-          replace = T
-        )
-      ),
+    mutate.(.by=time_period,
+      contacts_repeated = sample(contact_data$e_home[contact_data$period==time_period],size=n(),replace=T),
       trunc_t=case_when.(
         # if symptomatic, adhering to self isolation, and either not tested or test neg,
         # truncate at onset
@@ -343,37 +371,17 @@ sec_case_gen <- function(df){
     mutate.(data=pmap(.l=list(x=infectiousness,
                               contacts_repeated=contacts_repeated),.f=rep_contacts_inf)) %>% 
     unnest.(data) %>% 
-    mutate.(
-      contacts_casual = case_when.(
-        t>=trunc_t  ~ 0L,
-        time_period == "pre" ~ sample(
-          contact_data %>%
-            filter(time_period == "pre") %>%
-            pull(e_other),
-          size = n(),
-          replace = T
-        ),
-        time_period == "aug_sept" ~ sample(
-          contact_data %>%
-            filter(time_period == "aug_sept") %>%
-            pull(e_other),
-          size = n(),
-          replace = T
-        ),
-        time_period == "jan_feb" ~ sample(
-          contact_data %>%
-            filter(time_period == "jan_feb") %>%
-            pull(e_other),
-          size = n(),
-          replace = T
-        )
-      )
-    ) %>%
+    mutate.(.by=time_period,
+      contacts_casual = sample(contact_data$e_other[contact_data$period==time_period],size=n(),replace=T)) %>%
+    mutate.(contacts_casual=ifelse(t>=trunc_t,0L, contacts_casual)) %>% 
     uncount.(contacts_casual) %>% 
     mutate.(nhh_duration=sample(contacts_nhh_duration,size=n(),replace=T),
       n_casual_infected = rbernoulli(n=n(),p = culture*nhh_duration)) %>%
     summarise.(.by=c(sim,
                        idx,
+                       t,
+                       ct,
+                       onset_t,
                        type,
                        variant,
                        time_period,
