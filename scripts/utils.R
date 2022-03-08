@@ -1,5 +1,33 @@
 # Load required packages scripts
-pacman::p_load("fitdistrplus","EnvStats","tidyverse","patchwork","here","rriskDistributions","dtplyr","rms","DescTools","MESS","lubridate","lemon","boot","furrr","dtplyr","data.table","tidytable","ggtext","fst","extraDistr","emdbook","colorspace")
+pacman::p_load(
+  "fitdistrplus",
+  "EnvStats",
+  "tidyverse",
+  "patchwork",
+  "here",
+  "rriskDistributions",
+  "dtplyr",
+  "rms",
+  "DescTools",
+  "MESS",
+  "lubridate",
+  "lemon",
+  "boot",
+  "furrr",
+  "dtplyr",
+  "data.table",
+  "tidytable",
+  "ggtext",
+  "fst",
+  "extraDistr",
+  "emdbook",
+  "colorspace",
+  "fuzzyjoin",
+  "qs",
+  "ggpubr",
+  "bench",
+  "tictoc"
+)
 
 seed <- 1000
 
@@ -69,6 +97,7 @@ convert_Ct_logGEML <- function(Ct, m_conv=-3.609714286, b_conv=40.93733333){
 }
 
 covid_pal <- c("#e66101", "#5e3c99", "#0571b0")
+
 `%!in%` = Negate(`%in%`)
 
 plotting_theme <- theme_minimal()+
@@ -93,19 +122,20 @@ time_periods <- tribble(~idx,~period,~date_start,~date_end,
                         6, "Lockdown 2 easing",    as_date("03/12/2020",format="%d/%m/%Y"), as_date("19/12/2020",format="%d/%m/%Y"),
                         7, "Lockdown 3",           as_date("05/01/2021",format="%d/%m/%Y"), as_date("07/03/2021",format="%d/%m/%Y"),
                         8, "Lockdown 3 + schools", as_date("08/03/2021",format="%d/%m/%Y"), as_date("31/03/2021",format="%d/%m/%Y"),
-                        9, "Step 2 + schools",     as_date("16/04/2021",format="%d/%m/%Y"), as_date("16/05/2021",format="%d/%m/%Y"))
+                        9, "Step 2 + schools",     as_date("16/04/2021",format="%d/%m/%Y"), as_date("16/05/2021",format="%d/%m/%Y")) %>% 
+  mutate(period=factor(period,levels = period))
 
 #Load contact data
 contacts_polymod <- 
   read.csv(here("data","2008_Mossong_POLYMOD_contact_common.csv")) %>% 
-  pivot_longer.(cols=c(cnt_home,cnt_school,cnt_work,cnt_transport,cnt_leisure,cnt_otherplace)) %>% 
+  pivot_longer(cols=c(cnt_home,cnt_school,cnt_work,cnt_transport,cnt_leisure,cnt_otherplace)) %>% 
   filter(value) %>% 
-  select.(-value) %>% 
-  count.(name,part_id) %>% 
-  pivot_wider(names_from = name,values_from = N) %>% 
+  select(-value) %>% 
+  count(name,part_id) %>% 
+  pivot_wider(names_from = name,values_from = n) %>% 
   mutate(e_home=cnt_home,
-    e_other=rowSums(across(c(cnt_work,cnt_school,cnt_transport,cnt_leisure,cnt_otherplace)),na.rm = T)) %>% 
-  select.(part_id,e_home,e_other) %>% 
+    e_other=rowSums(across(c(cnt_work,cnt_school,cnt_transport,cnt_leisure,cnt_otherplace)),na.rm=T)) %>% 
+  select(part_id,e_home,e_other) %>% 
   complete(part_id=full_seq(part_id,1),fill=list(e_home=0,e_other=0)) %>% 
   mutate(date=as_date("01/01/2008",format="%d/%m/%Y"))
 
@@ -143,7 +173,7 @@ contact_data <- contacts_comix %>%
   bind_rows(contacts_polymod) %>% 
   mutate(e_all = rowSums(across(c(e_home,e_other)),na.rm = T),
          date=as_date(date))%>% 
-  fuzzy_inner_join(time_periods,
+  fuzzyjoin::fuzzy_inner_join(time_periods,
                    by=c("date"="date_start","date"="date_end"),
                    match_fun=list(`>=`,`<=`))
 
