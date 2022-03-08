@@ -1,3 +1,6 @@
 [submodule "2020-cov-tracing"]
 	path = 2020-cov-tracing
 	url = https://github.com/adamkucharski/2020-cov-tracing
+[submodule "CtTrajectories_B117"]
+	path = CtTrajectories_B117
+	url = https://github.com/skissler/CtTrajectories_B117

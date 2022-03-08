@@ -93,63 +93,45 @@ contact_data %>%
 
 ggsave("results/contacts.png",width=12,height=7,units="in",dpi=400,scale=0.8)
 
-traj <- make_trajectories(n_cases = 500, n_sims = 200,variant="delta")
 
-inf_and_test <- function(traj,sampling_freq=c(NA,3)){
-  #browser()
-  
-  message(sprintf("\n%s == SCENARIO %d ======", Sys.time(), traj$sim[1]))
-  
-  traj %>% as.data.frame() %>% 
-  mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m,start=start,end=end)))  %>% 
-  unnest_wider(infectiousness) %>% 
-  ungroup() %>%
-  mutate.(norm_sum = (sum_inf - min(sum_inf)) / (max(sum_inf) - min(sum_inf))) %>% 
-  #testing
-  crossing(sampling_freq = sampling_freq) %>% 
-  mutate.(test_times = pmap(
-    .f = test_times,
-    list(
-      sampling_freq = sampling_freq,
-      onset_t = onset_t,
-      type = type
-    )
-  )) %>%
-  unnest.(test_times,.drop=F) %>%
-  mutate.(
-    ct = pmap_dbl(.f = calc_sensitivity, list(model = m, x = test_t)),
-    test_p = stats::predict(innova_mod, type = "response", newdata = data.frame(ct = ct)),
-    test_label = detector(test_p = test_p,  u = runif(n = n(), 0, 1))
+#Make VL trajectories from variant characteristics and asymptomatic fraction
+traj <- variant_char %>% 
+  filter.(variant%in%c("omicron")) %>% 
+  group_split.(variant) %>% 
+  map.(~make_trajectories(n_sims = 10000,asymp_parms=asymp_fraction,variant_info=.x)) %>% 
+  bind_rows.()
+
+#Calculate daily infectiousness and test positivity, remove never-infectious
+traj_ <- traj %>%
+  mutate.(infectiousness = pmap(inf_curve_func, .l = list(
+    m = m, start = start, end = ceiling(max(end)+5)
+  )))  %>%
+  unnest.(infectiousness) %>%
+  crossing(
+    lower_inf_thresh = c(TRUE, FALSE)
   ) %>%
-  nest(ct, test_t, test_no, test_p, test_label) %>%
-  mutate.(earliest_positive = map(.f = earliest_pos, .x = data)) %>%
-  unnest.(earliest_positive,.drop=F) %>%
-  select.(-data)
-} 
-
-if(file.exists("results_inf_curve.fst")){
-  
-  traj_ <- read.fst("results_inf_curve.fst")
-  
-}else{
-traj_ <- traj %>% 
-  arrange(sim) %>% 
-  group_split.(sim) %>% 
-  map.(.f=inf_and_test) %>% 
-  flatten() %>% 
-  bind_rows.() #%>% 
-#crossing(prop_self_iso_symp = c(0,0.25,0.5,0.75,1),
-#            prop_self_iso_test = c(1)) 
-
-fst::write.fst(traj_,"results_inf_curve.fst")
-}
-
-sec_case_gen <- function(df){
-  
-  message(sprintf("\n%s", Sys.time()))
+  mutate.(
+    culture_p        = stats::predict(
+      object = inf_model_choice(lower_inf_thresh),
+      type = "response",
+      newdata = tidytable(vl = vl)
+    ),
+    infectious_label = rbernoulli(n = n(),
+                                  p = culture_p),
+    test_p           = stats::predict(
+      object =  innova_mod,
+      type = "response",
+      newdata = tidytable(vl = vl)
+    ),
+    test_label       = rbernoulli(n = n(),
+                                  p = test_p),
+    .by = c(lower_inf_thresh)
+  ) %>%
+  replace_na.(list(test_label       = FALSE,
+                   infectious_label = FALSE))
   
   df %>%
-  mutate.(self_iso_symp=ifelse(type=="symptomatic",rbinom(n=n(),size=1,prob=prop_self_iso_symp),0),
+  mutate.(self_iso_symp=ifelse(asymptomatic,rbinom(n=n(),size=1,prob=prop_self_iso_symp),0),
             self_iso_test=rbinom(n=n(),size=1,prob=prop_self_iso_test),
             test_t = ifelse(self_iso_test==0,Inf,test_t)) %>% 
   select.(-u) %>%
@@ -182,7 +164,7 @@ sec_case_gen <- function(df){
         replace = T
       )
     ),
-    contacts_repeated_work_school = case_when(
+    contacts_repeated_work_school = case_when.(
       time_period == "pre" ~ sample(
         contact_data %>%
           filter(time_period == "pre") %>%
@@ -224,9 +206,14 @@ sec_case_gen <- function(df){
     contacts_repeated   = contacts_repeated_home + contacts_repeated_work_school,
     n_repeated_infected = rbinom(n = n(), 
                                       size = contacts_repeated, 
-                                      prob = norm_sum)) %>%
+                                      prob = norm_sum))
+  
+sec_case_gen <- function(df){
+    
+  message(sprintf("\n%s", Sys.time()))
+  
+  df %>%
   #Daily casual contacts
-  unnest.(infectiousness) %>%
   mutate.(norm_daily = (culture / sum_inf) * norm_sum) %>%
   mutate.(
     contacts_casual = case_when.(
