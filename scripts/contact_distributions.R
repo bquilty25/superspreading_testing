@@ -11,6 +11,9 @@ contact_data_dists <- contact_data %>%
          boot_dist=map.(.x=dists, ~bootdist(f =.,bootmethod = "nonparam",parallel="snow",ncpus=4)$CI %>% 
                           as.data.frame() %>% 
                           rownames_to_column))
+
+qs::qsave(contact_data_dists,"results/contact_dat_params.qs")
+
 toc()
 } else {
   contact_data_dists <- qs::qread("results/contact_dat_params.qs")
@@ -20,6 +23,13 @@ toc()
          #params=map.(dists,~c(mu=.x$estimate[[2]],k=.x$estimate[[1]]))
          #) %>% 
   #unnest_wider(params) 
+
+contact_data_dists %>% unnest(boot_dist) %>% 
+  ggplot(aes(x=period,y=Median))+
+  geom_pointrange(aes(,ymin=`2.5%`,ymax=`97.5%`,colour=name))+
+  geom_line(aes(group=name,colour=name))+
+  scale_y_log10()+
+  facet_rep_wrap(~rowname,scales="free_y")
 
 contact_data %>% 
   pivot_longer(c(e_all,e_home,e_other)) %>% 
@@ -31,8 +41,8 @@ contact_data %>%
              y = ..prop..,
              group = 1))+
   geom_bar(width = 0.8)+
-  geom_label(data = contact_data_dists,
-             aes(label=paste0("Mean = ", sprintf("%.2f",mu),"\nk = ",sprintf("%.2f",k)),
+  geom_label(data = contact_data_dists %>% unnest(boot_dist) %>% select(-c(`2.5%`,`97.5%`)) %>% pivot_wider(values_from = Median,names_from = rowname),
+             aes(label=paste0("Mean = ", sprintf("%.2f",mu),"\nk = ",sprintf("%.2f",size)),
                  x="\u2265 20",
                  y=0.7),
              colour = "white",

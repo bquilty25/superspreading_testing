@@ -26,7 +26,8 @@ pacman::p_load(
   "qs",
   "ggpubr",
   "bench",
-  "tictoc"
+  "tictoc",
+  "naniar"
 )
 
 seed <- 1000
@@ -89,7 +90,8 @@ hay_dat_est <- hay_dat_means %>%
   left_join(hay_dat_sd) %>% 
   pivot_wider(names_from=param,values_from = c(mean,sd))
 
-vl_params <- bind_rows(kissler_dat_est,hay_dat_est)
+vl_params <- bind_rows(kissler_dat_est,hay_dat_est) %>% 
+  mutate(variant=as_factor(variant))
 
 convert_Ct_logGEML <- function(Ct, m_conv=-3.609714286, b_conv=40.93733333){
   out <- (Ct-b_conv)/m_conv * log10(10) + log10(250)
@@ -185,27 +187,6 @@ prop_n <- function(df, threshold=10, col=e_all, op=">="){
     rename("n_{{threshold}}":= s)
 }
 
-# # McAloon et al. incubation period meta-analysis
-#https://bmjopen.bmj.com/content/10/8/e039652
-inc_parms <- list(mu_inc = 1.63,
-                  sigma_inc = 0.5)
-
-##### KCL ANALYSIS ----
-pickering <- readxl::read_xlsx(here("data","pickering_dat.xlsx")) %>% 
-  select(-c(`Viral Growth`,...7,...8)) %>% 
-  rename("culture"=...6) %>% 
-  mutate_at(.vars=vars(`SureScreen F`,Innova,Encode),
-            .funs = function(x)ifelse(x=="ND",NA,x)) %>% 
-  mutate_at(.vars=vars(`SureScreen F`,Innova,Encode),
-            .funs = function(x)case_when(x%in%c(0.5,1,2)~1,
-                                         is.na(x)~NA_real_,
-                                         TRUE~0)) %>% 
-  mutate(id=row_number()) %>% 
-  rename(ct=`Ct N1`)
-
-innova_mod <- glm(Innova~ct,data=pickering,family="binomial") 
-culture_mod <- glm(culture~ct,data=pickering,family="binomial") 
-
 # https://www.medrxiv.org/content/10.1101/2020.04.25.20079103v3
 asymp_fraction <- rriskDistributions::get.beta.par(
   q = c(0.24,  0.38),
@@ -274,7 +255,7 @@ inf_model_choice <- function(boolean){
 }
 
 make_trajectories <- function(
-    n_cases = 100, n_sims = 100,
+    n_sims = 100,
     asymp_parms = asymp_fraction,
     variant_info, browsing = FALSE
 ){
@@ -296,7 +277,7 @@ make_trajectories <- function(
 
   traj <- inf %>% 
     crossing.(start=0) %>% 
-    crossing.(vl_params) %>% 
+    crossing(variant_info) %>% 
     mutate.(prolif=round(rnormTrunc(n=n(),mean=mean_prolif,sd=sd_prolif,min = 0.25,max=14)),
             clear=round(rnormTrunc(n=n(), mean=mean_clear, sd=sd_clear, min = 2,max=30)),
             # prolif=ifelse(asymptomatic,prolif*0.8,prolif),
@@ -305,7 +286,7 @@ make_trajectories <- function(
             onset_t=prolif+rnormTrunc(n=n(),mean = 2,sd=1.5,min=0,max=end)
     ) %>%
     select.(-c(mean_prolif, sd_prolif, mean_clear, sd_clear,clear)) %>%
-    pivot_longer.(cols = -c(sim,variant,#,onset_t
+    pivot_longer.(cols = -c(sim,variant,onset_t,
                             mean_peakvl,sd_peakvl),
                   values_to = "x") %>%
     mutate.(y=case_when(name=="start" ~ 40,#convert_Ct_logGEML(40),
@@ -337,8 +318,8 @@ make_trajectories <- function(
 inf_curve_func <- function(m,start=0,end=30,trunc_t){
   #browser()
   x <- data.frame(t=seq(start,end,by=1)) %>% 
-    mutate(u=runif(n=n(),0,1))%>%
-    mutate.(vl=m(t))
+    mutate.(ct=m(t),
+            vl=convert_Ct_logGEML(ct))
   
   return(infectiousness=x)
 }
