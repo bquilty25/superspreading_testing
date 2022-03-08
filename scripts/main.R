@@ -4,8 +4,9 @@ source("scripts/duration.R")
 
 
 #Make VL trajectories from variant characteristics and asymptomatic fraction
-traj <- variant_char %>% 
-  filter.(variant%in%c("omicron")) %>% 
+traj <- vl_params %>% 
+  filter.(variant%in%c("wild")) %>%
+  mutate.(variant=fct_drop(variant)) %>% 
   group_split.(variant) %>% 
   map.(~make_trajectories(n_sims = 10000,asymp_parms=asymp_fraction,variant_info=.x)) %>% 
   bind_rows.()
@@ -13,7 +14,7 @@ traj <- variant_char %>%
 #Calculate daily infectiousness and test positivity, remove never-infectious
 traj_ <- traj %>%
   mutate.(infectiousness = pmap(inf_curve_func, .l = list(
-    m = m, start = start, end = ceiling(max(end)+5)
+    m = m, start = start, end = ceiling(max(end))
   )))  %>%
   unnest.(infectiousness) %>%
   crossing(
@@ -38,30 +39,8 @@ traj_ <- traj %>%
   ) %>%
   replace_na.(list(test_label       = FALSE,
                    infectious_label = FALSE))
-if(file.exists("processing/results_traj.qs")){
-  
-  traj_ <- qs::qread("processing/results_traj.qs")
-  
-  } else {
-    
-  traj <- make_trajectories(n_cases = 500, n_sims = 200,variant=c("wild"))
-  
-  traj_ <- traj %>% 
-    arrange(sim) %>% 
-    group_split.(sim) %>% 
-    map.(.f=inf_and_test,sampling_freq=c(NA,3)) %>% 
-    bind_rows.() 
-
-qs::qsave(traj_,"processing/results_traj.qs")
-
-}
-
-if(file.exists("processing/results_ss.qs")){
-  res <- qs::qread("processing/results_ss.qs") 
-  } else {
     
 res <- traj_ %>%
-  filter(variant=="wild") %>% 
 right_join.(tribble(~sampling_freq,~prop_self_iso_test, ~prop_self_iso_symp,
                     NA,  1, 1,
                     NA,  1, 0.5,
@@ -73,9 +52,27 @@ group_split.(variant,sampling_freq,prop_self_iso_symp,prop_self_iso_test,time_pe
 map(~sec_case_gen(.x)) %>% 
 bind_rows.()
 
- qs::qsave(res, "processing/results_ss.qs")
- 
-}
+# for each individual, sample:
+# - self isolating y/n
+# - n contacts repeated (home)
+scenarios <- tribble(~sampling_freq,~prop_self_iso_test, ~prop_self_iso_symp,
+        NA,  1, 1,
+        NA,  1, 0.5,
+        #3, 0.5, 0.5,
+        3, 0.5, 1,
+        3,   1, 1)
+
+res <- crossing(traj,scenarios)
+
+res %>%
+  mutate.(
+    begin_testing = rdunif(n(),0, sampling_freq),
+    self_iso_test=rbernoulli(n=1, prop_self_iso_test),
+    self_iso_symp=rbernoulli(n=1, prop_self_iso_symp)) %>% 
+  crossing(time_period=c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+    mutate.(contacts_repeated = sample(contact_data$e_home[contact_data$period==time_period],size=n(),replace=T))
+
+res %<>% 
 
 sum_res <- res %>%
   summarise.(.by = c(sim,
