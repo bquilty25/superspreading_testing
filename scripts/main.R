@@ -90,7 +90,7 @@ repeated_infections <- traj_scenarios_joined %>%
           infected    = rbernoulli(n(),p=culture_p*hh_duration)) %>% 
   filter.(infected==T) %>% 
   slice.(min(t), .by=c(sim,variant,scenario_id,period,lower_inf_thresh,repeated_contacts,id)) %>% 
-  count.(sim,variant,scenario_id,period,lower_inf_thresh,t,repeated_contacts,name = "repeated_infected") 
+  count.(sim,variant,scenario_id,period,lower_inf_thresh,t,repeated_contacts,name = "repeated_infected")
 
 #calculate casual infections
 casual_infections <- traj_scenarios_joined %>% 
@@ -99,13 +99,17 @@ casual_infections <- traj_scenarios_joined %>%
   uncount.(casual_contacts,.remove=F) %>% 
   mutate.(nhh_duration=sample(contacts_nhh_duration,size=n(),replace=T),
           infected = rbernoulli(n=n(),p = culture_p*nhh_duration)) %>% 
-  filter.(infected==T) %>% 
-  count.(t,sim,variant,scenario_id,period,lower_inf_thresh,casual_contacts, name = "casual_infected") 
+  #filter.(infected==T) %>% 
+  count.(t,sim,variant,scenario_id,period,lower_inf_thresh,infected) %>% 
+  pivot_wider.(values_from=N,names_from=infected,values_fill = 0) %>% 
+  mutate.(casual_contacts=`FALSE`+`TRUE`) %>% 
+  select.(everything(),"casual_infected"=`TRUE`,-`FALSE`)
 
 processed_traj <- traj_scenarios_joined %>% 
   left_join.(casual_infections) %>% 
   left_join.(repeated_infections) %>% 
-  replace_na.(list(repeated_infected=0,casual_infected=0))
+  replace_na.(list(repeated_infected=0,casual_infected=0,casual_contacts=0)) %>% 
+  arrange.(period,lower_inf_thresh)
   
 
 
