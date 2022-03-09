@@ -474,24 +474,20 @@ sec_case_gen <- function(df){
 
 }
 
-rep_contacts_inf <- function(x,contacts_repeated){
+rep_contacts_inf <- function(x){
   #browser()
   
-  #repeated contacts
-  # initial values at t=0
-
-  infected <- c()
-  infected[1] <- 0
-
-  #chance of infecting repeated contacts on a given day is binomial w/o replacement
+  #for each day, uncount contacts remaining and 
   
-  for(i in 2:nrow(x)){
-    infected[i] <- infected[i-1] + rbinom(1,prob=x$culture[i],size=contacts_repeated-infected[i-1])
-  }
+  x %>% 
+     uncount.(contacts_repeated,.id="id") %>% 
+     mutate.(hh_duration=sample(contacts_hh_duration,size=n(),replace=T),
+             infected=rbernoulli(n(),
+                                 p=culture_p*hh_duration)) %>% 
+    filter.(infected,.by=id) %>% 
+    slice.(min(t),.by=id) %>% 
+    count.(t)
   
-  x$n_repeated_infected <- c(infected[1],diff(infected))
-  
- return(x)
 }
 
 hush=function(code){
