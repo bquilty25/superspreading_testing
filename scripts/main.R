@@ -14,10 +14,10 @@ traj <- vl_params %>%
 #Calculate daily infectiousness and test positivity, remove never-infectious
 traj_ <- traj %>%
   mutate.(infectiousness = pmap(inf_curve_func, .l = list(
-    m = m, start = start, end = ceiling(max(end))
+    m = m, start = start, end = ceiling(end)
   )))  %>%
   unnest.(infectiousness) %>%
-  crossing(
+  crossing.(
     lower_inf_thresh = c(TRUE, FALSE)
   ) %>%
   mutate.(
@@ -26,53 +26,92 @@ traj_ <- traj %>%
       type = "response",
       newdata = tidytable(vl = vl)
     ),
-    infectious_label = rbernoulli(n = n(),
+    infectious = rbernoulli(n = n(),
                                   p = culture_p),
     test_p           = stats::predict(
       object =  innova_mod,
       type = "response",
       newdata = tidytable(vl = vl)
     ),
-    test_label       = rbernoulli(n = n(),
+    test       = rbernoulli(n = n(),
                                   p = test_p),
     .by = c(lower_inf_thresh)
   ) %>%
-  replace_na.(list(test_label       = FALSE,
-                   infectious_label = FALSE))
+  replace_na.(list(test       = FALSE,
+                   infectious = FALSE)) %>% 
+  select.(-c(prolif, start, end))
     
-res <- traj_ %>%
-right_join.(tribble(~sampling_freq,~prop_self_iso_test, ~prop_self_iso_symp,
-                    NA,  1, 1,
-                    NA,  1, 0.5,
-                    #3, 0.5, 0.5,
-                    3, 0.5, 1,
-                    3,   1, 1)) %>% 
-  crossing(time_period=c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
-group_split.(variant,sampling_freq,prop_self_iso_symp,prop_self_iso_test,time_period) %>% 
-map(~sec_case_gen(.x)) %>% 
-bind_rows.()
+# res <- traj_ %>%
+# right_join.(tribble(~sampling_freq,~prop_self_iso_test, ~prop_self_iso_symp,
+#                     NA,  1, 1,
+#                     NA,  1, 0.5,
+#                     #3, 0.5, 0.5,
+#                     3, 0.5, 1,
+#                     3,   1, 1)) %>% 
+#   crossing(time_period=c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+# group_split.(variant,sampling_freq,prop_self_iso_symp,prop_self_iso_test,time_period) %>% 
+# map(~sec_case_gen(.x)) %>% 
+# bind_rows.()
 
 # for each individual, sample:
 # - self isolating y/n
 # - n contacts repeated (home)
-scenarios <- tribble(~sampling_freq,~prop_self_iso_test, ~prop_self_iso_symp,
-        NA,  1, 1,
-        NA,  1, 0.5,
-        #3, 0.5, 0.5,
-        3, 0.5, 1,
-        3,   1, 1)
+# scenarios <- tribble(~sampling_freq,~prop_self_iso_test, ~prop_self_iso_symp,
+#         NA,  1, 1,
+#         NA,  1, 0.5,
+#         #3, 0.5, 0.5,
+#         3, 0.5, 1,
+#         3,   1, 1) %>% 
+  scenarios <- crossing(time_periods) %>% 
+  filter(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+  mutate(scenario_id=row_number()) %>% 
+  select(-c(date_start,date_end))
 
-res <- crossing(traj,scenarios)
-
-res %>%
+traj_scenarios <- crossing(traj,
+                 scenarios) %>% 
+  # mutate.(
+  #   begin_testing = rdunif(n(), 0, sampling_freq),
+  #   self_iso_test = rbernoulli(n(), prop_self_iso_test),
+  #   self_iso_symp = rbernoulli(n(), prop_self_iso_symp)) %>% 
   mutate.(
-    begin_testing = rdunif(n(),0, sampling_freq),
-    self_iso_test=rbernoulli(n=1, prop_self_iso_test),
-    self_iso_symp=rbernoulli(n=1, prop_self_iso_symp)) %>% 
-  crossing(time_period=c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
-    mutate.(contacts_repeated = sample(contact_data$e_home[contact_data$period==time_period],size=n(),replace=T))
+    repeated_contacts = sample(contact_data$e_home[contact_data$period==period],
+                                     size=n(),
+                                     replace=T),.by=c(period))
 
-res %<>% 
+#calculate repeated infections
+traj_scenarios_joined <- traj_ %>% 
+  left_join.(traj_scenarios)  
+
+
+#TO DO: ensure counts of repeae
+repeated_infections <- traj_scenarios_joined %>% 
+  uncount.(repeated_contacts,.id="id",.remove = F) %>% 
+  mutate.(hh_duration = sample(contacts_hh_duration,size=n(),replace=T),
+          infected    = rbernoulli(n(),p=culture_p*hh_duration)) %>% 
+  filter.(infected==T) %>% 
+  slice.(min(t), .by=c(sim,variant,scenario_id,period,lower_inf_thresh,repeated_contacts,id)) %>% 
+  count.(sim,variant,scenario_id,period,lower_inf_thresh,t,repeated_contacts,name = "repeated_infected") 
+
+#calculate casual infections
+casual_infections <- traj_scenarios_joined %>% 
+  mutate.(casual_contacts = sample(contact_data$e_other[contact_data$period==period],size=n(),replace=T),.by=period) %>%
+  #mutate.(contacts_casual=ifelse(t>=trunc_t,0L, contacts_casual)) %>% 
+  uncount.(casual_contacts,.remove=F) %>% 
+  mutate.(nhh_duration=sample(contacts_nhh_duration,size=n(),replace=T),
+          infected = rbernoulli(n=n(),p = culture_p*nhh_duration)) %>% 
+  filter.(infected==T) %>% 
+  count.(t,sim,variant,scenario_id,period,lower_inf_thresh,casual_contacts, name = "casual_infected") 
+
+processed_traj <- traj_scenarios_joined %>% 
+  left_join.(casual_infections) %>% 
+  left_join.(repeated_infections) %>% 
+  replace_na.(list(repeated_infected=0,casual_infected=0))
+  
+
+
+traj_[t>=begin_testing, 
+      start_iso := fifelse(any(test_label), t[which.max(test_label)], Inf),
+      by=c(sim)]
 
 sum_res <- res %>%
   summarise.(.by = c(sim,
