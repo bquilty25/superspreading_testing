@@ -7,18 +7,19 @@ source("scripts/duration.R")
 traj <- vl_params %>% 
   filter.(variant%in%c("wild")) %>%
   mutate.(variant=fct_drop(variant)) %>% 
-  group_split.(variant) %>% 
-  map.(~make_trajectories(n_sims = 10000,asymp_parms=asymp_fraction,variant_info=.x)) %>% 
+  crossing(heterogen_vl=c(TRUE,FALSE)) %>% 
+  group_split.(variant,heterogen_vl) %>% 
+  map.(~make_trajectories(n_sims = 10000,asymp_parms=asymp_fraction,variant_info=.x,browsing=F)) %>% 
   bind_rows.()
 
 #Calculate daily infectiousness and test positivity, remove never-infectious
 traj_ <- traj %>%
   mutate.(infectiousness = pmap(inf_curve_func, .l = list(
-    m = m, start = start, end = ceiling(end)
+    m = m, start = start, end = end
   )))  %>%
   unnest.(infectiousness) %>%
   crossing.(
-    lower_inf_thresh = c(TRUE, FALSE)
+    lower_inf_thresh = c(FALSE)
   ) %>%
   mutate.(
     culture_p        = stats::predict(
@@ -41,76 +42,97 @@ traj_ <- traj %>%
                    infectious = FALSE)) %>% 
   select.(-c(prolif, start, end))
     
-# res <- traj_ %>%
-# right_join.(tribble(~sampling_freq,~prop_self_iso_test, ~prop_self_iso_symp,
-#                     NA,  1, 1,
-#                     NA,  1, 0.5,
-#                     #3, 0.5, 0.5,
-#                     3, 0.5, 1,
-#                     3,   1, 1)) %>% 
-#   crossing(time_period=c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
-# group_split.(variant,sampling_freq,prop_self_iso_symp,prop_self_iso_test,time_period) %>% 
-# map(~sec_case_gen(.x)) %>% 
-# bind_rows.()
-
-# for each individual, sample:
-# - self isolating y/n
-# - n contacts repeated (home)
-# scenarios <- tribble(~sampling_freq,~prop_self_iso_test, ~prop_self_iso_symp,
-#         NA,  1, 1,
-#         NA,  1, 0.5,
-#         #3, 0.5, 0.5,
-#         3, 0.5, 1,
-#         3,   1, 1) %>% 
-  scenarios <- crossing(time_periods) %>% 
+scenarios <- crossing(time_periods) %>% 
   filter(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
   mutate(scenario_id=row_number()) %>% 
   select(-c(date_start,date_end))
 
 traj_scenarios <- crossing(traj,
-                 scenarios) %>% 
-  # mutate.(
-  #   begin_testing = rdunif(n(), 0, sampling_freq),
-  #   self_iso_test = rbernoulli(n(), prop_self_iso_test),
-  #   self_iso_symp = rbernoulli(n(), prop_self_iso_symp)) %>% 
-  mutate.(
-    repeated_contacts = sample(contact_data$e_home[contact_data$period==period],
+                 scenarios,
+                 heterogen_contacts=c(TRUE,FALSE)) %>% 
+  mutate.(repeated_contacts = case_when.(heterogen_contacts~sample(contact_data$e_home[contact_data$period==period],
                                      size=n(),
-                                     replace=T),.by=c(period))
+                                     replace=T),
+                                     TRUE~round(mean(contact_data$e_home[contact_data$period==period]))),
+                                     .by=c(period)
+                                     )
+
+key_grouping_var <- c(sim,variant,scenario_id,period,lower_inf_thresh,heterogen_vl,heterogen_contacts)
+  
+  trunc_t=case_when.(
+  # if symptomatic, adhering to self isolation, and either not tested or test neg,
+  # truncate at onset
+  symptomatic & is.infinite(test_t) & self_iso_symp != 0 ~ onset_t,
+  # if symptomatic, adhering to self isolation, and have onset before test, truncate at onset
+  symptomatic &
+    is.finite(test_t) & onset_t < test_t & self_iso_symp != 0 ~ onset_t,
+  # if symptomatic, adhering to self isolation, and have onset after pos test, truncate at test
+  symptomatic &
+    is.finite(test_t) & test_t < onset_t & self_iso_symp != 0 ~ test_t,
+  # if symptomatic, not adhering to self isolation, and have a positive test, truncate at test
+  TRUE ~ test_t)
 
 #calculate repeated infections
 traj_scenarios_joined <- traj_ %>% 
   left_join.(traj_scenarios)  
 
-
-#TO DO: ensure counts of repeae
 repeated_infections <- traj_scenarios_joined %>% 
   uncount.(repeated_contacts,.id="id",.remove = F) %>% 
   mutate.(hh_duration = sample(contacts_hh_duration,size=n(),replace=T),
           infected    = rbernoulli(n(),p=culture_p*hh_duration)) %>% 
   filter.(infected==T) %>% 
-  slice.(min(t), .by=c(sim,variant,scenario_id,period,lower_inf_thresh,repeated_contacts,id)) %>% 
-  count.(sim,variant,scenario_id,period,lower_inf_thresh,t,repeated_contacts,name = "repeated_infected")
+  slice.(min(t), .by=c(sim,variant,scenario_id,period,lower_inf_thresh,heterogen_vl,heterogen_contacts,repeated_contacts,id)) %>% 
+  count.(sim,variant,scenario_id,period,lower_inf_thresh,heterogen_vl,heterogen_contacts,t,repeated_contacts,name = "repeated_infected")
 
 #calculate casual infections
 casual_infections <- traj_scenarios_joined %>% 
-  mutate.(casual_contacts = sample(contact_data$e_other[contact_data$period==period],size=n(),replace=T),.by=period) %>%
+  mutate.(casual_contacts = case_when.(heterogen_contacts~ sample(contact_data$e_other[contact_data$period==period],size=n(),replace=T),
+                                       TRUE ~ round(mean(contact_data$e_other[contact_data$period==period]))),.by=period) %>%
   #mutate.(contacts_casual=ifelse(t>=trunc_t,0L, contacts_casual)) %>% 
   uncount.(casual_contacts,.remove=F) %>% 
   mutate.(nhh_duration=sample(contacts_nhh_duration,size=n(),replace=T),
           infected = rbernoulli(n=n(),p = culture_p*nhh_duration)) %>% 
   #filter.(infected==T) %>% 
-  count.(t,sim,variant,scenario_id,period,lower_inf_thresh,infected) %>% 
+  count.(t,sim,variant,scenario_id,period,lower_inf_thresh,heterogen_vl,heterogen_contacts,infected) %>% 
   pivot_wider.(values_from=N,names_from=infected,values_fill = 0) %>% 
   mutate.(casual_contacts=`FALSE`+`TRUE`) %>% 
-  select.(everything(),"casual_infected"=`TRUE`,-`FALSE`)
+  select.(everything(),"casual_infected"=`TRUE`,-`FALSE`)# %>% 
+  mutate.(casual_infected=ifelse(t>5,0,casual_infected))
+  
+#testing
 
-processed_traj <- traj_scenarios_joined %>% 
+
+processed_infections <- traj_scenarios_joined %>% 
   left_join.(casual_infections) %>% 
   left_join.(repeated_infections) %>% 
   replace_na.(list(repeated_infected=0,casual_infected=0,casual_contacts=0)) %>% 
-  arrange.(period,lower_inf_thresh)
+  arrange.(period,lower_inf_thresh) %>% 
+  mutate.(
+    total_contacts = casual_contacts+repeated_contacts,
+    total_infections=casual_infected+repeated_infected)
   
+processed_infections %>% filter.(lower_inf_thresh==F) %>% ggplot(aes(x=vl,y=total_contacts,colour=total_infections))+geom_jitter(alpha=0.5)+
+  scale_y_log10()+
+  scale_colour_viridis_c(trans="log10",na.value=NA,option ="turbo")+facet_grid(heterogen_vl~heterogen_contacts+period)
+
+ggsave("contacts_infections.png")
+
+boot_est <- processed_infections %>% 
+  filter.(lower_inf_thresh==F) %>% 
+  summarise.(sum_inf=sum(total_infections),.by=c(sim,variant,lower_inf_thresh,scenario_id,period,heterogen_vl,heterogen_contacts)) %>% 
+  summarise.(dists=list(fitdist(sum_inf,"nbinom")$estimate %>% t()),.by=c(variant,lower_inf_thresh,scenario_id,period,heterogen_vl,heterogen_contacts)) #%>%
+  # mutate.(boot_dist=map.(.x=dists, ~bootdist(f =.,bootmethod = "nonparam",parallel="snow",ncpus=8)$CI %>% 
+  #                          as.data.frame() %>% rownames_to_column())) 
+ 
+boot_est %>% unnest.(dists) %>% pivot_longer.(c(size,mu)) %>% ggplot(aes(y=value,x=period))+geom_point()+facet_grid(heterogen_vl+name~heterogen_contacts,scales="free_y",labeller=label_both)
+
+boot_est %>% unnest.(boot_dist) %>% 
+  ggplot()+
+  geom_pointrange(aes(y=Median,ymin=`2.5%`,ymax=`97.5%`,x=factor(period)))+facet_wrap(~rowname,scales="free_y",ncol = 1)+lims(y=c(0,NA))
+
+ggsave("mu_size.png")
+
+#testing
 
 
 traj_[t>=begin_testing, 
