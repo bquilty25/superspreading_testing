@@ -27,7 +27,10 @@ pacman::p_load(
   "ggpubr",
   "bench",
   "tictoc",
-  "naniar"
+  "naniar",
+  "scales",
+  "ggforce",
+  "RGeode"
 )
 
 seed <- 1000
@@ -179,6 +182,38 @@ contact_data <- contacts_comix %>%
                    by=c("date"="date_start","date"="date_end"),
                    match_fun=list(`>=`,`<=`))
 
+# impute out of HH values > 250 for BBC pandemic by fitting distribution to values from non-lockdown periods
+contact_data %>%summarise.(n=n(),over_250=sum(e_other>=250),.by=period) %>% mutate.(prop=over_250/n*100,.by=period)
+
+dist_over_250 <- contact_data %>% 
+  filter(period%in%c("Relaxed restrictions","School reopening","Step 2 + schools")) %>% 
+  filter(e_other>=250)  %>% 
+  pull(e_other) %>% 
+  fitdistr(.,"exponential")
+
+data.frame(x=seq(250,4000,by=1)) %>% 
+  mutate(y=dexp(x,rate=dist_over_250$estimate[1])) %>% 
+  ggplot(aes(x=x,y=y))+
+  geom_point()+
+  geom_histogram(data=contact_data %>% 
+                   filter(period%in%c("Relaxed restrictions","School reopening")) %>% 
+                   filter(e_other>=250),
+                 aes(x=e_other,y=stat(density)),alpha=0.5)
+
+data.frame(x=rexptr(n=0.002*nrow(contact_data %>% filter(period=="BBC Pandemic")),
+                  lambda=dist_over_250$estimate[1],range = c(250,Inf))) %>% 
+  ggplot()+
+  geom_histogram(aes(x=x,stat(density)))+
+  geom_point(data= data.frame(x=seq(250,4000,by=1)) %>% mutate(y=dexp(x,rate=dist_over_250$estimate[1])),aes(x=x,y=y))
+
+dat_append <- data.frame(e_other=round(rexptr(n=0.0025*nrow(contact_data %>% filter(period=="BBC Pandemic")),
+                                        lambda=dist_over_250$estimate[1],range = c(250,Inf))),
+                         e_home=sample(size=0.0025*nrow(contact_data %>% filter(period=="BBC Pandemic")),
+                                      x=contact_data %>% filter(period=="BBC Pandemic") %>% pull(e_home))) %>% 
+  mutate(e_all=e_home+e_other,period="BBC Pandemic",idx=3)
+
+contact_data <- contact_data %>% bind_rows(dat_append)
+
 prop_n <- function(df, threshold=10, col=e_all, op=">="){
   df %>% 
     summarise(n=n(),
@@ -257,7 +292,8 @@ inf_model_choice <- function(boolean){
 make_trajectories <- function(
     n_sims = 100,
     asymp_parms = asymp_fraction,
-    variant_info, browsing = FALSE
+    variant_info, 
+    browsing = FALSE
 ){
   
   if (browsing) browser()
@@ -269,7 +305,7 @@ make_trajectories <- function(
   inf <- rbbinom(n = n_sims,
                  size=1,
                  alpha = asymp_parms$shape1,
-                 beta = asymp_parms$shape2) %>%
+                 beta  = asymp_parms$shape2) %>%
     as_tidytable() %>%
     rename.("asymptomatic"=x) %>%
     mutate.(sim=row_number.(),
@@ -278,24 +314,28 @@ make_trajectories <- function(
   traj <- inf %>% 
     crossing.(start=0) %>% 
     crossing(variant_info) %>% 
-    mutate.(prolif=round(rnormTrunc(n=n(),mean=mean_prolif,sd=sd_prolif,min = 0.25,max=14)),
-            clear=round(rnormTrunc(n=n(), mean=mean_clear, sd=sd_clear, min = 2,max=30)),
+    mutate.(prolif=case_when.(heterogen_vl~rnormTrunc(n=n(),mean=mean_prolif,sd=sd_prolif,min = 1,max=14),
+                              TRUE~mean_prolif),
+            clear=case_when.(heterogen_vl~rnormTrunc(n=n(), mean=mean_clear, sd=sd_clear, min = 1,max=30),
+                             TRUE~mean_clear),
             # prolif=ifelse(asymptomatic,prolif*0.8,prolif),
             # clear=ifelse(asymptomatic,clear*0.8,clear),
             end=prolif+clear,
             onset_t=prolif+rnormTrunc(n=n(),mean = 2,sd=1.5,min=0,max=end)
     ) %>%
     select.(-c(mean_prolif, sd_prolif, mean_clear, sd_clear,clear)) %>%
-    pivot_longer.(cols = -c(sim,variant,onset_t,
+    pivot_longer.(cols = -c(sim,variant,onset_t, asymptomatic, heterogen_vl,
                             mean_peakvl,sd_peakvl),
                   values_to = "x") %>%
     mutate.(y=case_when(name=="start" ~ 40,#convert_Ct_logGEML(40),
                         name=="end"   ~ 40,#convert_Ct_logGEML(40),
-                        name=="prolif"~rnormTrunc(n=n(),mean=mean_peakvl,sd=sd_peakvl,min=0,max=40))) %>% 
+                        name=="prolif"~case_when.(heterogen_vl~rnormTrunc(n=n(),mean=mean_peakvl,sd=sd_peakvl,min=0,max=40),
+                                                  TRUE~mean_peakvl))) %>% 
     select.(-c(mean_peakvl,sd_peakvl))
   
+  
   models <- traj %>%
-    nest.(data = -c(variant,onset_t)) %>%  
+    nest.(data = -c(sim,variant,onset_t,asymptomatic,heterogen_vl)) %>%  
     mutate.(
       # Perform approxfun on each set of points
       m  = map.(data, ~approxfun(x=.x$x,y=.x$y))) 
@@ -310,14 +350,14 @@ make_trajectories <- function(
     select.(-c(y)) %>% 
     pivot_wider.(names_from=name,values_from = x) %>% 
     left_join.(x_model) %>%
-    select.(c(sim, variant, onset_t, prolif, start, end, m)) %>% 
-    arrange(sim)
+    select.(c(sim, variant, heterogen_vl, onset_t, prolif, start, end, m)) %>% 
+    arrange.(sim)
   
 }
 
-inf_curve_func <- function(m,start=0,end=30,trunc_t){
+inf_curve_func <- function(m,start=0,end=30,interval=1,trunc_t){
   #browser()
-  x <- data.frame(t=seq(start,end,by=1)) %>% 
+  x <- tidytable(t=seq(start,end,by=interval)) %>% 
     mutate.(ct=m(t),
             vl=convert_Ct_logGEML(ct))
   
@@ -474,25 +514,15 @@ sec_case_gen <- function(df){
 
 }
 
-rep_contacts_inf <- function(x){
-  #browser()
-  
-  #for each day, uncount contacts remaining and 
-  
-  x %>% 
-     uncount.(contacts_repeated,.id="id") %>% 
-     mutate.(hh_duration=sample(contacts_hh_duration,size=n(),replace=T),
-             infected=rbernoulli(n(),
-                                 p=culture_p*hh_duration)) %>% 
-    filter.(infected,.by=id) %>% 
-    slice.(min(t),.by=id) %>% 
-    count.(t)
-  
-}
-
 hush=function(code){
   sink("NUL") # use /dev/null in UNIX
   tmp = code
   sink()
   return(tmp)
+}
+
+lseq <- function(from=1, to=100000, length.out=6) {
+  # logarithmic spaced sequence
+  # blatantly stolen from library("emdbook"), because need only this
+  exp(seq(log(from), log(to), length.out = length.out))
 }
