@@ -30,7 +30,8 @@ pacman::p_load(
   "naniar",
   "scales",
   "ggforce",
-  "RGeode"
+  "RGeode",
+  "extrafont"
 )
 
 seed <- 1000
@@ -105,9 +106,13 @@ covid_pal <- c("#e66101", "#5e3c99", "#0571b0")
 
 `%!in%` = Negate(`%in%`)
 
-plotting_theme <- theme_minimal()+
+extrafont::loadfonts()
+pdf.options(useDingbats=FALSE)
+
+plotting_theme <- theme_minimal(base_family="Calibri")+
   theme(axis.ticks = element_line(),
         panel.border = element_rect(fill=NA),
+        panel.grid = element_blank(),
         legend.position = "bottom",
         strip.placement = "outside")
 
