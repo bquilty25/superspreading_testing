@@ -13,11 +13,12 @@ processed_infections %>%
 ggsave("contacts_infections.png")
 
 processed_infections %>% 
-  filter.(prop_self_iso_test==0,sampling_freq==3) %>% 
-  ggplot(aes(x=vl,y=total_contacts,colour=total_infections))+
+  filter.(prop_self_iso_test==0,sampling_freq==3,total_infections>0) %>% 
+  ggplot(aes(x=vl,y=total_contacts,colour=total_infections>=10))+
   geom_jitter(alpha=0.5)+
   scale_y_log10()+
-  scale_colour_gradient2(midpoint = log10(2.2),trans="log10",na.value=NA)+
+  scale_colour_manual(values=c("red","blue"),na.value=NA)+
+  #scale_colour_gradient2(midpoint = log10(10),trans="log10",na.value=NA)+
   facet_grid(prop_self_iso_test~period+sampling_freq)+
   plotting_theme
 
@@ -35,7 +36,7 @@ processed_infections %>%
   facet_grid(prop_self_iso_test~sim,scales="free_y")
 
 boot_est <- processed_infections %>% 
-  summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>% arrange.(-sim)
+  summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>% arrange.(-sim) %>% 
   summarise.(dists=list(fitdist(sum_inf,"nbinom")),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim),
              dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% t())) 
 
@@ -59,38 +60,46 @@ boot_est %>%
 
 ggsave("results/lft_impact.png",width=210,height=150,dpi=600,units="mm",bg="white")
 
-boot_est %>%  
-  mutate.(boot_dist=map.(.x=dists, ~bootdist(f =.,bootmethod = "nonparam",parallel="snow",ncpus=8)$CI %>% 
-                          as.data.frame() %>% rownames_to_column())) %>% 
-  unnest.(boot_dist) %>% 
-  ggplot()+
-  geom_pointrange(aes(y=Median,ymin=`2.5%`,ymax=`97.5%`,x=factor(period)))+
-  facet_wrap(~rowname,scales="free_y",ncol = 1)+lims(y=c(0,NA))
-
-ggsave("mu_size.png")
+# boot_est %>%  
+#   mutate.(boot_dist=map.(.x=dists, ~bootdist(f =.,bootmethod = "nonparam",parallel="snow",ncpus=8)$CI %>% 
+#                           as.data.frame() %>% rownames_to_column())) %>% 
+#   unnest.(boot_dist) %>% 
+#   ggplot()+
+#   geom_pointrange(aes(y=Median,ymin=`2.5%`,ymax=`97.5%`,x=factor(period)))+
+#   facet_wrap(~rowname,scales="free_y",ncol = 1)+lims(y=c(0,NA))
+# 
+# ggsave("mu_size.png")
 
 #prop infecting 0, >10, >20...
 ss_dat <- processed_infections %>% 
   summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>%
-  summarise.(n=n(),
+  summarise.(n=N_sims,
             ss_10=sum(sum_inf>=10),
             ss_20=sum(sum_inf>=20),
             ss_0=sum(sum_inf<=0),
             .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim)) %>% 
   mutate.(
-    prop_ss_10=ss_10/n,
-    prop_ss_20 =ss_20/n,
-          prop_ss_0=ss_0/n)
+    prop_ss_10 = ss_10/n,
+    prop_ss_20 = ss_20/n,
+    prop_ss_0  = ss_0/n)
 
 ss_dat %>% 
-  pivot_longer.(c(prop_ss_0)) %>% 
-  ggplot(aes(x=factor(prop_self_iso_test),y=value,group=sampling_freq,colour=factor(sampling_freq)))+
+  pivot_longer.(c(prop_ss_10)) %>% 
+  ggplot(aes(x=prop_self_iso_test,y=value,group=sampling_freq,colour=factor(sampling_freq)))+
   geom_point()+
+  geom_line()+
   scale_y_continuous(labels=scales::percent)+
-  facet_grid(name~period)
+  scale_colour_brewer(type="qual",palette="Set1")+
+  facet_grid(name~period,scales="free_y",labeller=labeller(name=c("mu"="R","size"="k")))+
+  scale_x_continuous(labels=scales::percent,breaks=breaks_width(0.5))+
+  labs(y="Proportion of cases infecting >10 individuals",
+       x="Uptake of/adherence to lateral flow testing",
+       title="The relative impact of lateral flow testing is greatest when individuals have lots of contacts,\nwhen uptake is high, and when testing is frequent",
+       colour="Testing frequency")+
+  plotting_theme
 
 ss_0_plot <- ss_dat %>% 
-  filter(param=="prop_ss_0") %>% 
+  filter.(param=="prop_ss_0") %>% 
   ggplot(aes(x=sampling_freq,y=`0.5`,ymin=`0.025`,ymax=`0.975`))+
   geom_linerange(aes(ymin  = `0.025`, 
                      ymax  = `0.975`,
@@ -146,7 +155,7 @@ ss_20_plot <- ss_dat %>%
 ggsave("results/prop_ss.png",width=210,height=150,dpi=600,units="mm")
 
 # SAR
-sum_res %>%  
+processed_infections %>%  
   mutate.(sampling_freq=case_when.(sampling_freq==3~"Testing every 3 days",
                                    TRUE~ "No testing"),
           hh_SAR=n_repeated_infected/contacts_repeated,
