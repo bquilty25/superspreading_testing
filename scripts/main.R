@@ -2,14 +2,14 @@
 source("scripts/utils.R")
 source("scripts/duration.R")
 
-
-#Make VL trajectories from variant characteristics and asymptomatic fraction
+N_sims <- 50000
+#Make VL trajectories
 traj <- vl_params %>% 
   filter.(variant%in%c("wild")) %>%
   mutate.(variant=fct_drop(variant)) %>% 
   crossing(heterogen_vl=c(TRUE,FALSE)) %>% 
   group_split.(variant,heterogen_vl) %>% 
-  map.(~make_trajectories(n_sims = 10000,asymp_parms=asymp_fraction,variant_info=.x,browsing=F)) %>% 
+  map.(~make_trajectories(n_sims = N_sims,asymp_parms=asymp_fraction,variant_info=.x,browsing=F)) %>% 
   bind_rows.()
 
 #Calculate daily infectiousness and test positivity, remove never-infectious
@@ -80,7 +80,8 @@ repeated_infections <- indiv_params_long %>%
           infected    = rbernoulli(n(),p=culture_p*hh_duration)) %>% 
   filter.(infected==T) %>% 
   slice.(min(t), .by=c(all_of(key_grouping_var),repeated_contacts,id)) %>% 
-  count.(t,all_of(key_grouping_var),repeated_contacts,name = "repeated_infected")
+  count.(t,all_of(key_grouping_var),repeated_contacts,name = "repeated_infected") %>% 
+  arrange.(sim)
 
 #### Calculate casual infections ####
 
@@ -112,19 +113,19 @@ casual_infections <- indiv_params_long %>%
   filter.(isolating==F) %>% 
   pivot_wider.(values_from=N,names_from=casual_infected,values_fill = 0) %>% 
   mutate.(casual_contacts=`FALSE`+`TRUE`) %>% 
-  select.(everything(),"casual_infected"=`TRUE`,-`FALSE`)
+  select.(everything(),"casual_infected"=`TRUE`,-`FALSE`) 
   
 # Join casual and repeated contacts and summarise
 processed_infections <- indiv_params_long %>% 
-  right_join.(casual_infections) %>% 
   left_join.(repeated_infections) %>% 
+  left_join.(casual_infections) %>% 
   replace_na.(list(repeated_infected=0,casual_infected=0,casual_contacts=0)) %>% 
   arrange.(period,lower_inf_thresh) %>% 
   mutate.(
     total_contacts = casual_contacts+repeated_contacts,
     total_infections=casual_infected+repeated_infected)
   
-rm(repeated_infections,casual_infections)
+#rm(repeated_infections,casual_infections)
 
 
 #source("scripts/results.R")
