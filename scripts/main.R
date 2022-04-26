@@ -2,12 +2,12 @@
 source("scripts/utils.R")
 source("scripts/duration.R")
 
-N_sims <- 50000
+N_sims <- 10000
 #Make VL trajectories
 traj <- vl_params %>% 
-  filter.(variant%in%c("wild")) %>%
+  filter.(variant%in%c("wild","omicron")) %>%
   mutate.(variant=fct_drop(variant)) %>% 
-  crossing(heterogen_vl=c(TRUE,FALSE)) %>% 
+  crossing(heterogen_vl=c(TRUE)) %>% 
   group_split.(variant,heterogen_vl) %>% 
   map.(~make_trajectories(n_sims = N_sims,asymp_parms=asymp_fraction,variant_info=.x,browsing=F)) %>% 
   bind_rows.()
@@ -53,7 +53,7 @@ time_periods_of_interest <- crossing(time_periods) %>%
 testing_scenarios <- traj %>% 
   select.(-m) %>% 
   crossing.(prop_self_iso_test=c(0,0.5,1),
-                              sampling_freq=c(3,7)) %>% 
+                              sampling_freq=c(1,3,7)) %>% 
   mutate.(self_iso_test = rbernoulli(n=n(),prop_self_iso_test),
           begin_testing = rdunif(n(),0, sampling_freq)) 
 
@@ -65,10 +65,10 @@ indiv_params <- traj %>%
   select.(-m) %>% 
   crossing.(time_periods_of_interest) %>% 
   filter.(heterogen_vl==T,heterogen_contacts==T) %>% 
-  mutate.(repeated_contacts = case_when.(heterogen_contacts~sample(contact_data$e_home[contact_data$period==period],
+  mutate.(repeated_contacts = case_when.(heterogen_contacts~sample(contact_data_adjusted$e_home[contact_data_adjusted$period==period],
                                      size=n(),
                                      replace=T),
-                                     TRUE~round(mean(contact_data$e_home[contact_data$period==period]))),
+                                     TRUE~round(mean(contact_data_adjusted$e_home[contact_data_adjusted$period==period]))),
                                      .by=period)
 
 indiv_params_long <- indiv_params %>% 
@@ -88,10 +88,10 @@ repeated_infections <- indiv_params_long %>%
 casual_infections <- indiv_params_long %>% 
   
 # Sample daily contacts
-  mutate.(casual_contacts = case_when.(heterogen_contacts ~ sample(contact_data$e_other[contact_data$period==period],
+  mutate.(casual_contacts = case_when.(heterogen_contacts ~ sample(contact_data_adjusted$e_other[contact_data_adjusted$period==period],
                                                                   size=n(),
                                                                   replace=T),
-                                       TRUE ~ round(mean(contact_data$e_other[contact_data$period==period]))),
+                                       TRUE ~ round(mean(contact_data_adjusted$e_other[contact_data_adjusted$period==period]))),
           .by=period) %>%
   
 # Simulate infections 
