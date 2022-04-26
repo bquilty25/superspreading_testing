@@ -30,8 +30,12 @@ pacman::p_load(
   "naniar",
   "scales",
   "ggforce",
-  "RGeode"
+  "RGeode",
+  "tsibble",
+  "MetBrewer",
+  "ggrepel"
 )
+
 
 seed <- 1000
 
@@ -105,11 +109,22 @@ covid_pal <- c("#e66101", "#5e3c99", "#0571b0")
 
 `%!in%` = Negate(`%in%`)
 
-plotting_theme <- theme_minimal()+
-  theme(axis.ticks = element_line(),
-        panel.border = element_rect(fill=NA),
+plotting_theme <- theme_minimal(base_family = "Lato")+
+  theme(axis.ticks = element_line(colour="#2E4C6D"),
+        axis.title = element_text(colour="#2E4C6D"),
+        axis.text = element_text(colour="#2E4C6D"),
+        strip.text = element_text(colour="#2E4C6D"),
+        panel.border = element_rect(fill=NA,colour="#2E4C6D"),
+        panel.grid = element_blank(),
         legend.position = "bottom",
-        strip.placement = "outside")
+        strip.placement = "outside",
+        axis.line = element_line(colour="#2E4C6D"),
+        line = element_line(colour="#2E4C6D"),
+        text = element_text(colour="#2E4C6D"))
+
+bi_col_pal <- c("#396EB0","#FC997C")
+tri_col_pal <- c("#396EB0","#DADDFC","#FC997C")
+quad_col_pal <- c("#2E4C6D","#396EB0","#DADDFC","#FC997C")
 
 capitalize <- function(string) {
   substr(string, 1, 1) <- toupper(substr(string, 1, 1))
@@ -212,7 +227,7 @@ dat_append <- data.frame(e_other=round(rexptr(n=0.0025*nrow(contact_data %>% fil
                                       x=contact_data %>% filter(period=="BBC Pandemic") %>% pull(e_home))) %>% 
   mutate(e_all=e_home+e_other,period="BBC Pandemic",idx=3)
 
-contact_data <- contact_data %>% bind_rows(dat_append)
+contact_data_adjusted <- contact_data %>% bind_rows(dat_append)
 
 prop_n <- function(df, threshold=10, col=e_all, op=">="){
   df %>% 
@@ -461,7 +476,7 @@ inf_and_test <- function(traj,sampling_freq=c(NA,3)){
 } 
 
 sample_contacts <- function(time_period){
-  sample(contact_data %>% filter(period==time_period) %>% pull(e_home),size=1)
+  sample(contact_data_adjusted %>% filter(period==time_period) %>% pull(e_home),size=1)
 }
 
 sec_case_gen <- function(df){
@@ -474,7 +489,7 @@ sec_case_gen <- function(df){
             test_t = ifelse(self_iso_test==0,Inf,test_t)) %>% 
     #select.(-u) %>%
     mutate.(.by=time_period,
-      contacts_repeated = sample(contact_data$e_home[contact_data$period==time_period],size=n(),replace=T),
+      contacts_repeated = sample(contact_data_adjusted$e_home[contact_data_adjusted$period==time_period],size=n(),replace=T),
       trunc_t=case_when.(
         # if symptomatic, adhering to self isolation, and either not tested or test neg,
         # truncate at onset
@@ -491,7 +506,7 @@ sec_case_gen <- function(df){
                               contacts_repeated=contacts_repeated),.f=rep_contacts_inf)) %>% 
     unnest.(data) %>% 
     mutate.(.by=time_period,
-      contacts_casual = sample(contact_data$e_other[contact_data$period==time_period],size=n(),replace=T)) %>%
+      contacts_casual = sample(contact_data_adjusted$e_other[contact_data_adjusted$period==time_period],size=n(),replace=T)) %>%
     mutate.(contacts_casual=ifelse(t>=trunc_t,0L, contacts_casual)) %>% 
     uncount.(contacts_casual) %>% 
     mutate.(nhh_duration=sample(contacts_nhh_duration,size=n(),replace=T),
