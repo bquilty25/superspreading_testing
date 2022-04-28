@@ -1,4 +1,4 @@
-#source("scripts/utils.R")
+source("scripts/utils.R")
 
 
 pre_pandemic_high <- contact_data %>% 
@@ -61,6 +61,7 @@ high_n_plot <-contact_data %>%
   pivot_longer.(c(over_50:over_200)) %>% 
   mutate.(prop_over=value/n)  %>% 
   ggplot()+
+  geom_point(aes(x=date_yw,y=prop_over,colour=fct_relevel(name,"over_50")),size=0.8)+
   geom_line(aes(x=date_yw,y=prop_over,colour=fct_relevel(name,"over_50")),size=0.8)+
   geom_rect(data=time_periods %>% filter(date_start>as.Date("2020-01-01"),date_start<as.Date("2021-01-01")),aes(xmin=date_start,xmax=date_end,ymax=Inf,ymin=-Inf),alpha=0.1,fill="#FC997C")+
   geom_text(data=time_periods %>% filter(date_start>as.Date("2020-01-01"),date_start<as.Date("2021-01-01")) %>% mutate(period=fct_recode(period, "Lockdown\n2 easing"="Lockdown 2 easing")),aes(x=(as.numeric(date_end)+as.numeric(date_start))/2,y=0.03,label=period),vjust=1,size=2,colour="#2E4C6D")+
@@ -84,6 +85,7 @@ low_n_plot <-contact_data %>%
   pivot_longer.(c(over_5:over_20)) %>% 
   mutate.(prop_over=value/n)  %>% 
   ggplot()+
+  geom_point(aes(x=date_yw,y=prop_over,colour=fct_relevel(name,"over_50")),size=0.8)+
   geom_line(aes(x=date_yw,y=prop_over,colour=fct_relevel(name,"over_5")),size=0.8)+
   geom_rect(data=time_periods %>% filter(date_start>as.Date("2020-01-01"),date_start<as.Date("2021-01-01")),aes(xmin=date_start,xmax=date_end,ymax=Inf,ymin=-Inf),alpha=0.1,fill="#FC997C")+
   geom_text(data=time_periods %>% filter(date_start>as.Date("2020-01-01"),date_start<as.Date("2021-01-01")) %>% mutate(period=fct_recode(period, "Lockdown\n2 easing"="Lockdown 2 easing")),aes(x=(as.numeric(date_end)+as.numeric(date_start))/2,y=0.75,label=period),vjust=1,size=2,colour="#2E4C6D")+
