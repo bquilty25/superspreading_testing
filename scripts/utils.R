@@ -428,7 +428,9 @@ propresponsible=function(R0,k,prop){
 
 #### Generate infections of repeated (household) contacts ####
 run_model <- function(scenarios, browsing=F){
+  
   if(browsing){browser()}
+  
   indiv_params <- traj %>% 
     select.(-m) %>% 
     crossing.(time_periods_of_interest) %>% 
@@ -459,32 +461,31 @@ run_model <- function(scenarios, browsing=F){
                                                                      size=n(),
                                                                      replace=T),
                                          TRUE ~ round(mean(contact_data_adjusted$e_other[contact_data_adjusted$period==period]))),
-            .by=period) %>%
+            .by=period) %>% 
     
     # Simulate infections 
-    uncount.(casual_contacts) %>% 
+    uncount.(casual_contacts,.remove = F) %>% 
     mutate.(nhh_duration = sample(contacts_nhh_duration,size=n(),replace=T),
             casual_infected = rbernoulli(n=n(),p = culture_p*nhh_duration)) %>% 
+    summarise.(casual_infected=sum(casual_infected),.by=c(t,all_of(key_grouping_var),casual_contacts,test)) %>% 
     
     # Testing: determine if and when testing + isolating by specified sampling frequency, adherence  
     
-    left_join.(testing_scenarios) %>% 
+    right_join.(testing_scenarios) %>% 
     mutate.(
-      test_day = ifelse((t - begin_testing) %% sampling_freq == 0 ,TRUE,FALSE),
-      earliest_pos = min(t[which.max(test)&test_day]),
-      isolating = t>=earliest_pos & self_iso_test,
-      .by=c(all_of(key_grouping_var),prop_self_iso_test,sampling_freq)) %>%
-    replace_na.(list(isolating=FALSE)) %>% 
-    
-    count.(t,all_of(key_grouping_var),prop_self_iso_test,sampling_freq,casual_infected,isolating) %>%
-    filter.(isolating==F) %>% 
-    pivot_wider.(values_from=N,names_from=casual_infected,values_fill = 0) %>% 
-    mutate.(casual_contacts=`FALSE`+`TRUE`) %>% 
-    select.(everything(),"casual_infected"=`TRUE`,-`FALSE`,-isolating) 
+      test_day = case_when.((t - begin_testing) %% sampling_freq == 0 ~ TRUE,
+                            casual_contacts > event_size ~ TRUE,
+                            TRUE ~ FALSE)) %>% 
+    mutate.(
+      earliest_pos = min(t[test&test_day]),
+      test_iso = t>=earliest_pos & self_iso_test,
+      .by=c(all_of(key_grouping_var),prop_self_iso_test,self_iso_test,begin_testing,sampling_freq,event_size)) %>%
+    filter.(test_iso==F) %>% 
+    select.(everything(),-test_iso,-test,-earliest_pos,-test_day) 
   
   # Join casual and repeated contacts and summarise
   processed_infections <- indiv_params_long %>% 
-    left_join.(testing_scenarios) %>% 
+    right_join.(testing_scenarios) %>% 
     left_join.(repeated_infections) %>% 
     left_join.(casual_infections) %>% 
     replace_na.(list(repeated_infected=0,casual_infected=0,casual_contacts=0)) %>% 
@@ -615,4 +616,9 @@ lseq <- function(from=1, to=100000, length.out=6) {
   # logarithmic spaced sequence
   # blatantly stolen from library("emdbook"), because need only this
   exp(seq(log(from), log(to), length.out = length.out))
+}
+
+
+quibble2 <- function(x, q = c(0.25, 0.5, 0.75)) {
+  tibble("{{ x }}" := quantile(x, q), "{{ x }}_q" := q)
 }
