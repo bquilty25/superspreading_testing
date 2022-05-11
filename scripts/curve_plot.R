@@ -1,3 +1,5 @@
+source("scripts/utils.R")
+
 
 plot_dat <- vl_params %>% 
   filter.(variant%in%c("wild")) %>%
@@ -6,10 +8,10 @@ plot_dat <- vl_params %>%
   group_split.(variant,heterogen_vl) %>% 
   map.(~make_trajectories(n_sims = 1000,asymp_parms=asymp_fraction,variant_info=.x,browsing = F)) %>% 
   bind_rows.()%>% 
-  mutate.(infectiousness = pmap(inf_curve_func, .l = list(
+  mutate.(infectivity = pmap(inf_curve_func, .l = list(
     m = m, start = start, end = end,interval=0.1
   )))  %>%
-  unnest.(infectiousness) %>%
+  unnest.(infectivity) %>%
   crossing.(lower_inf_thresh = c(FALSE)) %>%
   mutate.(
     culture_p        = stats::predict(
@@ -39,8 +41,9 @@ log_plot <- plot_dat %>%
             aes(x=t,
                 y=vl,
                 group=sim,
-                colour=culture_p),
-                #colour=tri_col_pal[2]),
+                #colour=culture_p
+                ),
+                colour=tri_col_pal[1],
                 #colour=zoo::rollmean(culture_p,4,fill=0)
                 #,
             alpha=0.05
@@ -49,22 +52,65 @@ log_plot <- plot_dat %>%
             aes(x=t,
                 y=vl,
                 group=sim,
-                colour=culture_p),
-                #colour=tri_col_pal[2],
+                #colour=culture_p
+                ),
+                colour=tri_col_pal[1],
                 #colour=zoo::rollmean(culture_p,4,fill=0)
                 
             #alpha=0.1,
             size=1
   )+
-  scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1])+
-  # scale_colour_viridis_c(name="Probability of infectiousness",option="inferno",begin = 0.2,end=0.8,limits=c(0,1),
+  #scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1])+
+  # scale_colour_viridis_c(name="Probability of infectivity",option="inferno",begin = 0.2,end=0.8,limits=c(0,1),
   #                        guide=guide_colorsteps(barwidth=unit(3,"cm"),barheight=unit(0.5,"cm"),show.limits = T))+
   scale_x_continuous(name="Days since first detectable by PCR (Ct<40)",breaks = breaks_width(5))+
   scale_y_log10(name="RNA copies/ml",labels=label_log())+
   coord_cartesian(xlim=c(NA,20),ylim=c(10^3.5,NA))+
-  plotting_theme+guides(colour="none")
+  plotting_theme+guides(colour="none")+
+  labs(title="Kissler et al. 2021")
 
 ggsave("results/log_plot.png",dpi=600,width=210,height=150,units="mm",bg="white")
+
+
+plot_dat %>% summarise.(begin_inf=min(t[culture_p>0.5]),end_inf=max(t[culture_p>0.5]),.by=c(sim,heterogen_vl)) %>% mutate.(inf_dur=end_inf-begin_inf) %>% summarise.(q=list(quibble2(inf_dur,c(0.025,0.5,0.975))),.by=heterogen_vl) %>% unnest.(q)
+
+
+culture_plot <- plot_dat %>% 
+  mutate.(vl=10^(vl)) %>% 
+  ggplot()+
+  geom_line(data=. %>% filter.(heterogen_vl==T),
+            aes(x=t,
+                y=culture_p,
+                group=sim,
+                colour=culture_p
+            ),
+            #colour=bi_col_pal[2],
+            #colour=zoo::rollmean(culture_p,4,fill=0)
+            #,
+            alpha=0.05
+  )+
+  geom_line(data=. %>% filter.(heterogen_vl==F),
+            aes(x=t,
+                y=culture_p,
+                group=sim,
+                colour=culture_p
+            ),
+            #colour=bi_col_pal[2],
+            #colour=zoo::rollmean(culture_p,4,fill=0)
+            
+            #alpha=0.1,
+            size=1
+  )+
+   #annotate("text",x=Inf,y=Inf,label=,hjust="inward",vjust="inward",colour="#2E4C6D")+
+  ylab("Probability of infectivity")+
+  scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1],guide="none")+
+  # scale_colour_viridis_c(name="Probability of infectivity",option="inferno",begin = 0.2,end=0.8,limits=c(0,1),
+  #                        guide=guide_colorsteps(barwidth=unit(3,"cm"),barheight=unit(0.5,"cm"),show.limits = T))+
+  scale_x_continuous(name="Days since first detectable by PCR (Ct<40)",breaks = breaks_width(5))+
+  #scale_y_log10(name="RNA copies/ml",labels=label_log())+
+  #coord_cartesian(xlim=c(NA,20),ylim=c(10^3.5,NA))+
+  plotting_theme+guides(colour="none")+
+  labs(title="Inferred infectivity curves",subtitle = "Duration of P(infectivity)>0.5:\n1.9 days (95% CI: 0, 5.8)")
 
 # cv_plot <- plot_dat %>% 
 #   filter.(heterogen_vl==T,t%%1==0,lower_inf_thresh==F) %>% 
@@ -73,7 +119,7 @@ ggsave("results/log_plot.png",dpi=600,width=210,height=150,units="mm",bg="white"
 #   geom_point(colour="#2E4C6D")+
 #   geom_line(colour="#2E4C6D")+
 #   lims(y=c(0,NA))+
-#   labs(x="Days since first detectable by PCR (Ct<40)",y="Coefficient of variation\nin infectiousness")+
+#   labs(x="Days since first detectable by PCR (Ct<40)",y="Coefficient of variation\nin infectivity")+
 #   plotting_theme
 
 # 
@@ -90,10 +136,10 @@ auc_plot <- vl_params %>%
   group_split.(variant,heterogen_vl) %>% 
   map.(~make_trajectories(n_sims = 1000,asymp_parms=asymp_fraction,variant_info=.x,browsing = F)) %>% 
   bind_rows.()%>% 
-  mutate.(infectiousness = pmap(inf_curve_func, .l = list(
+  mutate.(infectivity = pmap(inf_curve_func, .l = list(
     m = m, start = start, end = end,interval=1
   )))  %>%
-  unnest.(infectiousness) %>%
+  unnest.(infectivity) %>%
   crossing.(lower_inf_thresh = c(FALSE)) %>%
   mutate.(
     culture_p        = stats::predict(
@@ -120,7 +166,7 @@ auc_plot <- vl_params %>%
   geom_density(fill=bi_col_pal[2],colour=bi_col_pal[2],alpha=0.25,adjust=2)+
   #geom_text(aes(x=Inf,y=Inf),label=paste("CV = ",round(auc_plot_lab,digits = 2)),size=6,hjust=1.1,vjust=1.5,colour="#2E4C6D")+
   lims(y=c(0,NA))+
-  labs(x="Area under infectiousness curve (AU)",y="Density")+
+  labs(x="Area under infectivity curve (AU)",y="Density",title="Individual variation in infectivity")+
   plotting_theme
 
 #log_plot/(auc_plot+cv_plot)+plot_annotation(tag_levels = "A")
@@ -137,7 +183,7 @@ auc_plot <- vl_params %>%
 #                 colour=culture_p),
 #             alpha=0.05
 #   )+
-#   scale_colour_viridis_c(name="Probability of infectiousness",option="inferno",begin = 0.2,end=0.8,
+#   scale_colour_viridis_c(name="Probability of infectivity",option="inferno",begin = 0.2,end=0.8,
 #                          guide=guide_colorsteps(barwidth=unit(5,"cm"),barheight=unit(1,"cm")))+
 #   scale_x_continuous(name="Days since first detectable by PCR (Ct<40)",breaks = breaks_width(5))+
 #  # scale_y_log10(name="RNA copies/ml",labels=label_log())+
@@ -150,7 +196,7 @@ auc_plot <- vl_params %>%
 #   geom_density(data=. %>% filter.(heterogen_vl==T),aes(x=culture_p)
 #   )+
 #   coord_flip()+
-#   scale_colour_viridis_c(name="Probability of infectiousness",option="inferno",begin = 0.2,end=0.8,
+#   scale_colour_viridis_c(name="Probability of infectivity",option="inferno",begin = 0.2,end=0.8,
 #                          guide=guide_colorsteps(barwidth=unit(5,"cm")))+
 #   scale_x_continuous(name="Days since first detectable by PCR (Ct<40)",breaks = breaks_width(5))+
 #   # scale_y_log10(name="RNA copies/ml",labels=label_log())+
@@ -166,10 +212,10 @@ violin_plot <- vl_params %>%
   group_split.(variant,heterogen_vl) %>% 
   map.(~make_trajectories(n_sims = 1000,asymp_parms=asymp_fraction,variant_info=.x,browsing = F)) %>% 
   bind_rows.()%>% 
-  mutate.(infectiousness = pmap(inf_curve_func, .l = list(
+  mutate.(infectivity = pmap(inf_curve_func, .l = list(
     m = m, start = start, end = end,interval=1
   )))  %>%
-  unnest.(infectiousness) %>%
+  unnest.(infectivity) %>%
   crossing.(lower_inf_thresh = c(FALSE)) %>%
   mutate.(
     culture_p        = stats::predict(
@@ -214,7 +260,7 @@ violin_plot <- vl_params %>%
   # scale_fill_viridis_c(guide="none",option="inferno",begin = 0.2,end=0.8#,limits=c(0,1)
   #                        #guide=guide_colorsteps(barwidth=unit(5,"cm"))
   #                      )+
-  labs(x="Days since first detectable by PCR (Ct<40)",y="Probability of infectiousness")+
+  labs(title="Daily variation in infectivity",x="Days since first detectable by PCR (Ct<40)",y="Probability of infectivity")+
   coord_cartesian(xlim=c(NA,20))+
   #scale_x_discrete(name="Days since first detectable by PCR (Ct<40)",breaks = breaks_width(5))+
   #scale_y_log10(name="RNA copies/ml",labels=label_log())+
@@ -225,17 +271,24 @@ violin_plot <- vl_params %>%
 inf_plot <- pickering %>% 
   mutate(vl=10^vl) %>% 
   ggplot()+
-  geom_smooth(aes(x=vl,y=culture),
-              method="glm",
-              method.args=list(family="binomial"),
-              colour=tri_col_pal[1],
-              fill=tri_col_pal[1],
-              alpha=0.25)+
-  scale_x_log10(name="RNA copies/ml",labels=label_log())+
-  ylab("Probability of infectiousness")+
+  stat_smooth(aes(x=vl,y=culture,
+                  colour=..y..),
+                  method="glm",
+                  method.args=list(family="binomial"),
+                  #alpha=0.25,
+              size=2,
+              geom="line")+
+  scale_x_log10(name="RNA copies/ml",labels=label_log(),limits=c(10^3.5,NA))+
+  scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1],guide = "none")+
+  labs(y="Probability of\nculturing virus",
+       title="Pickering et al. 2021",
+       subtitle=expression(paste("VL at 50% = 1.6 x ",10^7," RNA copies/ml (Ct = 21.8)")))+
   plotting_theme
 
-((log_plot|inf_plot)/(violin_plot|auc_plot))+plot_annotation(tag_levels = "A")
 
-ggsave("results/log_and_violin_plot.png",dpi=600,width=210,height=120,units="mm",bg="white")
+(log_plot|inf_plot|culture_plot)/(auc_plot|violin_plot)+plot_annotation(tag_levels = "A")
+
+#((log_plot|inf_plot)/(violin_plot|auc_plot))+plot_annotation(tag_levels = "A")
+
+ggsave("results/log_and_violin_plot.png",dpi=600,width=300,height=150,units="mm",bg="white")
 

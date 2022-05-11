@@ -55,6 +55,8 @@ boot_est <- processed_infections_heterogen_on_off %>%
 boot_est %>% filter.(variant=="wild") %>% 
   unnest.(dist_means) %>% 
   pivot_longer.(c(size,mu)) %>% 
+  mutate.(heterogen_vl=as.factor(heterogen_vl),
+         heterogen_contacts=as.factor(heterogen_contacts)) %>% 
   ggplot(aes(y=value,x=period,colour=name,group=name))+
   geom_point()+
   geom_line()+
@@ -62,12 +64,17 @@ boot_est %>% filter.(variant=="wild") %>%
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
   scale_colour_manual(values = bi_col_pal,guide="none")+
   scale_linetype_manual(values=c("dashed",NA),guide="none")+
-  facet_wrap(name~heterogen_contacts+heterogen_vl,ncol=4,
+  facet_nested_wrap(name~heterogen_contacts+heterogen_vl,ncol=4,
                         #scales="free",
+                    nest_line = T,
                         scales="free_y",
                         labeller=labeller(name=c("mu"="R","size"="k"),
-                                          heterogen_vl=function(x)paste("VL heterogeneity:",x),
-                                          heterogen_contacts=function(x)paste("Contact heterogeneity:",x))
+                                          heterogen_vl=c("TRUE"="Variable viral load",
+                                                         "FALSE"="Same viral load"),
+                                          heterogen_contacts=c("TRUE"="Variable contacts",
+                                                         "FALSE"="Same contacts")
+                                         # heterogen_contacts=function(x)paste("Contact heterogeneity:",x)
+                                         )
   )+
   lims(y=c(0,NA))+
   labs(y="Mean parameter value",
@@ -76,10 +83,10 @@ boot_est %>% filter.(variant=="wild") %>%
   plotting_theme+
   theme(axis.text.x=element_text(angle = 45, vjust = 1, hjust=1))
 
-ggsave("results/R and k heterogeneity.png",width=210,height=150,dpi=600,units="mm",bg="white")
+ggsave("results/R and k heterogeneity.png",width=300,height=150,dpi=600,units="mm",bg="white")
 
-processed_infections %>% 
-  filter.(prop_self_iso_test==0,sampling_freq==3) %>% 
+processed_infections_baseline %>%
+  #filter.(prop_self_iso_test==0,sampling_freq==3) %>%
   ggplot(aes(x=vl,y=total_contacts,colour=total_infections))+geom_jitter(alpha=0.5)+
   scale_y_log10("Daily contacts")+
   labs(x="Viral load (RNA copies/ml)")+
@@ -89,38 +96,72 @@ processed_infections %>%
 
 ggsave("contacts_infections.png")
 
-processed_infections %>% 
-  filter.(prop_self_iso_test==0,sampling_freq==3) %>% 
+processed_infections_baseline %>%
+  #filter.(prop_self_iso_test==0,sampling_freq==3) %>%
   ggplot(aes(x=vl,y=total_contacts,colour=total_infections))+
   geom_jitter(alpha=0.5)+
   scale_y_log10()+
-  scale_colour_gradient2(midpoint = log10(2.2),trans="log10",na.value=NA)+
+  scale_colour_gradient(trans="log10",na.value=NA)+
   facet_grid(prop_self_iso_test~period+sampling_freq)+
   plotting_theme
+# 
+# processed_infections %>% 
+#   filter.(sim%in%rdunif(10,1,10000),scenario_id==1,sampling_freq==7) %>% 
+#   mutate.(infected=total_infections,not_infected=total_contacts-total_infections) %>% 
+#   select.(-c(total_contacts,total_infections)) %>%
+#   pivot_longer.(c(infected,not_infected)) %>% 
+#   uncount(value) %>% 
+#   #filter.(name=="infected")%>% 
+#   ggplot(aes(x=t,fill=name))+
+#   geom_dotplot(binwidth = 1,stackgroups=TRUE,binpositions="all",colour=NA)+
+#   scale_fill_brewer(type="qual")+
+#   #lims(x=c(0,20))+
+#   facet_grid(prop_self_iso_test~sim,scales="free_y")
 
-processed_infections %>% 
-  filter.(sim%in%rdunif(10,1,10000),scenario_id==1,sampling_freq==7) %>% 
-  mutate.(infected=total_infections,not_infected=total_contacts-total_infections) %>% 
-  select.(-c(total_contacts,total_infections)) %>%
-  pivot_longer.(c(infected,not_infected)) %>% 
-  uncount(value) %>% 
-  #filter.(name=="infected")%>% 
-  ggplot(aes(x=t,fill=name))+
-  geom_dotplot(binwidth = 1,stackgroups=TRUE,binpositions="all",colour=NA)+
-  scale_fill_brewer(type="qual")+
-  #lims(x=c(0,20))+
-  facet_grid(prop_self_iso_test~sim,scales="free_y")
-
-boot_est <- processed_infections %>% 
-  summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>%
-  summarise.(dists=list(fitdist(sum_inf,"nbinom")),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim),
+boot_est <- processed_infections_testing %>% 
+  summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size)) %>%
+  summarise.(dists=list(fitdist(sum_inf,"nbinom")),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size,-sim),
              dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% t())) 
 
 
-boot_est %>% filter.(variant=="wild") %>% 
+boot_est %>% filter.(variant=="wild") %>%
   unnest.(dist_means) %>% 
   pivot_longer.(c(size,mu)) %>% 
   ggplot(aes(y=value,x=prop_self_iso_test,colour=factor(sampling_freq),group=sampling_freq))+
+  geom_point()+
+  geom_line()+
+  geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
+  scale_colour_manual(values = tri_col_pal)+
+  scale_linetype_manual(values=c("dashed",NA),guide="none")+
+  lemon::facet_rep_grid(name~period,
+                        #scales="free",
+                        scales="free_y",
+                        labeller=labeller(name=c("mu"="R","size"="k")),switch="y"
+  )+
+  scale_x_continuous(labels=scales::percent,breaks=breaks_width(0.5))+
+  lims(y=c(0,NA))+
+  labs(y="Mean parameter value",
+       x="Uptake of/adherence to lateral flow testing",
+       #title="The relative impact of lateral flow testing is greatest when individuals have lots of contacts,\nwhen uptake is high, and when testing is frequent",
+       colour="Testing frequency (days between tests)")+
+  plotting_theme+
+  theme(axis.text.x=element_text(angle = 45, vjust = 1, hjust=1))
+
+ggsave("results/lft_impact_testing.png",width=210,height=150,dpi=600,units="mm",bg="white")
+
+## events
+
+
+boot_est <- processed_infections_events %>% 
+  summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size)) %>%
+  summarise.(dists=list(fitdist(sum_inf,"nbinom")),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size,-sim),
+             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% t())) 
+
+
+boot_est %>% filter.(variant=="wild") %>% drop_na.(event_size) %>% 
+  unnest.(dist_means) %>% 
+  pivot_longer.(c(size,mu)) %>% 
+  ggplot(aes(y=value,x=prop_self_iso_test,colour=factor(event_size),group=event_size))+
   geom_point()+
   geom_line()+
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
@@ -134,33 +175,33 @@ boot_est %>% filter.(variant=="wild") %>%
   scale_x_continuous(labels=scales::percent,breaks=breaks_width(0.5))+
   lims(y=c(0,NA))+
   labs(y="Mean parameter value",
-       x="Uptake of/adherence to lateral flow testing",
+       x="Uptake of/adherence to pre-event lateral flow testing",
        #title="The relative impact of lateral flow testing is greatest when individuals have lots of contacts,\nwhen uptake is high, and when testing is frequent",
-       colour="Testing frequency")+
+       colour="Minimum number of attendees\nrequired to prompt pre-event testing")+
   plotting_theme+
   theme(axis.text.x=element_text(angle = 45, vjust = 1, hjust=1))
 
-ggsave("results/lft_impact.png",width=210,height=150,dpi=600,units="mm",bg="white")
+ggsave("results/lft_impact_events.png",width=210,height=150,dpi=600,units="mm",bg="white")
 
-boot_est %>%  
-  mutate.(boot_dist=map.(.x=dists, ~bootdist(f =.,bootmethod = "nonparam",parallel="snow",ncpus=8)$CI %>% 
-                          as.data.frame() %>% rownames_to_column())) %>% 
-  unnest.(boot_dist) %>% 
-  ggplot()+
-  geom_pointrange(aes(y=Median,ymin=`2.5%`,ymax=`97.5%`,x=factor(period)))+
-  facet_wrap(~rowname,scales="free_y",ncol = 1)+lims(y=c(0,NA))
-
-ggsave("mu_size.png")
+# boot_est %>%  
+#   mutate.(boot_dist=map.(.x=dists, ~bootdist(f =.,bootmethod = "nonparam",parallel="snow",ncpus=8)$CI %>% 
+#                           as.data.frame() %>% rownames_to_column())) %>% 
+#   unnest.(boot_dist) %>% 
+#   ggplot()+
+#   geom_pointrange(aes(y=Median,ymin=`2.5%`,ymax=`97.5%`,x=factor(period)))+
+#   facet_wrap(~rowname,scales="free_y",ncol = 1)+lims(y=c(0,NA))
+# 
+# ggsave("mu_size.png")
 
 #prop infecting 0, >10, >20...
 ss_dat <- processed_infections_testing %>% 
   filter.(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
-  summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>%
+  summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size)) %>%
   summarise.(n=n(),
-            ss_10=sum(sum_inf>=10),
-            ss_20=sum(sum_inf>=20),
+            ss_10=sum(sum_inf>10),
+            ss_20=sum(sum_inf>20),
             ss_0=sum(sum_inf<=0),
-            .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim)) %>% 
+            .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size,-sim)) %>% 
   mutate.(
     prop_ss_10=ss_10/n,
     prop_ss_20 =ss_20/n,
@@ -168,20 +209,53 @@ ss_dat <- processed_infections_testing %>%
 
 ss_dat %>% drop_na.(sampling_freq) %>% 
   pivot_longer.(c(prop_ss_0,prop_ss_10)) %>% 
-  ggplot(aes(x=factor(prop_self_iso_test),y=value,group=sampling_freq,colour=factor(sampling_freq)))+
+  ggplot(aes(x=prop_self_iso_test,y=value,group=sampling_freq,colour=factor(sampling_freq)))+
   geom_point()+
   geom_line()+
   scale_colour_manual(values = tri_col_pal)+
+  scale_x_continuous(labels=scales::percent,breaks=breaks_width(0.5))+
   scale_y_continuous(labels=scales::percent)+
   labs(y="Mean parameter value",
        x="Uptake of/adherence to lateral flow testing",
        #title="The relative impact of lateral flow testing is greatest when individuals have lots of contacts,\nwhen uptake is high, and when testing is frequent",
        colour="Testing frequency (days between tests)")+
-  facet_rep_grid(name~period,scales="free_y",labeller = labeller(name=c("prop_ss_0"="0 sec. inf.",
+  facet_rep_grid(name~period,scales="free_y",switch="y",labeller = labeller(name=c("prop_ss_0"="0 sec. inf.",
                                                                     "prop_ss_10"=">10 sec. inf.")))+
   plotting_theme
 
-ggsave("results/prop_ss.png",width=300,height=150,dpi=600,units="mm",bg="white")
+ggsave("results/prop_ss_testing.png",width=210,height=150,dpi=600,units="mm",bg="white")
+
+#prop infecting 0, >10, >20...
+ss_dat <- processed_infections_events %>% 
+  filter.(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+  summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size)) %>%
+  summarise.(n=n(),
+             ss_10=sum(sum_inf>10),
+             ss_20=sum(sum_inf>20),
+             ss_0=sum(sum_inf<=0),
+             .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size,-sim)) %>% 
+  mutate.(
+    prop_ss_10=ss_10/n,
+    prop_ss_20 =ss_20/n,
+    prop_ss_0=ss_0/n)
+
+ss_dat %>% drop_na.(event_size) %>% 
+  pivot_longer.(c(prop_ss_0,prop_ss_10)) %>% 
+  ggplot(aes(x=prop_self_iso_test,y=value,group=event_size,colour=factor(event_size)))+
+  geom_point()+
+  geom_line()+
+  scale_colour_manual(values = tri_col_pal)+
+  scale_x_continuous(labels=scales::percent,breaks=breaks_width(0.5))+
+  scale_y_continuous(labels=scales::percent)+
+  labs(y="Mean parameter value",
+       x="Uptake of/adherence to pre-event lateral flow testing",
+       #title="The relative impact of lateral flow testing is greatest when individuals have lots of contacts,\nwhen uptake is high, and when testing is frequent",
+       colour="Minimum number of attendees\nrequired to prompt pre-event testing")+
+  facet_rep_grid(name~period,scales="free_y",switch="y",labeller = labeller(name=c("prop_ss_0"="0 sec. inf.",
+                                                                                   "prop_ss_10"=">10 sec. inf.")))+
+  plotting_theme
+
+ggsave("results/prop_ss_events.png",width=210,height=150,dpi=600,units="mm",bg="white")
 
 ss_10_plot <- ss_dat %>% 
   filter.(name=="prop_ss_10") %>% 
