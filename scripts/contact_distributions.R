@@ -8,7 +8,7 @@ contact_data_dists <- contact_data %>%
   #drop_na.(value) %>% 
   #nest_by.(period) %>%
   summarise.(#dists=map.(.x=data,.f= . %>% pull.(e_all) %>% fitdist("nbinom")),
-          dist_means=list(fitdist(e_all,"nbinom")$estimate %>% t()),.by=period
+          dist_means=list(fitdist(e_all,"nbinom")$estimate %>% enframe()),.by=period
          #boot_dist=map.(.x=dists, ~bootdist(f =.,bootmethod = "nonparam",parallel="snow",ncpus=4)$CI %>% 
                           #as.data.frame() %>% 
                           #rownames_to_column)
@@ -29,7 +29,7 @@ toc()
 contact_data_dists %>% 
   unnest.(dist_means) %>% 
   filter.(period!="POLYMOD") %>% 
-  pivot_longer.(c(size,mu)) %>% 
+  #pivot_longer.(c(size,mu)) %>% 
   ggplot(aes(y=value,x=period))+
   geom_point(aes(group=name,colour=name))+
   geom_line(aes(group=name,colour=name))+

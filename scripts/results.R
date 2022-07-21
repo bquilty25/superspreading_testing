@@ -18,12 +18,11 @@ ggsave("results/gen_time.png",width=210,height=120,dpi=600,units="mm",bg="white"
 boot_est <- processed_infections_baseline %>% 
   summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>%
   summarise.(dists=list(fitdist(sum_inf,"nbinom")),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim),
-             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% t())) 
+             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% enframe())) %>% 
+  unnest.(dist_means) 
 
 
 boot_est %>% filter.(variant=="wild") %>% 
-  unnest.(dist_means) %>% 
-  pivot_longer.(c(size,mu)) %>% 
   ggplot(aes(y=value,x=period,colour=name,group=name))+
   geom_point()+
   geom_line()+
@@ -36,6 +35,7 @@ boot_est %>% filter.(variant=="wild") %>%
                         scales="free_y",
                         labeller=labeller(name=c("mu"="R","size"="k")),switch="y"
   )+
+  ggh4x::facetted_pos_scales(y=list(NULL,scale_y_continuous(trans="log10")))+
   lims(y=c(0,NA))+
   labs(y="Mean parameter value",
        x="Time period"

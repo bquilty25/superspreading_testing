@@ -1,7 +1,7 @@
 source("scripts/utils.R")
 
 
-pre_pandemic_high <- contact_data %>% 
+pre_pandemic_high<- contact_data %>% 
   mutate.(date_yw=yearweek(date),
           date_y=year(date)) %>% 
   filter.(period=="BBC Pandemic") %>% 
@@ -11,7 +11,7 @@ pre_pandemic_high <- contact_data %>%
              over_200=sum(e_all>200),
              .by=c(date_yw,date_y)) %>% 
   pivot_longer.(c(over_50:over_200)) %>% 
-  mutate.(prop_over=value/n,survey="BBC Pandemic")  %>% 
+  mutate.(prop_over=value/n,survey="BBC Pandemic") %>% 
   ggplot()+
   geom_point(aes(x=as.Date("2018-01-01"),y=prop_over,colour=fct_relevel(name,"over_50")),size=2,show.legend = F,pch=18)+
   geom_rect(data=time_periods %>% filter(period=="BBC Pandemic"),aes(xmin=-Inf,xmax=Inf,ymax=Inf,ymin=-Inf),alpha=0.1,fill="#FC997C")+
