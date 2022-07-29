@@ -48,7 +48,7 @@ log_plot <- plot_dat %>%
                 #,
             alpha=0.05
   )+
-  geom_line(data=. %>% filter.(heterogen_vl==F),
+  geom_line(data=. %>% filter.(heterogen_vl==F) %>% filter.(sim==1),
             aes(x=t,
                 y=vl,
                 group=sim,
@@ -89,7 +89,7 @@ culture_plot <- plot_dat %>%
             #,
             alpha=0.05
   )+
-  geom_line(data=. %>% filter.(heterogen_vl==F),
+  geom_line(data=. %>% filter.(heterogen_vl==F) %>% filter.(sim==1),
             aes(x=t,
                 y=culture_p,
                 group=sim,

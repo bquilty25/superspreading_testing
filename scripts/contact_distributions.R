@@ -2,13 +2,13 @@
 # Run code and estimate mean and k of contact distributions (SLOW)
 if(!file.exists("results/contact_dat_params.qs")){
 tic()
-contact_data_dists <- contact_data %>% 
-  #pivot_longer.(c(e_all,e_home,e_other)) %>% 
+contact_data_dists <- contact_data %>%  
+  pivot_longer.(c(e_all,e_home,e_other)) %>% 
   #mutate.(name=fct_relevel(name,"e_all","e_home","e_other")) %>% 
-  #drop_na.(value) %>% 
+  drop_na.(value) %>% 
   #nest_by.(period) %>%
   summarise.(#dists=map.(.x=data,.f= . %>% pull.(e_all) %>% fitdist("nbinom")),
-          dist_means=list(fitdist(e_all,"nbinom")$estimate %>% enframe()),.by=period
+          dist_means=list(fitdist(value,"nbinom")$estimate %>% enframe()),.by=c(period,name)
          #boot_dist=map.(.x=dists, ~bootdist(f =.,bootmethod = "nonparam",parallel="snow",ncpus=4)$CI %>% 
                           #as.data.frame() %>% 
                           #rownames_to_column)
@@ -31,9 +31,10 @@ contact_data_dists %>%
   filter.(period!="POLYMOD") %>% 
   #pivot_longer.(c(size,mu)) %>% 
   ggplot(aes(y=value,x=period))+
-  geom_point(aes(group=name,colour=name))+
-  geom_line(aes(group=name,colour=name))+
-  facet_rep_grid(name~.,scales="free_y",switch="y",labeller=labeller(name=c("mu"="Mean","size"="k")))+
+  geom_point(aes(group=name...3,colour=name...3))+
+  geom_line(aes(group=name...3,colour=name...3))+
+  facet_rep_grid(name...3~name...2,scales="free_y",switch="y",labeller=labeller(name...3=c("mu"="Mean","size"="k")))+
+  ggh4x::facetted_pos_scales(y=list(NULL,scale_y_log10(limits=c(0.1,100))))+
   scale_colour_manual(values = bi_col_pal,guide="none")+
   scale_linetype_manual(values=c("dashed",NA),guide="none")+
   lims(y=c(0,NA))+
