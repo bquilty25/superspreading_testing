@@ -28,4 +28,10 @@ contacts_qs %>%
   plotting_theme+
   theme(legend.position = "none")
 
+contacts_qs %>% 
+  drop_na.(cnt_minutes_max) %>% 
+  mutate.(cnt_minutes_max=ifelse(cnt_minutes_max>=1440,1440,cnt_minutes_max)) %>% 
+  summarise.(list(enframe(quantile(cnt_minutes_max,c(0.025, 0.5, 0.975)),"quantile","duration")),.by=cnt_household) %>% 
+  unnest.(V1)
+
 ggsave("results/duration_hist.png",width=210,height=100,dpi=600,units="mm",bg="white")

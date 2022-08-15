@@ -437,7 +437,7 @@ run_model <- function(scenarios, browsing=F){
     mutate.(repeated_contacts = case_when.(heterogen_contacts~sample(contact_data_adjusted$e_home[contact_data_adjusted$period==period],
                                                                      size=n(),
                                                                      replace=T),
-                                           TRUE~as.integer(round(mean(contact_data_adjusted$e_home[contact_data_adjusted$period==period])))),
+                                           TRUE~as.integer(round(median(contact_data_adjusted$e_home[contact_data_adjusted$period==period])))),
             .by=period)
   
   indiv_params_long <- indiv_params %>% 
@@ -461,7 +461,7 @@ run_model <- function(scenarios, browsing=F){
     mutate.(casual_contacts = case_when.(heterogen_contacts ~ sample(contact_data_adjusted$e_other[contact_data_adjusted$period==period],
                                                                      size=n(),
                                                                      replace=T),
-                                         TRUE ~ round(mean(contact_data_adjusted$e_other[contact_data_adjusted$period==period]))),
+                                         TRUE ~ round(median(contact_data_adjusted$e_other[contact_data_adjusted$period==period]))),
             .by=period) %>% 
     
     # Simulate infections 

@@ -48,7 +48,7 @@ log_plot <- plot_dat %>%
                 #,
             alpha=0.05
   )+
-  geom_line(data=. %>% filter.(heterogen_vl==F) %>% filter.(sim==1),
+  geom_line(data=. %>% filter.(heterogen_vl==F,sim==1),
             aes(x=t,
                 y=vl,
                 group=sim,
@@ -69,7 +69,7 @@ log_plot <- plot_dat %>%
   plotting_theme+guides(colour="none")+
   labs(title="Kissler et al. 2021")
 
-ggsave("results/log_plot.png",dpi=600,width=210,height=150,units="mm",bg="white")
+#ggsave(log_plot,"results/log_plot.png",dpi=600,width=210,height=150,units="mm",bg="white")
 
 
 plot_dat %>% summarise.(begin_inf=min(t[culture_p>0.5]),end_inf=max(t[culture_p>0.5]),.by=c(sim,heterogen_vl)) %>% mutate.(inf_dur=end_inf-begin_inf) %>% summarise.(q=list(quibble2(inf_dur,c(0.025,0.5,0.975))),.by=heterogen_vl) %>% unnest.(q)
@@ -89,7 +89,7 @@ culture_plot <- plot_dat %>%
             #,
             alpha=0.05
   )+
-  geom_line(data=. %>% filter.(heterogen_vl==F) %>% filter.(sim==1),
+  geom_line(data=. %>% filter.(heterogen_vl==F,sim==1),
             aes(x=t,
                 y=culture_p,
                 group=sim,
@@ -173,22 +173,22 @@ auc_plot <- vl_params %>%
 #ggsave("results/log_and_cv_plot.png",dpi=600,width=210,height=150,units="mm",bg="white")
 
 
-# jitter_plot <- plot_dat %>% 
-#   mutate.(vl=10^(vl)) %>% 
-#   ggplot()+
-#   geom_jitter(data=. %>% filter.(heterogen_vl==T),
-#             aes(x=t,
-#                 y=culture_p,
-#                 group=sim,
-#                 colour=culture_p),
-#             alpha=0.05
-#   )+
-#   scale_colour_viridis_c(name="Probability of infectivity",option="inferno",begin = 0.2,end=0.8,
-#                          guide=guide_colorsteps(barwidth=unit(5,"cm"),barheight=unit(1,"cm")))+
-#   scale_x_continuous(name="Days since first detectable by PCR (Ct<40)",breaks = breaks_width(5))+
-#  # scale_y_log10(name="RNA copies/ml",labels=label_log())+
-#   #coord_cartesian(ylim=c(10^3.5,NA))+
-#   plotting_theme
+jitter_plot <- plot_dat %>%
+  mutate.(vl=10^(vl)) %>%
+  ggplot()+
+  geom_jitter(data=. %>% filter.(heterogen_vl==T,),
+            aes(x=t,
+                y=culture_p,
+                group=sim,
+                colour=culture_p),
+            alpha=0.05
+  )+
+  scale_colour_viridis_c(name="Probability of infectivity",option="inferno",begin = 0.2,end=0.8,
+                         guide=guide_colorsteps(barwidth=unit(5,"cm"),barheight=unit(1,"cm")))+
+  scale_x_continuous(name="Days since first detectable by PCR (Ct<40)",breaks = breaks_width(5))+
+ # scale_y_log10(name="RNA copies/ml",labels=label_log())+
+  #coord_cartesian(ylim=c(10^3.5,NA))+
+  plotting_theme
 
 # dens_plot <- plot_dat %>% 
 #   mutate.(vl=10^(vl)) %>% 
@@ -257,6 +257,74 @@ violin_plot <- vl_params %>%
   #             breaks=seq(0,1,by=0.05)
   # )+
   scale_fill_gradient(high=bi_col_pal[2],low=bi_col_pal[1],guide="none")+
+  # scale_fill_viridis_c(guide="none",option="inferno",begin = 0.2,end=0.8#,limits=c(0,1)
+  #                        #guide=guide_colorsteps(barwidth=unit(5,"cm"))
+  #                      )+
+  labs(title="Daily variation in infectivity",x="Days since first detectable by PCR (Ct<40)",y="Probability of infectivity")+
+  coord_cartesian(xlim=c(NA,20))+
+  #scale_x_discrete(name="Days since first detectable by PCR (Ct<40)",breaks = breaks_width(5))+
+  #scale_y_log10(name="RNA copies/ml",labels=label_log())+
+  #coord_cartesian(ylim=c(10^3.5,NA))+
+  plotting_theme
+
+jitter_plot <- vl_params %>% 
+  filter.(variant%in%c("wild")) %>%
+  mutate.(variant=fct_drop(variant)) %>% 
+  crossing(heterogen_vl=c(TRUE)) %>% 
+  group_split.(variant,heterogen_vl) %>% 
+  map.(~make_trajectories(n_sims = 1000,asymp_parms=asymp_fraction,variant_info=.x,browsing = F)) %>% 
+  bind_rows.()%>% 
+  mutate.(infectivity = pmap(inf_curve_func, .l = list(
+    m = m, start = start, end = end,interval=1
+  )))  %>%
+  unnest.(infectivity) %>%
+  crossing.(lower_inf_thresh = c(FALSE)) %>%
+  mutate.(
+    culture_p        = stats::predict(
+      object = inf_model_choice(lower_inf_thresh),
+      type = "response",
+      newdata = tidytable(vl = vl)
+    ),
+    infectious = rbernoulli(n = n(),
+                            p = culture_p),
+    test_p           = stats::predict(
+      object =  innova_mod,
+      type = "response",
+      newdata = tidytable(vl = vl)
+    ),
+    test       = rbernoulli(n = n(),
+                            p = test_p),
+    .by = c(lower_inf_thresh)
+  ) %>%
+  replace_na.(list(test       = FALSE,
+                   infectious = FALSE)) %>% 
+  select.(-c(prolif, start, end))  %>% 
+  mutate.(median_p=mean(culture_p),.by=c(t,heterogen_vl)) %>% 
+  filter.(t<20) %>% 
+  ggplot()+
+  geom_jitter(data=. %>% filter.(heterogen_vl==T),
+              aes(x=t,
+                  y=culture_p,
+                  group=t,
+                  colour=culture_p,
+              ),scale="width",alpha=0.1)+
+  stat_sum_df(data=. %>% filter.(heterogen_vl==T),
+              mapping=aes(x=t,
+                  y=culture_p,
+                  group=t,
+                  colour=culture_p,
+              ),"median_hilow",geom="pointrange")+
+  # ggdist::stat_slab(data=. %>% filter.(heterogen_vl==T),
+  #             aes(x=factor(t),
+  #                 y=culture_p,
+  #                 group=t,
+  #                fill=median_p
+  #                 ), #fill=bi_col_pal[2],
+  #             side="both",
+  #             normalize="groups",
+  #             breaks=seq(0,1,by=0.05)
+  # )+
+  scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1],guide="none")+
   # scale_fill_viridis_c(guide="none",option="inferno",begin = 0.2,end=0.8#,limits=c(0,1)
   #                        #guide=guide_colorsteps(barwidth=unit(5,"cm"))
   #                      )+
