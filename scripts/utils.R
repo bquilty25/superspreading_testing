@@ -351,7 +351,7 @@ make_trajectories <- function(
     mutate.(y=case_when(name=="start" ~ 40,#convert_Ct_logGEML(40),
                         name=="end"   ~ 40,#convert_Ct_logGEML(40),
                         name=="prolif"~case_when.(heterogen_vl~rnormTrunc(n=n(),mean=mean_peakvl,sd=sd_peakvl,min=0,max=40),
-                                                  TRUE~mean_peakvl))) %>% 
+                                                  TRUE~median(rnormTrunc(n=n(),mean=mean_peakvl,sd=sd_peakvl,min=0,max=40))))) %>% 
     select.(-c(mean_peakvl,sd_peakvl))
   
   
@@ -445,7 +445,8 @@ run_model <- function(scenarios, browsing=F){
   
   repeated_infections <- indiv_params_long %>% 
     uncount.(repeated_contacts,.id="id",.remove = F) %>% 
-    mutate.(hh_duration = sample(contacts_hh_duration,size=n(),replace=T),
+    mutate.(hh_duration = case_when.(heterogen_contacts~sample(contacts_hh_duration,size=n(),replace=T),
+                                     TRUE ~ mean(sample(contacts_hh_duration))),
             infected    = rbernoulli(n(),p=culture_p*hh_duration)) %>% 
     filter.(infected==T) %>% 
     slice.(min(t), .by=c(all_of(key_grouping_var),repeated_contacts,id)) %>% 
@@ -465,7 +466,8 @@ run_model <- function(scenarios, browsing=F){
     
     # Simulate infections 
     uncount.(casual_contacts,.remove = F) %>% 
-    mutate.(nhh_duration = sample(contacts_nhh_duration,size=n(),replace=T),
+    mutate.(nhh_duration = case_when.(heterogen_contacts ~ sample(contacts_nhh_duration,size=n(),replace=T),
+                                      TRUE ~ round(median(contacts_nhh_duration))),
             casual_infected = rbernoulli(n=n(),p = culture_p*nhh_duration)) %>% 
     summarise.(casual_infected=sum(casual_infected),.by=c(t,all_of(key_grouping_var),casual_contacts,test)) %>% 
     
