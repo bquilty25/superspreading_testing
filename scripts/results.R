@@ -45,6 +45,10 @@ boot_est %>% filter.(variant=="wild") %>%
 
 ggsave("results/R and k over time.png",width=210,height=150,dpi=600,units="mm",bg="white")
 
+#same plot but overlaying with epiforecasts historical Rt estimates
+rt <- read.csv("data/rt.txt") %>% 
+  filter(country=="United Kingdom")
+
 # heterogen_on_off
 boot_est <- processed_infections_heterogen_on_off %>% 
   summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>%
