@@ -47,16 +47,18 @@ ggsave("results/R and k over time.png",width=210,height=150,dpi=600,units="mm",b
 
 # heterogen_on_off
 boot_est <- processed_infections_heterogen_on_off %>% 
-  summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>%
-  summarise.(dists=list(fitdist(sum_inf,"nbinom")),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim),
-             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% t())) 
+  summarise.(sum_inf=sum(total_infections),
+             .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>%
+  summarise.(dists=list(fitdist(sum_inf,"nbinom")),
+             .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim),
+             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% enframe())) %>% 
+  unnest.(dist_means) 
 
 
 boot_est %>% filter.(variant=="wild") %>% 
-  unnest.(dist_means) %>% 
-  pivot_longer.(c(size,mu)) %>% 
   mutate.(heterogen_vl=as.factor(heterogen_vl),
-         heterogen_contacts=as.factor(heterogen_contacts)) %>% 
+         heterogen_contacts=as.factor(heterogen_contacts)) %>%
+  filter.(!(heterogen_vl==F&heterogen_contacts==F)) %>% 
   ggplot(aes(y=value,x=period,colour=name,group=name))+
   geom_point()+
   geom_line()+
@@ -64,9 +66,9 @@ boot_est %>% filter.(variant=="wild") %>%
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
   scale_colour_manual(values = bi_col_pal,guide="none")+
   scale_linetype_manual(values=c("dashed",NA),guide="none")+
-  facet_nested_wrap(name~heterogen_contacts+heterogen_vl,ncol=4,
+  lemon::facet_rep_grid(name~heterogen_contacts+heterogen_vl,#ncol=4,
                         #scales="free",
-                    nest_line = T,
+                    #nest_line = T,
                         scales="free_y",
                         labeller=labeller(name=c("mu"="R","size"="k"),
                                           heterogen_vl=c("TRUE"="Variable viral load",
@@ -76,6 +78,7 @@ boot_est %>% filter.(variant=="wild") %>%
                                          # heterogen_contacts=function(x)paste("Contact heterogeneity:",x)
                                          )
   )+
+  ggh4x::facetted_pos_scales(y=list(NULL,scale_y_log10()))+
   lims(y=c(0,NA))+
   labs(y="Mean parameter value",
        x="Time period"
@@ -121,12 +124,12 @@ processed_infections_baseline %>%
 boot_est <- processed_infections_testing %>% 
   summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size)) %>%
   summarise.(dists=list(fitdist(sum_inf,"nbinom")),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size,-sim),
-             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% t())) 
+             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% enframe())) %>% 
+  unnest.(dist_means) 
+
 
 
 boot_est %>% filter.(variant=="wild") %>%
-  unnest.(dist_means) %>% 
-  pivot_longer.(c(size,mu)) %>% 
   ggplot(aes(y=value,x=prop_self_iso_test,colour=factor(sampling_freq),group=sampling_freq))+
   geom_point()+
   geom_line()+
@@ -151,16 +154,16 @@ ggsave("results/lft_impact_testing.png",width=210,height=150,dpi=600,units="mm",
 
 ## events
 
-
 boot_est <- processed_infections_events %>% 
   summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size)) %>%
   summarise.(dists=list(fitdist(sum_inf,"nbinom")),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size,-sim),
-             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% t())) 
+             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% enframe())) %>% 
+  unnest.(dist_means) 
 
 
-boot_est %>% filter.(variant=="wild") %>% drop_na.(event_size) %>% 
-  unnest.(dist_means) %>% 
-  pivot_longer.(c(size,mu)) %>% 
+boot_est %>% 
+  filter.(variant=="wild") %>% 
+  drop_na.(event_size) %>% 
   ggplot(aes(y=value,x=prop_self_iso_test,colour=factor(event_size),group=event_size))+
   geom_point()+
   geom_line()+
@@ -172,8 +175,9 @@ boot_est %>% filter.(variant=="wild") %>% drop_na.(event_size) %>%
                     scales="free_y",
                     labeller=labeller(name=c("mu"="R","size"="k")),switch="y"
                     )+
+  scale_y_log10()+
   scale_x_continuous(labels=scales::percent,breaks=breaks_width(0.5))+
-  lims(y=c(0,NA))+
+  #lims(y=c(0,NA))+
   labs(y="Mean parameter value",
        x="Uptake of/adherence to pre-event lateral flow testing",
        #title="The relative impact of lateral flow testing is greatest when individuals have lots of contacts,\nwhen uptake is high, and when testing is frequent",
