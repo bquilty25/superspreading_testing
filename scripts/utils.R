@@ -173,30 +173,16 @@ contacts_bbc <- bind_rows(contacts_bbc_o18, contacts_bbc_u18) %>%
   mutate(date=as_date("01/09/2017",format="%d/%m/%Y"),
          e_school=0)
 
-contacts_comix_o18 <-
-  read.csv(here("data", "comix_contact_distributions_o18.csv")) %>%
-  mutate(
-    date = as_date(date),
-    age="adults"
-  )
-
-contacts_comix_u18 <-
-  read.csv(here("data", "comix_contact_distributions_u18.csv")) %>%
-  mutate(
-    date = as_date(date),
-    age="children"
-  )
-
-contacts_comix <- bind_rows(contacts_comix_o18, contacts_comix_u18)
+source("scripts/comix_clean.R")
 
 #summarise number of contacts
-contact_data <- contacts_comix %>% 
-  bind_rows(contacts_bbc)%>% 
+contact_data <- contacts_bbc %>% 
   mutate(e_other=rowSums(across(c(e_work,e_school,e_other)),na.rm = T)) %>% 
   select(date,e_home,e_other) %>% 
   bind_rows(contacts_polymod) %>% 
   mutate(e_all = rowSums(across(c(e_home,e_other)),na.rm = T),
-         date=as_date(date))%>% 
+         date=as_date(date))%>%
+  bind_rows(contacts_comix) %>% 
   fuzzyjoin::fuzzy_inner_join(time_periods,
                    by=c("date"="date_start","date"="date_end"),
                    match_fun=list(`>=`,`<=`))
