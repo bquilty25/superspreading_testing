@@ -150,7 +150,7 @@ contact_data %>%
               #                         "Lockdown\n3 + schools" = "Lockdown 3 + schools"
               #                         )),
             aes(x=(as.numeric(date_end)+as.numeric(date_start))/2,y=0.3,label=str_wrap(period,10)),vjust=1,hjust=0.5,size=2,colour="#2E4C6D")+
-  facet_rep_grid(~survey,scales="free",space="free")+
+  facet_grid(~survey,scales="free",space="free")+
   facetted_pos_scales(x=list(
     scale_x_yearmonth("", breaks="1 year",expand=expansion(mult = 20),date_labels="%Y",limits=c(as.Date("2018-01-01"),as.Date("2018-01-01"))),
     scale_x_yearmonth("", breaks="1 month",expand=expansion(),date_labels="%b '%y",limits=c(as.Date("2020-03-15"),NA))))+
