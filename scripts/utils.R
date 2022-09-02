@@ -181,7 +181,8 @@ contact_data <- contacts_bbc %>%
   select(date,e_home,e_other) %>% 
   bind_rows(contacts_polymod) %>% 
   mutate(e_all = rowSums(across(c(e_home,e_other)),na.rm = T),
-         date=as_date(date))%>%
+         date=as_date(date),
+         part_id=as.character(part_id))%>%
   bind_rows(contacts_comix) %>% 
   fuzzyjoin::fuzzy_inner_join(time_periods,
                    by=c("date"="date_start","date"="date_end"),
@@ -417,14 +418,22 @@ run_model <- function(scenarios, browsing=F){
   
   if(browsing){browser()}
   
-  indiv_params <- traj %>% 
-    select.(-m) %>% 
-    crossing.(time_periods_of_interest) %>% 
-    mutate.(repeated_contacts = case_when.(heterogen_contacts~sample(contact_data_adjusted$e_home[contact_data_adjusted$period==period],
-                                                                     size=n(),
-                                                                     replace=T),
-                                           TRUE~as.integer(round(median(contact_data_adjusted$e_home[contact_data_adjusted$period==period])))),
-            .by=period)
+  indiv_params <- traj %>%
+    select.(-m) %>%
+    crossing.(time_periods_of_interest) %>%
+    mutate.(
+      repeated_contacts = case_when.(
+        heterogen_contacts ~ as.integer(
+          sample(contact_data_adjusted$e_home[contact_data_adjusted$period == period],
+          size = n(),
+          replace = T
+        )),
+        TRUE ~ as.integer(round(median(
+          contact_data_adjusted$e_home[contact_data_adjusted$period == period]
+        )))
+      ),
+      .by = period
+    )
   
   indiv_params_long <- indiv_params %>% 
     left_join.(traj_)
