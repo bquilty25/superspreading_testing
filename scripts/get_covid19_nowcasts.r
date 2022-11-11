@@ -33,6 +33,8 @@ get_covid19_nowcasts <-
   repo <- "covid-rt-estimates"
   path <- paste(dataset, "summary", paste0(variable, ".csv"), sep = "/")
 
+  browser()
+  
   query <- "/repos/{owner}/{repo}/commits?path={path}"
 
   if (!is.null(earliest_date)) {

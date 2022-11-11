@@ -48,7 +48,6 @@ contacts_zero <- comix$participants %>%
   mutate(e_home = 0,
          e_other = 0)
 
-#Combine
 contacts_comix <- bind_rows(contacts_mult,
                           contacts_zero) %>%
   arrange(part_id, day, month, year) %>%
