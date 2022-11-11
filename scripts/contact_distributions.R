@@ -2,13 +2,13 @@
 # Run code and estimate mean and k of contact distributions (SLOW)
 if(!file.exists("results/contact_dat_params.qs")){
 tic()
-contact_data_dists <- contact_data %>% 
-  #pivot_longer.(c(e_all,e_home,e_other)) %>% 
+contact_data_dists <- contact_data %>%  
+  pivot_longer.(c(e_all,e_home,e_other),names_to = "contact_type") %>% 
   #mutate.(name=fct_relevel(name,"e_all","e_home","e_other")) %>% 
-  #drop_na.(value) %>% 
+  drop_na.(value) %>% 
   #nest_by.(period) %>%
   summarise.(#dists=map.(.x=data,.f= . %>% pull.(e_all) %>% fitdist("nbinom")),
-          dist_means=list(fitdist(e_all,"nbinom")$estimate %>% enframe()),.by=period
+          dist_means=list(fitdist(value,"nbinom")$estimate %>% enframe()),.by=c(period,contact_type)
          #boot_dist=map.(.x=dists, ~bootdist(f =.,bootmethod = "nonparam",parallel="snow",ncpus=4)$CI %>% 
                           #as.data.frame() %>% 
                           #rownames_to_column)
@@ -22,29 +22,27 @@ toc()
 }
 
 
-         #params=map.(dists,~c(mu=.x$estimate[[2]],k=.x$estimate[[1]]))
-         #) %>% 
-  #unnest_wider(params) 
-
 contact_data_dists %>% 
   unnest.(dist_means) %>% 
-  filter.(period!="POLYMOD") %>% 
+  filter.(period!="POLYMOD",
+          contact_type=="e_all") %>% 
   #pivot_longer.(c(size,mu)) %>% 
   ggplot(aes(y=value,x=period))+
   geom_point(aes(group=name,colour=name))+
   geom_line(aes(group=name,colour=name))+
-  facet_rep_grid(name~.,scales="free_y",switch="y",labeller=labeller(name=c("mu"="Mean","size"="k")))+
   scale_colour_manual(values = bi_col_pal,guide="none")+
   scale_linetype_manual(values=c("dashed",NA),guide="none")+
   lims(y=c(0,NA))+
-  labs(y="Mean parameter value",
+  labs(y="",
        x="Time period",
        #title="The relative impact of lateral flow testing is greatest when individuals have lots of contacts,\nwhen uptake is high, and when testing is frequent")+
   )+
   plotting_theme+
-  theme(axis.text.x=element_text(angle = 45, vjust = 1, hjust=1))
+  theme(axis.text.x=element_text(angle = 45, vjust = 1, hjust=1))+
+  facet_grid2(name~.,switch="y",scales="free_y",labeller=labeller(name=c("mu"="Mean contacts","size"="k of contacts")),axes="all",remove_labels = "x")+
+  ggh4x::facetted_pos_scales(y=list(scale_y_continuous(limits=c(0,NA),expand = expansion(c(0,0.1))),scale_y_log10(limits=c(0.25,3))))
 
-ggsave("results/contact_dists.png",width=210,height=150,dpi=600,units="mm",bg="white")
+ggsave("results/contact_dists.png",width=150,height=150,dpi=600,units="mm",bg="white")
 
 
 contact_data %>% 
