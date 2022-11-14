@@ -30,14 +30,14 @@ boot_est %>% filter.(variant=="wild") %>%
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
   scale_colour_manual(values = bi_col_pal,guide="none")+
   scale_linetype_manual(values=c("dashed",NA),guide="none")+
-  lemon::facet_rep_grid(name~.,
+  facet_grid2(name~.,
                         #scales="free",
                         scales="free_y",
                         labeller=labeller(name=c("mu"="R","size"="k")),switch="y"
   )+
-  ggh4x::facetted_pos_scales(y=list(NULL,scale_y_continuous(trans="log10")))+
+  facet_grid2(name~.,switch="y",scales="free_y",labeller=labeller(name=c("mu"="Mean R","size"="k of R")),axes="all",remove_labels = "x")+
   lims(y=c(0,NA))+
-  labs(y="Mean parameter value",
+  labs(y="",
        x="Time period"
        )+
   plotting_theme+
@@ -62,7 +62,7 @@ boot_est <- processed_infections_heterogen_on_off %>%
 boot_est %>% filter.(variant=="wild") %>% 
   mutate.(heterogen_vl=as.factor(heterogen_vl),
          heterogen_contacts=as.factor(heterogen_contacts)) %>%
-  filter.(!(heterogen_vl==F&heterogen_contacts==F)) %>% 
+  #filter.(!(heterogen_vl==F&heterogen_contacts==F)) %>% 
   ggplot(aes(y=value,x=period,colour=name,group=name))+
   geom_point()+
   geom_line()+
@@ -70,11 +70,9 @@ boot_est %>% filter.(variant=="wild") %>%
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
   scale_colour_manual(values = bi_col_pal,guide="none")+
   scale_linetype_manual(values=c("dashed",NA),guide="none")+
-  lemon::facet_rep_grid(name~heterogen_contacts+heterogen_vl,#ncol=4,
-                        #scales="free",
-                    #nest_line = T,
-                        scales="free_y",
-                        labeller=labeller(name=c("mu"="R","size"="k"),
+  facet_grid2(name~heterogen_contacts+heterogen_vl,switch="y",scales="free_y",
+              axes="all",remove_labels = "x",
+              labeller=labeller(name=c("mu"="R","size"="k"),
                                           heterogen_vl=c("TRUE"="Variable viral load",
                                                          "FALSE"="Same viral load"),
                                           heterogen_contacts=c("TRUE"="Variable contacts",

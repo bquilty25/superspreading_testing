@@ -28,14 +28,14 @@ traj_ <- traj %>%
       newdata = tidytable(vl = vl)
     ),
     infectious = rbernoulli(n = n(),
-                                  p = culture_p),
+                            p = culture_p),
     test_p           = stats::predict(
       object =  innova_mod,
       type = "response",
       newdata = tidytable(vl = vl)
     ),
     test       = rbernoulli(n = n(),
-                                  p = test_p),
+                            p = test_p),
     .by = c(lower_inf_thresh)
   ) %>%
   replace_na.(list(test       = FALSE,
@@ -45,7 +45,7 @@ traj_ <- traj %>%
 #Scenarios to investigate
 
 
-key_grouping_var <- c("sim","variant","scenario_id","period","lower_inf_thresh","heterogen_vl","heterogen_contacts")
+key_grouping_var <- c("sim","variant","period","lower_inf_thresh","heterogen_vl","heterogen_contacts")
 
 #baseline 
 
@@ -74,7 +74,7 @@ processed_infections_baseline <- time_periods_of_interest %>% run_model(.,browsi
 testing_scenarios <- traj %>% 
   select.(-m) %>% 
   crossing.(prop_self_iso_test=c(0),
-            sampling_freq=c(7),
+            sampling_freq=NA,
             event_size=NA) %>% 
   mutate.(self_iso_test = rbernoulli(n=n(),prop_self_iso_test),
           begin_testing = rdunif(n(),0, sampling_freq)) 
@@ -88,7 +88,7 @@ time_periods_of_interest <-
   select(-c(date_start,date_end)) %>% 
   crossing(heterogen_contacts=c(T,F))
 
-processed_infections_heterogen_on_off <- time_periods_of_interest %>% run_model
+processed_infections_heterogen_on_off <- time_periods_of_interest %>% run_model(browsing = F)
 
 #testing
 
