@@ -66,15 +66,16 @@ boot_est %>% filter.(variant=="wild") %>%
   ggplot(aes(y=value,x=period,colour=name,group=name))+
   geom_point()+
   geom_line()+
-  geom_text_repel(data=. %>% filter.(period=="BBC Pandemic",name=="mu"),aes(x=period,y=value,label=paste0("R0 = ",round(value,1))),family="Lato",nudge_x=1)+
+  geom_text_repel(data=. %>% filter.(period=="BBC Pandemic",name=="mu"),aes(x=period,y=value,label=paste0("R0 = ",round(value,1))),family="Lato")+
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
   scale_colour_manual(values = bi_col_pal,guide="none")+
   scale_linetype_manual(values=c("dashed",NA),guide="none")+
   facet_grid2(name~heterogen_contacts+heterogen_vl,switch="y",scales="free_y",
+              independent = "y",
               axes="all",remove_labels = "x",
               labeller=labeller(name=c("mu"="R","size"="k"),
-                                          heterogen_vl=c("TRUE"="Variable viral load",
-                                                         "FALSE"="Same viral load"),
+                                          heterogen_vl=c("TRUE"="Variable viral load trajectory",
+                                                         "FALSE"="Same viral load trajectory"),
                                           heterogen_contacts=c("TRUE"="Variable contacts",
                                                          "FALSE"="Same contacts")
                                          # heterogen_contacts=function(x)paste("Contact heterogeneity:",x)
