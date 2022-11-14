@@ -412,28 +412,28 @@ propresponsible=function(R0,k,prop){
 #   return(test_timings)
 # }
 
+sample_filter <- function(condition,df,col,n){
+  sample(df %>% filter.(period==condition) %>% pull.(col),size=n,replace=T)
+}
+
+mean_filter <- function(condition,df,col){
+  mean(df %>% filter.(period==condition) %>% pull.(col))
+}
 
 #### Generate infections of repeated (household) contacts ####
 run_model <- function(scenarios, browsing=F){
   
   if(browsing){browser()}
   
-  indiv_params <- traj %>%
+  
+  indiv_params <- traj %>%  
     select.(-m) %>%
-    crossing.(time_periods_of_interest) %>%
-    mutate.(
-      repeated_contacts = case_when.(
-        heterogen_contacts ~ as.integer(
-          sample(contact_data_adjusted$e_home[contact_data_adjusted$period == period],
-          size = n(),
-          replace = T
-        )),
-        TRUE ~ as.integer(round(median(
-          contact_data_adjusted$e_home[contact_data_adjusted$period == period]
-        )))
-      ),
-      .by = period
-    )
+    crossing.(heterogen_contacts = unique(scenarios$heterogen_contacts),
+              period=unique(scenarios %>% mutate.(period=fct_drop(period)) %>% pull.(period))) %>%   
+    mutate.(repeated_contacts=ifelse(heterogen_contacts,
+                          sample_filter(condition = period,df=contact_data_adjusted,col="e_home",n=n()),
+                          round(mean_filter(condition = period,df=contact_data_adjusted,col="e_home"))),
+            .by=c(period)) 
   
   indiv_params_long <- indiv_params %>% 
     left_join.(traj_)
@@ -441,7 +441,7 @@ run_model <- function(scenarios, browsing=F){
   repeated_infections <- indiv_params_long %>% 
     uncount.(repeated_contacts,.id="id",.remove = F) %>% 
     mutate.(hh_duration = case_when.(heterogen_contacts~sample(contacts_hh_duration,size=n(),replace=T),
-                                     TRUE ~ mean(sample(contacts_hh_duration))),
+                                     TRUE ~ median(sample(contacts_hh_duration))),
             infected    = rbernoulli(n(),p=culture_p*hh_duration)) %>% 
     filter.(infected==T) %>% 
     slice.(min(t), .by=c(all_of(key_grouping_var),repeated_contacts,id)) %>% 
@@ -453,11 +453,10 @@ run_model <- function(scenarios, browsing=F){
   casual_infections <- indiv_params_long %>% 
     
     # Sample daily contacts
-    mutate.(casual_contacts = case_when.(heterogen_contacts ~ sample(contact_data_adjusted$e_other[contact_data_adjusted$period==period],
-                                                                     size=n(),
-                                                                     replace=T),
-                                         TRUE ~ round(median(contact_data_adjusted$e_other[contact_data_adjusted$period==period]))),
-            .by=period) %>% 
+    mutate.(casual_contacts = ifelse(heterogen_contacts,
+                                     sample_filter(condition = period,df=contact_data_adjusted,col="e_other",n=n()),
+                                     round(mean_filter(condition = period,df=contact_data_adjusted,col="e_other"))),
+            .by=c(period)) %>% 
     
     # Simulate infections 
     uncount.(casual_contacts,.remove = F) %>% 
