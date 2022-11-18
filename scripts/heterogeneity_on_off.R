@@ -29,7 +29,7 @@ sec_case_hetero <- function(df){
             test_t = ifelse(self_iso_test==0,Inf,test_t)) %>% 
     select.(-u) %>%
     mutate.(
-      contacts_repeated_home = case_when.(
+      contacts_hh_home = case_when.(
         het_contacts ~ sample(
           contact_data %>%
             filter(time_period == "pre") %>%
@@ -42,7 +42,7 @@ sec_case_hetero <- function(df){
           summarise(e_home=ceiling(mean(e_home,na.rm=T))) %>% 
           pull(e_home)
         ),
-      contacts_repeated_work_school = case_when(
+      contacts_hh_work_school = case_when(
         het_contacts ~ sample(
           contact_data %>%
             filter(time_period == "pre") %>%
@@ -66,21 +66,21 @@ sec_case_hetero <- function(df){
         TRUE ~ test_t), 
       #if symp onset or test positive, contacts outside of home should cease; for school/work, multiply 
       #number of contacts by proportion of time since infection which occurs pre-onset
-      contacts_repeated_work_school=case_when.(!is.infinite(trunc_t)~ ceiling(contacts_repeated_work_school*(trunc_t/(end-start))),
-                                               TRUE                 ~ ceiling(contacts_repeated_work_school))
+      contacts_hh_work_school=case_when.(!is.infinite(trunc_t)~ ceiling(contacts_hh_work_school*(trunc_t/(end-start))),
+                                               TRUE                 ~ ceiling(contacts_hh_work_school))
     ) %>% 
     mutate.(
-      contacts_repeated   = contacts_repeated_home + contacts_repeated_work_school,
-      n_repeated_infected = rbinom(n = n(), 
-                                   size = contacts_repeated, 
+      contacts_hh   = contacts_hh_home + contacts_hh_work_school,
+      n_hh_infected = rbinom(n = n(), 
+                                   size = contacts_hh, 
                                    prob = case_when.(het_vl~norm_sum,
                                                      !het_vl~mean(norm_sum,na.rm=T)))) %>%
-    #Daily casual contacts
+    #Daily nhh contacts
     unnest.(infectiousness) %>%
     mutate.(norm_daily = case_when.(het_vl ~ culture / sum_inf * norm_sum,
                                     !het_vl ~ mean(culture / sum_inf * norm_sum,na.rm=T))) %>% 
     mutate.(
-      contacts_casual = case_when.(
+      contacts_nhh = case_when.(
         t>trunc_t  ~ 0L,
         het_contacts ~ sample(
           contact_data %>%
@@ -93,8 +93,8 @@ sec_case_hetero <- function(df){
           summarise(e_other=ceiling(mean(e_other,na.rm=T))) %>% 
           pull(e_other))
     ) %>%
-    mutate.(n_casual_infected = rbinom(n = n(), 
-                                       size = contacts_casual, 
+    mutate.(n_nhh_infected = rbinom(n = n(), 
+                                       size = contacts_nhh, 
                                        prob =
                                          case_when.(het_vl~norm_daily,
                                                     !het_vl~mean(norm_daily,na.rm=T)))) %>% 
@@ -106,11 +106,11 @@ sec_case_hetero <- function(df){
                      het_vl,
                      prop_self_iso_symp,
                      prop_self_iso_test,
-                     contacts_repeated,
-                     n_repeated_infected),
-               contacts_casual = sum(contacts_casual),
-               n_casual_infected = sum(n_casual_infected)) %>%
-    mutate.(n_total_infected = n_repeated_infected + n_casual_infected) 
+                     contacts_hh,
+                     n_hh_infected),
+               contacts_nhh = sum(contacts_nhh),
+               n_nhh_infected = sum(n_nhh_infected)) %>%
+    mutate.(n_total_infected = n_hh_infected + n_nhh_infected) 
 }
 
 res1 <- inf_curve1 %>% 

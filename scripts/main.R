@@ -43,12 +43,9 @@ traj_ <- traj %>%
   select.(-c(prolif, start, end))
  
 #Scenarios to investigate
-
-
 key_grouping_var <- c("sim","variant","period","lower_inf_thresh","heterogen_vl","heterogen_contacts")
 
 #baseline 
-
 testing_scenarios <- traj %>% 
   filter.(heterogen_vl==T) %>% 
   select.(-m) %>% 
@@ -70,7 +67,6 @@ time_periods_of_interest <-
 processed_infections_baseline <- time_periods_of_interest %>% run_model(.,browsing = F)
 
 #heterogen onoff 
-
 testing_scenarios <- traj %>% 
   select.(-m) %>% 
   crossing.(prop_self_iso_test=c(0),
@@ -131,7 +127,7 @@ time_periods_of_interest <-
 
 processed_infections_events <- time_periods_of_interest %>% run_model(.,browsing = F)
 
-#rm(repeated_infections,casual_infections)
+#rm(hh_infections,nhh_infections)
 
 
 #source("scripts/results.R")

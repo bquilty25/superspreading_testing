@@ -40,7 +40,38 @@ pacman::p_load(
 
 
 seed <- 1000
+set.seed(seed)
 
+# plotting options
+covid_pal <- c("#e66101", "#5e3c99", "#0571b0")
+
+`%!in%` = Negate(`%in%`)
+
+plotting_theme <- theme_minimal(base_family = "Lato")+
+  theme(axis.ticks = element_line(colour="#2E4C6D"),
+        axis.title = element_text(colour="#2E4C6D"),
+        axis.text = element_text(colour="#2E4C6D"),
+        strip.text = element_text(colour="#2E4C6D"),
+        axis.line.x = element_line(colour="#2E4C6D"),
+        axis.line.y = element_line(colour="#2E4C6D"),
+        #panel.border = element_rect(fill=NA,colour="#2E4C6D"),
+        panel.grid = element_blank(),
+        legend.position = "bottom",
+        strip.placement = "outside",
+        axis.line = element_line(colour="#2E4C6D"),
+        line = element_line(colour="#2E4C6D"),
+        text = element_text(colour="#2E4C6D",family = "Lato"))
+
+bi_col_pal <- c("#396EB0","#FC997C")
+tri_col_pal <- c("#396EB0","#DADDFC","#FC997C")
+quad_col_pal <- c("#2E4C6D","#396EB0","#DADDFC","#FC997C")
+
+capitalize <- function(string) {
+  substr(string, 1, 1) <- toupper(substr(string, 1, 1))
+  string
+}
+
+### Load viral load data ----
 kissler_dat <- read_csv("CtTrajectories_B117/output/shared_params_df.csv") %>% 
   select("alpha_peakvl" = dpmeanB, 
          "wild_peakvl" = dpmeanW,
@@ -107,34 +138,7 @@ convert_Ct_logGEML <- function(Ct, m_conv=-3.609714286, b_conv=40.93733333){
   return(out) 
 }
 
-covid_pal <- c("#e66101", "#5e3c99", "#0571b0")
-
-`%!in%` = Negate(`%in%`)
-
-plotting_theme <- theme_minimal(base_family = "Lato")+
-  theme(axis.ticks = element_line(colour="#2E4C6D"),
-        axis.title = element_text(colour="#2E4C6D"),
-        axis.text = element_text(colour="#2E4C6D"),
-        strip.text = element_text(colour="#2E4C6D"),
-        axis.line.x = element_line(colour="#2E4C6D"),
-        axis.line.y = element_line(colour="#2E4C6D"),
-        #panel.border = element_rect(fill=NA,colour="#2E4C6D"),
-        panel.grid = element_blank(),
-        legend.position = "bottom",
-        strip.placement = "outside",
-        axis.line = element_line(colour="#2E4C6D"),
-        line = element_line(colour="#2E4C6D"),
-        text = element_text(colour="#2E4C6D",family = "Lato"))
-
-bi_col_pal <- c("#396EB0","#FC997C")
-tri_col_pal <- c("#396EB0","#DADDFC","#FC997C")
-quad_col_pal <- c("#2E4C6D","#396EB0","#DADDFC","#FC997C")
-
-capitalize <- function(string) {
-  substr(string, 1, 1) <- toupper(substr(string, 1, 1))
-  string
-}
-
+#Define time periods of interest
 time_periods <- tribble(~idx,~period,~date_start,~date_end,
                         -1, "POLYMOD",             as_date("01/01/2008",format="%d/%m/%Y"), as_date("01/01/2008",format="%d/%m/%Y"),
                         0, "BBC Pandemic",         as_date("01/09/2017",format="%d/%m/%Y"), as_date("01/12/2018",format="%d/%m/%Y"),
@@ -149,7 +153,7 @@ time_periods <- tribble(~idx,~period,~date_start,~date_end,
                         9, "Step 2 + schools",     as_date("16/04/2021",format="%d/%m/%Y"), as_date("16/05/2021",format="%d/%m/%Y")) %>% 
   mutate(period=factor(period,levels = period))
 
-#Load contact data
+#### Load contact data ----
 contacts_polymod <- 
   read.csv(here("data","2008_Mossong_POLYMOD_contact_common.csv")) %>% 
   pivot_longer(cols=c(cnt_home,cnt_school,cnt_work,cnt_transport,cnt_leisure,cnt_otherplace)) %>% 
@@ -173,6 +177,7 @@ contacts_bbc <- bind_rows(contacts_bbc_o18, contacts_bbc_u18) %>%
   mutate(date=as_date("01/09/2017",format="%d/%m/%Y"),
          e_school=0)
 
+# Clean and load Comix data
 source("scripts/comix_clean.R")
 
 #summarise number of contacts
@@ -188,71 +193,38 @@ contact_data <- contacts_bbc %>%
                    by=c("date"="date_start","date"="date_end"),
                    match_fun=list(`>=`,`<=`))
 
-# impute out of HH values > 250 for BBC pandemic by fitting distribution to values from non-lockdown periods
-contact_data %>%summarise.(n=n(),over_250=sum(e_other>=250),.by=period) %>% mutate.(prop=over_250/n*100,.by=period)
+#### impute out of HH values > 250 for BBC pandemic by fitting distribution to values from non-lockdown periods ----
 
+# Calculate proportion over 250 by time period
+contact_data %>%
+  filter(period %in% c("Relaxed restrictions","School reopening","Step 2 + schools")) %>% 
+  summarise.(n=n(),over_250=sum(e_other>=250)) %>% 
+  mutate.(prop=over_250/n)
+
+#0.00160 or 0.16% over 250
+
+# assume distribution of high contacts is exponential and fit distribution
 dist_over_250 <- contact_data %>% 
-  filter(period%in%c("Relaxed restrictions","School reopening","Step 2 + schools")) %>% 
+  filter(period %in% c("Relaxed restrictions","School reopening","Step 2 + schools")) %>% 
   filter(e_other>=250)  %>% 
   pull(e_other) %>% 
   fitdistr(.,"exponential")
 
-data.frame(x=seq(250,4000,by=1)) %>% 
-  mutate(y=dexp(x,rate=dist_over_250$estimate[1])) %>% 
-  ggplot(aes(x=x,y=y))+
-  geom_point()+
-  geom_histogram(data=contact_data %>% 
-                   filter(period%in%c("Relaxed restrictions","School reopening")) %>% 
-                   filter(e_other>=250),
-                 aes(x=e_other,y=stat(density)),alpha=0.5)
-
-data.frame(x=rexptr(n=0.002*nrow(contact_data %>% filter(period=="BBC Pandemic")),
-                  lambda=dist_over_250$estimate[1],range = c(250,Inf))) %>% 
-  ggplot()+
-  geom_histogram(aes(x=x,stat(density)))+
-  geom_point(data= data.frame(x=seq(250,4000,by=1)) %>% mutate(y=dexp(x,rate=dist_over_250$estimate[1])),aes(x=x,y=y))
-
-dat_append <- data.frame(e_other=round(rexptr(n=0.0025*nrow(contact_data %>% filter(period=="BBC Pandemic")),
-                                        lambda=dist_over_250$estimate[1],range = c(250,Inf))),
-                         e_home=sample(size=0.0025*nrow(contact_data %>% filter(period=="BBC Pandemic")),
-                                      x=contact_data %>% filter(period=="BBC Pandemic") %>% pull(e_home))) %>% 
+#simulate individuals with high numbers of contacts for BBC pandemic
+dat_append <- data.frame(e_other=round(rexptr(n=0.0016*1.0016*nrow(contact_data %>% 
+                                                              filter(period=="BBC Pandemic")),
+                                        lambda=dist_over_250$estimate[1],
+                                        range = c(250,Inf))),
+                         e_home=sample(size=0.0016*1.0016*nrow(contact_data %>% 
+                                                                 filter(period=="BBC Pandemic")),
+                                      x=contact_data %>% 
+                                        filter(period=="BBC Pandemic") %>% 
+                                        pull(e_home))) %>% 
   mutate(e_all=e_home+e_other,period="BBC Pandemic",idx=3)
 
+#append to data
 contact_data_adjusted <- contact_data %>% bind_rows(dat_append)
 
-prop_n <- function(df, threshold=10, col=e_all, op=">="){
-  df %>% 
-    summarise(n=n(),
-              s = sum(match.fun(op)({{col}},{{threshold}})),
-              "prop_{{threshold}}":= s/n) %>% 
-    rename("n_{{threshold}}":= s)
-}
-
-# https://www.medrxiv.org/content/10.1101/2020.04.25.20079103v3
-asymp_fraction <- rriskDistributions::get.beta.par(
-  q = c(0.24,  0.38),
-  p = c(0.025, 0.975), 
-  show.output = F, plot = F) %>%
-  as.list
-
-approx_sd <- function(x1, x2){
-  (x2-x1) / (qnorm(0.95) - qnorm(0.05) )
-}
-
-#bootstrap confidence interval function
-boot_ci <- function(x,nrep=100) {
-
-  trueval <- tibble(param=c("mu","size"),
-                    mean=c(x$estimate[[2]],
-                           x$estimate[[1]])) 
-  
-  ci <- bootdist(f=x,niter = nrep)$CI %>% 
-    as.data.frame() %>% 
-    select(-Median) %>% 
-    rownames_to_column("param")
-  
-  left_join(trueval,ci)
-}
 
 ##### KCL ANALYSIS ----
 pickering <- readxl::read_xlsx(here::here("data","pickering_dat.xlsx")) %>% 
@@ -276,6 +248,7 @@ innova_higher_mod <- glm(Innova~vl,
                          data=pickering %>% 
                            mutate(vl=vl+2.5),family="binomial") 
 
+#sensitivity analysis on test probability 
 test_model_choice <- function(boolean){
   if(boolean){
     innova_higher_mod
@@ -286,6 +259,7 @@ test_model_choice <- function(boolean){
 
 culture_mod <- glm(culture~vl,data=pickering,family="binomial") 
 
+#sensitivity analysis for infectiousness as culture prob or lft prob
 inf_model_choice <- function(boolean){
   #browser()
   if(boolean){
@@ -295,6 +269,7 @@ inf_model_choice <- function(boolean){
   }
 }
 
+# Create viral load trajectories for a given number of sims
 make_trajectories <- function(
     n_sims = 100,
     asymp_parms = asymp_fraction,
@@ -307,7 +282,6 @@ make_trajectories <- function(
   set.seed(seed)
   #simulate CT trajectories
   
-  #inf <- tidytable(sim=1:n_sims)
   inf <- rbbinom(n = n_sims,
                  size=1,
                  alpha = asymp_parms$shape1,
@@ -325,18 +299,15 @@ make_trajectories <- function(
                               TRUE~median(rnormTrunc(n=n(),mean=mean_prolif,sd=sd_prolif,min = 1,max=14))),
             clear=case_when.(heterogen_vl~rnormTrunc(n=n(), mean=mean_clear, sd=sd_clear, min = 1,max=30),
                              TRUE~median(rnormTrunc(n=n(), mean=mean_clear, sd=sd_clear, min = 1,max=30))),
-            # prolif=ifelse(asymptomatic,prolif*0.8,prolif),
-            # clear=ifelse(asymptomatic,clear*0.8,clear),
             end=prolif+clear,
             onset_t=prolif+rnorm(n=n(),mean = 2,sd=1.5)
-            #onset_t=prolif+rnormTrunc(n=n(),mean = 2,sd=1.5,min=0,max=end)
     ) %>%
     select.(-c(mean_prolif, sd_prolif, mean_clear, sd_clear,clear)) %>%
     pivot_longer.(cols = -c(sim,variant,onset_t, asymptomatic, heterogen_vl,
                             mean_peakvl,sd_peakvl),
                   values_to = "x") %>%
-    mutate.(y=case_when(name=="start" ~ 40,#convert_Ct_logGEML(40),
-                        name=="end"   ~ 40,#convert_Ct_logGEML(40),
+    mutate.(y=case_when(name=="start" ~ 40,
+                        name=="end"   ~ 40,
                         name=="prolif"~case_when.(heterogen_vl~rnormTrunc(n=n(),mean=mean_peakvl,sd=sd_peakvl,min=0,max=40),
                                                   TRUE~median(rnormTrunc(n=n(),mean=mean_peakvl,sd=sd_peakvl,min=0,max=40))))) %>% 
     select.(-c(mean_peakvl,sd_peakvl))
@@ -390,27 +361,6 @@ propresponsible=function(R0,k,prop){
   q=qm1+1
   1-pnbinom(q-1,k,mu=R0)-dnbinom(q,k,mu=R0)*remx
 }
-# 
-# test_times <- function(type,onset_t,sampling_freq=3){
-#   #browser()
-#   
-#    if(asymptomatic){
-#      initial_t <- sample(size=1,x = c(0:29))
-#   }else{
-#     initial_t <- sample(size=1,x = c(0:onset_t))
-#   }
-#   
-#   if(!is.na(sampling_freq)){
-#   test_timings <- data.frame(test_t = seq(from=initial_t,to=30,by=sampling_freq)) %>% 
-#     mutate(test_no = paste0("test_", row_number())) 
-#   } else {
-#     test_timings <- data.frame(test_t = Inf) %>% 
-#     mutate(test_no = paste0("test_", row_number())) 
-#   }
-# 
-#   
-#   return(test_timings)
-# }
 
 sample_filter <- function(condition,df,col,n){
   sample(df %>% filter.(period==condition) %>% pull.(col),size=n,replace=T)
@@ -420,57 +370,59 @@ mean_filter <- function(condition,df,col){
   mean(df %>% filter.(period==condition) %>% pull.(col))
 }
 
-#### Generate infections of repeated (household) contacts ####
+#### Main Model ----
 run_model <- function(scenarios, browsing=F){
   
   if(browsing){browser()}
   
-  
+  #### Generate infections of hh (household) contacts ####
   indiv_params <- traj %>%  
     select.(-m) %>%
     crossing.(heterogen_contacts = unique(scenarios$heterogen_contacts),
-              period=unique(scenarios %>% mutate.(period=fct_drop(period)) %>% pull.(period))) %>%   
-    mutate.(repeated_contacts=ifelse(heterogen_contacts,
-                          sample_filter(condition = period,df=contact_data_adjusted,col="e_home",n=n()),
-                          round(mean_filter(condition = period,df=contact_data_adjusted,col="e_home"))),
+              period=unique(scenarios %>% 
+                              mutate.(period=fct_drop(period)) %>% 
+                              pull.(period))) %>%   
+    mutate.(hh_contacts=ifelse(heterogen_contacts,
+                          sample_filter(condition = period, df = contact_data_adjusted, col="e_home", n=n()),
+                          round(mean_filter(condition = period, df = contact_data_adjusted, col="e_home"))),
             .by=c(period)) 
   
   indiv_params_long <- indiv_params %>% 
     left_join.(traj_)
   
-  repeated_infections <- indiv_params_long %>% 
-    uncount.(repeated_contacts,.id="id",.remove = F) %>% 
-    mutate.(hh_duration = case_when.(heterogen_contacts~sample(contacts_hh_duration,size=n(),replace=T),
-                                     TRUE ~ median(sample(contacts_hh_duration))),
+  #simulate infections (and keep first instance)
+  hh_infections <- indiv_params_long %>% 
+    uncount.(hh_contacts,.id="id",.remove = F) %>% 
+    mutate.(hh_duration = case_when.(heterogen_contacts ~ sample(contacts_hh_duration,size=n(),replace=T),
+                                     TRUE               ~ median(contacts_hh_duration)),
             infected    = rbernoulli(n(),p=culture_p*hh_duration)) %>% 
     filter.(infected==T) %>% 
-    slice.(min(t), .by=c(all_of(key_grouping_var),repeated_contacts,id)) %>% 
-    count.(t,all_of(key_grouping_var),repeated_contacts,name = "repeated_infected") %>% 
+    slice.(min(t), .by=c(all_of(key_grouping_var),hh_contacts,id)) %>% 
+    count.(t,all_of(key_grouping_var),hh_contacts,name = "hh_infected") %>% 
     arrange.(sim)
   
-  #### Calculate casual infections ####
+  #### Calculate nhh infections ####
   
-  casual_infections <- indiv_params_long %>% 
+  nhh_infections <- indiv_params_long %>% 
     
     # Sample daily contacts
-    mutate.(casual_contacts = ifelse(heterogen_contacts,
+    mutate.(nhh_contacts = ifelse(heterogen_contacts,
                                      sample_filter(condition = period,df=contact_data_adjusted,col="e_other",n=n()),
                                      round(mean_filter(condition = period,df=contact_data_adjusted,col="e_other"))),
             .by=c(period)) %>% 
     
     # Simulate infections 
-    uncount.(casual_contacts,.remove = F) %>% 
+    uncount.(nhh_contacts,.remove = F) %>% 
     mutate.(nhh_duration = case_when.(heterogen_contacts ~ sample(contacts_nhh_duration,size=n(),replace=T),
-                                      TRUE ~ round(median(contacts_nhh_duration))),
-            casual_infected = rbernoulli(n=n(),p = culture_p*nhh_duration)) %>% 
-    summarise.(casual_infected=sum(casual_infected),.by=c(t,all_of(key_grouping_var),casual_contacts,test)) %>% 
+                                      TRUE               ~ median(contacts_nhh_duration)),
+            nhh_infected = rbernoulli(n=n(),p = culture_p*nhh_duration)) %>% 
+    summarise.(nhh_infected=sum(nhh_infected),.by=c(t,all_of(key_grouping_var),nhh_contacts,test)) %>% 
     
     # Testing: determine if and when testing + isolating by specified sampling frequency, adherence  
-    
     right_join.(testing_scenarios) %>% 
     mutate.(
       test_day = case_when.((t - begin_testing) %% sampling_freq == 0 ~ TRUE,
-                            casual_contacts > event_size ~ TRUE,
+                            nhh_contacts > event_size ~ TRUE,
                             TRUE ~ FALSE)) %>% 
     mutate.(
       earliest_pos = min(t[test&test_day]),
@@ -479,128 +431,54 @@ run_model <- function(scenarios, browsing=F){
     filter.(test_iso==F) %>% 
     select.(everything(),-test_iso,-test,-earliest_pos,-test_day) 
   
-  # Join casual and repeated contacts and summarise
+  # Join nhh and hh contacts and summarise
   processed_infections <- indiv_params_long %>% 
     right_join.(testing_scenarios) %>% 
-    left_join.(repeated_infections) %>% 
-    left_join.(casual_infections) %>% 
-    replace_na.(list(repeated_infected=0,casual_infected=0,casual_contacts=0)) %>% 
+    left_join.(hh_infections) %>% 
+    left_join.(nhh_infections) %>% 
+    replace_na.(list(hh_infected=0,nhh_infected=0,nhh_contacts=0)) %>% 
     arrange.(period,lower_inf_thresh) %>% 
     mutate.(
-      total_contacts = casual_contacts+repeated_contacts,
-      total_infections=casual_infected+repeated_infected)
+      total_contacts = nhh_contacts+hh_contacts,
+      total_infections=nhh_infected+hh_infected)
 }
 
-# earliest_pos <- function(df){
-#   #browser()
-#   
-#   x_q <- df[(test_label)]
-#   
-#   if (nrow(x_q) == 0L){
-#     return(tidytable(test_no="None",test_p=0,test_t=Inf))
-#   } else {
-#     return(x_q %>% select.(test_no,test_p,test_t) %>% slice_min.(test_t))
-#   }
-# }
-
-detector <- function(test_p, u = NULL){
-  
-  if (is.null(u)){
-    u <- runif(n = length(test_p))
-  }
-  
-  # true positive if the test exceeds a random uniform
-  # when uninfected, PCR will be 0
-  TP <- test_p > u
-  
+#function to calculate the proportion above or below a defined threshold
+prop_n <- function(df, threshold=10, col=e_all, op=">="){
+  df %>% 
+    summarise(n=n(),
+              s = sum(match.fun(op)({{col}},{{threshold}})),
+              "prop_{{threshold}}":= s/n) %>% 
+    rename("n_{{threshold}}":= s)
 }
 
-# inf_and_test <- function(traj,sampling_freq=c(NA,3)){
-#   #browser()
-#   
-#   message(sprintf("\n%s == SCENARIO %d ======", Sys.time(), traj$sim[1]))
-#   
-#   traj %>% as.data.frame() %>% 
-#     mutate(infectiousness = pmap(inf_curve_func, .l = list(m = m,start=start,end=end)))  %>% 
-#     unnest_wider(infectiousness) %>% 
-#     ungroup() %>%
-#     mutate.(norm_sum = (sum_inf - min(sum_inf)) / (max(sum_inf) - min(sum_inf))) %>% 
-#     #testing
-#     crossing(sampling_freq = sampling_freq) %>% 
-#     mutate.(test_times = pmap(
-#       .f = test_times,
-#       list(
-#         sampling_freq = sampling_freq,
-#         onset_t = onset_t,
-#         type = type
-#       )
-#     )) %>%
-#     unnest.(test_times,.drop=F) %>%
-#     mutate.(
-#       ct = pmap_dbl(.f = calc_sensitivity, list(model = m, x = test_t)),
-#       test_p = stats::predict(innova_mod, type = "response", newdata = data.frame(ct = ct)),
-#       test_label = detector(test_p = test_p,  u = runif(n = n(), 0, 1))
-#     ) %>%
-#     nest(ct, test_t, test_no, test_p, test_label) %>%
-#     mutate.(earliest_positive = map(.f = earliest_pos, .x = data)) %>%
-#     unnest.(earliest_positive,.drop=F) %>%
-#     select.(-data)
-# } 
-# 
-# sample_contacts <- function(time_period){
-#   sample(contact_data_adjusted %>% filter(period==time_period) %>% pull(e_home),size=1)
-# }
-# 
-# sec_case_gen <- function(df){
-#   
-#   message(sprintf("\n%s", Sys.time()))
-# 
-#   df1 <- df %>%
-#     mutate.(self_iso_symp=ifelse(type=="symptomatic",rbinom(n=n(),size=1,prob=prop_self_iso_symp),0),
-#             self_iso_test=rbinom(n=n(),size=1,prob=prop_self_iso_test),
-#             test_t = ifelse(self_iso_test==0,Inf,test_t)) %>% 
-#     #select.(-u) %>%
-#     mutate.(.by=time_period,
-#       contacts_repeated = sample(contact_data_adjusted$e_home[contact_data_adjusted$period==time_period],size=n(),replace=T),
-#       trunc_t=case_when.(
-#         # if symptomatic, adhering to self isolation, and either not tested or test neg,
-#         # truncate at onset
-#         type == "symptomatic" & is.infinite(test_t) & self_iso_symp != 0 ~ onset_t,
-#         # if symptomatic, adhering to self isolation, and have onset before test, truncate at onset
-#         type == "symptomatic" &
-#           is.finite(test_t) & onset_t < test_t & self_iso_symp != 0 ~ onset_t,
-#         # if symptomatic, adhering to self isolation, and have onset after pos test, truncate at test
-#         type == "symptomatic" &
-#           is.finite(test_t) & test_t < onset_t & self_iso_symp != 0 ~ test_t,
-#         # if symptomatic, not adhering to self isolation, and have a positive test, truncate at test
-#         TRUE ~ test_t)) %>% 
-#     mutate.(data=pmap(.l=list(x=infectiousness,
-#                               contacts_repeated=contacts_repeated),.f=rep_contacts_inf)) %>% 
-#     unnest.(data) %>% 
-#     mutate.(.by=time_period,
-#       contacts_casual = sample(contact_data_adjusted$e_other[contact_data_adjusted$period==time_period],size=n(),replace=T)) %>%
-#     mutate.(contacts_casual=ifelse(t>=trunc_t,0L, contacts_casual)) %>% 
-#     uncount.(contacts_casual) %>% 
-#     mutate.(nhh_duration=sample(contacts_nhh_duration,size=n(),replace=T),
-#       n_casual_infected = rbernoulli(n=n(),p = culture*nhh_duration)) %>%
-#     summarise.(.by=c(sim,
-#                        idx,
-#                        t,
-#                        ct,
-#                        onset_t,
-#                        type,
-#                        variant,
-#                        time_period,
-#                        prop_self_iso_symp,
-#                        prop_self_iso_test,
-#                        contacts_repeated,
-#                        n_repeated_infected,
-#                        sampling_freq),
-#                        contacts_casual=n(),
-#                        n_casual_infected=sum(n_casual_infected))
-# 
-# }
+# https://www.medrxiv.org/content/10.1101/2020.04.25.20079103v3
+asymp_fraction <- rriskDistributions::get.beta.par(
+  q = c(0.24,  0.38),
+  p = c(0.025, 0.975), 
+  show.output = F, plot = F) %>%
+  as.list
 
+approx_sd <- function(x1, x2){
+  (x2-x1) / (qnorm(0.95) - qnorm(0.05) )
+}
+
+#bootstrap confidence interval function
+boot_ci <- function(x,nrep=100) {
+  
+  trueval <- tibble(param=c("mu","size"),
+                    mean=c(x$estimate[[2]],
+                           x$estimate[[1]])) 
+  
+  ci <- bootdist(f=x,niter = nrep)$CI %>% 
+    as.data.frame() %>% 
+    select(-Median) %>% 
+    rownames_to_column("param")
+  
+  left_join(trueval,ci)
+}
+
+#run code quietly
 hush=function(code){
   sink("NUL") # use /dev/null in UNIX
   tmp = code
@@ -608,13 +486,14 @@ hush=function(code){
   return(tmp)
 }
 
+# logarithmic spaced sequence
+# blatantly stolen from library("emdbook"), because need only this
 lseq <- function(from=1, to=100000, length.out=6) {
-  # logarithmic spaced sequence
-  # blatantly stolen from library("emdbook"), because need only this
+ 
   exp(seq(log(from), log(to), length.out = length.out))
 }
 
-
+#quantile function
 quibble2 <- function(x, q = c(0.25, 0.5, 0.75)) {
   tibble("{{ x }}" := quantile(x, q), "{{ x }}_q" := q)
 }

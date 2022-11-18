@@ -4,7 +4,7 @@ individuals <- processed_infections %>%
 traj_plot <- individuals %>% distinct.(sim,heterogen_vl,lower_inf_thresh,variant) %>% left_join.(traj_) %>% ggplot(aes(x=t,y=vl,group=sim))+geom_line()+facet_grid(~sim,scales="free_y")
 
 inf_plot <- individuals %>% 
-  mutate.(infected_hh=repeated_infected,notinfected_hh=repeated_contacts-repeated_infected,infected_nhh=casual_infected,notinfected_nhh=casual_contacts-casual_infected) %>% 
+  mutate.(infected_hh=hh_infected,notinfected_hh=hh_contacts-hh_infected,infected_nhh=nhh_infected,notinfected_nhh=nhh_contacts-nhh_infected) %>% 
   pivot_longer.(c(infected_hh,infected_nhh,notinfected_hh,notinfected_nhh)) %>% 
   uncount(value) %>% 
   separate.(name,into=c("infected","contact_type"),sep="_") %>% 

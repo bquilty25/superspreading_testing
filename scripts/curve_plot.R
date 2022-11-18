@@ -72,7 +72,23 @@ log_plot <- plot_dat %>%
 ggsave("results/log_plot.png",dpi=600,width=210,height=150,units="mm",bg="white")
 
 
-plot_dat %>% summarise.(begin_inf=min(t[culture_p>0.5]),end_inf=max(t[culture_p>0.5]),.by=c(sim,heterogen_vl)) %>% mutate.(inf_dur=end_inf-begin_inf) %>% summarise.(q=list(quibble2(inf_dur,c(0.025,0.5,0.975))),.by=heterogen_vl) %>% unnest.(q)
+plot_dat %>% 
+  summarise.(begin_inf=min(t[culture_p>0.5]),end_inf=max(t[culture_p>0.5]),.by=c(sim,heterogen_vl)) %>% 
+  mutate.(inf_dur=end_inf-begin_inf) %>% 
+  summarise.(q=list(quibble2(inf_dur,c(0.025,0.5,0.975))),.by=heterogen_vl) %>% 
+  unnest.(q)
+
+plot_dat %>% 
+  summarise.(begin_inf=min(t[infectious]),end_inf=max(t[infectious]),.by=c(sim,heterogen_vl)) %>% 
+  mutate.(inf_dur=end_inf-begin_inf) %>% 
+  summarise.(q=list(quibble2(inf_dur,c(0.025,0.5,0.975))),.by=heterogen_vl) %>% 
+  unnest.(q)
+
+plot_dat %>% 
+  summarise.(n_inf=sum(infectious==T),.by=c(sim,heterogen_vl)) %>% 
+  #mutate.(inf_dur=end_inf-begin_inf) %>% 
+  summarise.(q=list(quibble2(n_inf,c(0.025,0.5,0.975))),.by=heterogen_vl) %>% 
+  unnest.(q)
 
 
 culture_plot <- plot_dat %>% 
