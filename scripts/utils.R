@@ -162,7 +162,7 @@ contacts_polymod <-
   count(name,part_id) %>% 
   pivot_wider(names_from = name,values_from = n) %>% 
   mutate(e_home=cnt_home,
-    e_other=rowSums(across(c(cnt_work,cnt_school,cnt_transport,cnt_leisure,cnt_otherplace)),na.rm=T)) %>% 
+         e_other=rowSums(across(c(cnt_work,cnt_school,cnt_transport,cnt_leisure,cnt_otherplace)),na.rm=T)) %>% 
   select(part_id,e_home,e_other) %>% 
   complete(part_id=full_seq(part_id,1),fill=list(e_home=0,e_other=0)) %>% 
   mutate(date=as_date("01/01/2008",format="%d/%m/%Y"))
@@ -190,8 +190,8 @@ contact_data <- contacts_bbc %>%
          part_id=as.character(part_id))%>%
   bind_rows(contacts_comix) %>% 
   fuzzyjoin::fuzzy_inner_join(time_periods,
-                   by=c("date"="date_start","date"="date_end"),
-                   match_fun=list(`>=`,`<=`))
+                              by=c("date"="date_start","date"="date_end"),
+                              match_fun=list(`>=`,`<=`))
 
 #### impute out of HH values > 250 for BBC pandemic by fitting distribution to values from non-lockdown periods ----
 
@@ -212,14 +212,14 @@ dist_over_250 <- contact_data %>%
 
 #simulate individuals with high numbers of contacts for BBC pandemic
 dat_append <- data.frame(e_other=round(rexptr(n=0.0016*1.0016*nrow(contact_data %>% 
-                                                              filter(period=="BBC Pandemic")),
-                                        lambda=dist_over_250$estimate[1],
-                                        range = c(250,Inf))),
+                                                                     filter(period=="BBC Pandemic")),
+                                              lambda=dist_over_250$estimate[1],
+                                              range = c(250,Inf))),
                          e_home=sample(size=0.0016*1.0016*nrow(contact_data %>% 
                                                                  filter(period=="BBC Pandemic")),
-                                      x=contact_data %>% 
-                                        filter(period=="BBC Pandemic") %>% 
-                                        pull(e_home))) %>% 
+                                       x=contact_data %>% 
+                                         filter(period=="BBC Pandemic") %>% 
+                                         pull(e_home))) %>% 
   mutate(e_all=e_home+e_other,period="BBC Pandemic",idx=3)
 
 #append to data
@@ -290,26 +290,34 @@ make_trajectories <- function(
     rename.("asymptomatic"=x) %>%
     mutate.(sim=row_number.(),
             asymptomatic=as.logical(asymptomatic))
-
+  
   traj <- inf %>% 
     crossing.(start=0) %>% 
     crossing(variant_info) %>% 
-     mutate.(
-            prolif=case_when.(heterogen_vl~rnormTrunc(n=n(),mean=mean_prolif,sd=sd_prolif,min = 1,max=14),
-                              TRUE~median(rnormTrunc(n=n(),mean=mean_prolif,sd=sd_prolif,min = 1,max=14))),
-            clear=case_when.(heterogen_vl~rnormTrunc(n=n(), mean=mean_clear, sd=sd_clear, min = 1,max=30),
-                             TRUE~median(rnormTrunc(n=n(), mean=mean_clear, sd=sd_clear, min = 1,max=30))),
-            end=prolif+clear,
-            onset_t=prolif+rnorm(n=n(),mean = 2,sd=1.5)
+    mutate.(
+      prolif=case_when.(heterogen_vl~rnormTrunc(n=n(),mean=mean_prolif,
+                                                sd=sd_prolif,min = 1,max=14),
+                        TRUE~median(rnormTrunc(n=n(),mean=mean_prolif,
+                                               sd=sd_prolif,min = 1,max=14))),
+      clear=case_when.(heterogen_vl~rnormTrunc(n=n(), mean=mean_clear, 
+                                               sd=sd_clear, min = 1,max=30),
+                       TRUE~median(rnormTrunc(n=n(), mean=mean_clear, 
+                                              sd=sd_clear, min = 1,max=30))),
+      end=prolif+clear,
+      onset_t=prolif+rnorm(n=n(),mean = 2,sd=1.5)
     ) %>%
     select.(-c(mean_prolif, sd_prolif, mean_clear, sd_clear,clear)) %>%
     pivot_longer.(cols = -c(sim,variant,onset_t, asymptomatic, heterogen_vl,
                             mean_peakvl,sd_peakvl),
                   values_to = "x") %>%
-    mutate.(y=case_when(name=="start" ~ 40,
+    mutate.(y=case_when.(name=="start" ~ 40,
                         name=="end"   ~ 40,
-                        name=="prolif"~case_when.(heterogen_vl~rnormTrunc(n=n(),mean=mean_peakvl,sd=sd_peakvl,min=0,max=40),
-                                                  TRUE~median(rnormTrunc(n=n(),mean=mean_peakvl,sd=sd_peakvl,min=0,max=40))))) %>% 
+                        name=="prolif"~case_when.(heterogen_vl~rnormTrunc(n=n(),
+                                                                          mean=mean_peakvl,
+                                                                          sd=sd_peakvl,min=0,max=40),
+                                                  TRUE~median(rnormTrunc(n=n(),
+                                                                         mean=mean_peakvl,
+                                                                         sd=sd_peakvl,min=0,max=40))))) %>% 
     select.(-c(mean_peakvl,sd_peakvl))
   
   
@@ -383,8 +391,13 @@ run_model <- function(scenarios, browsing=F){
                               mutate.(period=fct_drop(period)) %>% 
                               pull.(period))) %>%   
     mutate.(hh_contacts=ifelse(heterogen_contacts,
-                          sample_filter(condition = period, df = contact_data_adjusted, col="e_home", n=n()),
-                          round(mean_filter(condition = period, df = contact_data_adjusted, col="e_home"))),
+                               sample_filter(condition = period, 
+                                             df = contact_data_adjusted, 
+                                             col="e_home", 
+                                             n=n()),
+                               round(mean_filter(condition = period, 
+                                                 df = contact_data_adjusted, 
+                                                 col="e_home"))),
             .by=c(period)) 
   
   indiv_params_long <- indiv_params %>% 
@@ -393,7 +406,8 @@ run_model <- function(scenarios, browsing=F){
   #simulate infections (and keep first instance)
   hh_infections <- indiv_params_long %>% 
     uncount.(hh_contacts,.id="id",.remove = F) %>% 
-    mutate.(hh_duration = case_when.(heterogen_contacts ~ sample(contacts_hh_duration,size=n(),replace=T),
+    mutate.(hh_duration = case_when.(heterogen_contacts ~ sample(contacts_hh_duration,
+                                                                 size=n(),replace=T),
                                      TRUE               ~ median(contacts_hh_duration)),
             infected    = rbernoulli(n(),p=culture_p*hh_duration)) %>% 
     filter.(infected==T) %>% 
@@ -407,13 +421,18 @@ run_model <- function(scenarios, browsing=F){
     
     # Sample daily contacts
     mutate.(nhh_contacts = ifelse(heterogen_contacts,
-                                     sample_filter(condition = period,df=contact_data_adjusted,col="e_other",n=n()),
-                                     round(mean_filter(condition = period,df=contact_data_adjusted,col="e_other"))),
+                                  sample_filter(condition = period,
+                                                df=contact_data_adjusted,
+                                                col="e_other",n=n()),
+                                  round(mean_filter(condition = period,
+                                                    df=contact_data_adjusted,
+                                                    col="e_other"))),
             .by=c(period)) %>% 
     
     # Simulate infections 
     uncount.(nhh_contacts,.remove = F) %>% 
-    mutate.(nhh_duration = case_when.(heterogen_contacts ~ sample(contacts_nhh_duration,size=n(),replace=T),
+    mutate.(nhh_duration = case_when.(heterogen_contacts ~ sample(contacts_nhh_duration,
+                                                                  size=n(),replace=T),
                                       TRUE               ~ median(contacts_nhh_duration)),
             nhh_infected = rbernoulli(n=n(),p = culture_p*nhh_duration)) %>% 
     summarise.(nhh_infected=sum(nhh_infected),.by=c(t,all_of(key_grouping_var),nhh_contacts,test)) %>% 
@@ -445,11 +464,12 @@ run_model <- function(scenarios, browsing=F){
 
 #function to calculate the proportion above or below a defined threshold
 prop_n <- function(df, threshold=10, col=e_all, op=">="){
+  browser()
   df %>% 
-    summarise(n=n(),
-              s = sum(match.fun(op)({{col}},{{threshold}})),
-              "prop_{{threshold}}":= s/n) %>% 
-    rename("n_{{threshold}}":= s)
+    summarise.(n=n(),
+               s = sum(match.fun(op)({{col}},{{threshold}})),
+               "prop_{{threshold}}":= s/n) %>% 
+    rename.("n_{{threshold}}":= s)
 }
 
 # https://www.medrxiv.org/content/10.1101/2020.04.25.20079103v3
@@ -489,7 +509,7 @@ hush=function(code){
 # logarithmic spaced sequence
 # blatantly stolen from library("emdbook"), because need only this
 lseq <- function(from=1, to=100000, length.out=6) {
- 
+  
   exp(seq(log(from), log(to), length.out = length.out))
 }
 

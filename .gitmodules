@@ -4,3 +4,9 @@
 [submodule "CtTrajectories_B117"]
 	path = CtTrajectories_B117
 	url = https://github.com/skissler/CtTrajectories_B117
+[submodule "comix_analysis"]
+	path = comix_analysis
+	url = https://github.com/LloydChapman/comix_analysis/
+[submodule "comix_data_clean"]
+	path = comix_data_clean
+	url = https://github.com/jarvisc1/comix_data_clean.git
