@@ -144,20 +144,25 @@ contact_data %>%
   geom_line(aes(x=date_yw,y=prop_over,colour=fct_relevel(name.1,"over_20")),size=0.8)+
   geom_rect(data=time_periods %>% filter(period!="POLYMOD"),
             aes(xmin=date_start,xmax=date_end,ymax=Inf,ymin=-Inf),alpha=0.1,fill="#FC997C")+
+  geom_vline(data=time_periods %>% filter(period!="POLYMOD"),
+            aes(xintercept=date_start,ymax=Inf,ymin=-Inf),alpha=0.1,fill=bi_col_pal[1])+
+  geom_vline(data=time_periods %>% filter(period!="POLYMOD"),
+             aes(xintercept=date_end,ymax=Inf,ymin=-Inf),alpha=0.1,fill=bi_col_pal[1])+
   geom_text(data=time_periods %>% filter(period!="POLYMOD"), #%>% 
               #mutate(period=fct_recode(period, 
               #                         "Lockdown\n2 easing"="Lockdown 2 easing",
               #                         "Lockdown\n3 + schools" = "Lockdown 3 + schools"
               #                         )),
             aes(x=(as.numeric(date_end)+as.numeric(date_start))/2,y=0.3,label=str_wrap(period,10)),vjust=1,hjust=0.5,size=2,colour="#2E4C6D")+
-  facet_grid(~survey,scales="free",space="free")+
+  facet_grid2(~survey,scales="free",space="free")+
   facetted_pos_scales(x=list(
     scale_x_yearmonth("", breaks="1 year",expand=expansion(mult = 20),date_labels="%Y",limits=c(as.Date("2018-01-01"),as.Date("2018-01-01"))),
     scale_x_yearmonth("", breaks="1 month",expand=expansion(),date_labels="%b '%y",limits=c(as.Date("2020-03-15"),NA))))+
   scale_y_continuous("% of participants",labels = percent,limits = c(0,0.30),expand = expansion(mult = c(0,0.05)))+
-  scale_colour_manual(name="Daily number of contacts", values=met.brewer("Hokusai3",2,override.order =F),labels=c( "over_20"=">20","zero"="0"))+
+  # scale_colour_manual(name="Daily number of contacts", values=met.brewer("Hokusai3",2,override.order =F),labels=c( "over_20"=">20","zero"="0"))+
+  scale_colour_manual(name="Daily number of contacts", values=bi_col_pal,labels=c( "over_20"=">20","zero"="0"))+
   plotting_theme
 
 
-ggsave("results/high_n_contacts2.png",width=300,height=150,dpi=600,units="mm",bg="white")
+ggsave("results/high_n_contacts2.png",width=350,height=150,dpi=600,units="mm",bg="white")
 

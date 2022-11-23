@@ -41,7 +41,7 @@ traj_ <- traj %>%
   replace_na.(list(test       = FALSE,
                    infectious = FALSE)) %>% 
   select.(-c(prolif, start, end))
- 
+
 #Scenarios to investigate
 key_grouping_var <- c("sim","variant","period","lower_inf_thresh","heterogen_vl","heterogen_contacts")
 
@@ -79,7 +79,7 @@ time_periods_of_interest <-
   crossing(time_periods) %>% 
   filter(date_end<as.Date("2021-01-01"),period!="POLYMOD") %>% 
   #filter(period!="POLYMOD") %>% 
-  #filter(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+  filter(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
   mutate(scenario_id=row_number()) %>% 
   select(-c(date_start,date_end)) %>% 
   crossing(heterogen_contacts=c(T,F))
