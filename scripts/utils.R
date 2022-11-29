@@ -269,6 +269,20 @@ inf_model_choice <- function(boolean){
   }
 }
 
+# Historical Rt estimates
+rt <- readxl::read_excel("data/221123_R_and_growth_rate_time_series_for_publication_v1.0.xlsx",
+                         range = "Table1_-_R!B10:D52",
+                         col_names = c("date", "lower", "upper"))
+
+rt_by_time_period <- rt %>% filter(date<as.Date("2021-01-01")) %>%
+  fuzzyjoin::fuzzy_inner_join(time_periods,
+                              by=c("date"="date_start","date"="date_end"),
+                              match_fun=list(`>=`,`<=`)) %>%
+  group_by(across(-c(date,lower,upper))) %>% 
+  summarise(lower=mean(lower),upper=mean(upper)) %>% 
+  ungroup() %>% 
+  filter(period!="Lockdown 1") #very minimal overlap with lockdown 1 period (Rt starts 29/5/2020)
+
 # Create viral load trajectories for a given number of sims
 make_trajectories <- function(
     n_sims = 100,
