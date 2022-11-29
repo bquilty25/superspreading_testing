@@ -51,6 +51,7 @@ boot_est %>%
   geom_line()+
   geom_text_repel(data=. %>% filter.(period=="BBC Pandemic",name=="mu"),
                   aes(x=period,y=value,label=paste0("R0 = ",round(value,1))),family="Lato",nudge_x=1)+
+  geom_segment(data=rt_by_time_period %>% mutate(name="mu"),aes(x=period,xend=period,y=lower,yend=upper),alpha=0.25,size=10)+
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
   scale_colour_manual(values = quad_col_pal,guide="none")+
   scale_linetype_manual(values=c("dashed",NA,NA,NA),guide="none")+
@@ -177,7 +178,7 @@ testing_est <- processed_infections_testing %>%
 
 
 testing_plot <- testing_est %>% 
-  filter.(variant=="wild",prop_self_iso_test==0.5) %>%
+  filter.(variant=="wild") %>%
   pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>% 
   mutate.(name=fct_relevel(name,"mu","size","prop_ss_10","prop_ss_0")) %>% 
   ggplot(aes(y=value,x=prop_self_iso_test,colour=factor(sampling_freq),group=sampling_freq))+
@@ -231,7 +232,7 @@ events_est <- processed_infections_events %>%
 
 events_plot <- events_est %>% 
   drop_na.(event_size) %>% 
-  filter.(variant=="wild",prop_self_iso_test==0.5) %>%
+  filter.(variant=="wild") %>%
   pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>% 
   mutate.(name=fct_relevel(name,"mu","size","prop_ss_10","prop_ss_0")) %>% 
   ggplot(aes(y=value,x=prop_self_iso_test,colour=factor(event_size),group=event_size))+
