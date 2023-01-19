@@ -6,7 +6,6 @@ pacman::p_load(
   "patchwork",
   "here",
   "rriskDistributions",
-  "dtplyr",
   "rms",
   "DescTools",
   "MESS",
@@ -14,9 +13,7 @@ pacman::p_load(
   "lemon",
   "boot",
   "furrr",
-  "dtplyr",
   "data.table",
-  "tidytable",
   "ggtext",
   "fst",
   "extraDistr",
@@ -38,6 +35,8 @@ pacman::p_load(
   "lemon"
 )
 
+remotes::install_version("tidytable", version = "0.8")
+library(tidytable)
 
 seed <- 1000
 set.seed(seed)
