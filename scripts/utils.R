@@ -1,5 +1,7 @@
 # Load required packages scripts
 pacman::p_load(
+  "qs",
+  "ggdist",
   "fitdistrplus",
   "EnvStats",
   "tidyverse",
@@ -32,11 +34,15 @@ pacman::p_load(
   "MetBrewer",
   "ggrepel",
   "ggh4x",
-  "lemon"
+  "lemon",
+  "geomtextpath"
 )
 
+if(packageVersion("tidytable")!="0.8.0"){
 remotes::install_version("tidytable", version = "0.8")
+}else{  
 library(tidytable)
+}
 
 seed <- 1000
 set.seed(seed)
@@ -140,15 +146,15 @@ convert_Ct_logGEML <- function(Ct, m_conv=-3.609714286, b_conv=40.93733333){
 #Define time periods of interest
 time_periods <- tribble(~idx,~period,~date_start,~date_end,
                         -1, "POLYMOD",             as_date("01/01/2008",format="%d/%m/%Y"), as_date("01/01/2008",format="%d/%m/%Y"),
-                        0, "BBC Pandemic",         as_date("01/09/2017",format="%d/%m/%Y"), as_date("01/12/2018",format="%d/%m/%Y"),
-                        1, "Lockdown 1",           as_date("23/03/2020",format="%d/%m/%Y"), as_date("03/06/2020",format="%d/%m/%Y"),
-                        2, "Lockdown 1 easing",    as_date("04/06/2020",format="%d/%m/%Y"), as_date("29/07/2020",format="%d/%m/%Y"),
+                        0, "Pre-pandemic",         as_date("01/09/2017",format="%d/%m/%Y"), as_date("01/12/2018",format="%d/%m/%Y"),
+                        1, "1st Lockdown",           as_date("23/03/2020",format="%d/%m/%Y"), as_date("03/06/2020",format="%d/%m/%Y"),
+                        2, "1st Lockdown easing",    as_date("04/06/2020",format="%d/%m/%Y"), as_date("29/07/2020",format="%d/%m/%Y"),
                         3, "Relaxed restrictions", as_date("30/07/2020",format="%d/%m/%Y"), as_date("03/09/2020",format="%d/%m/%Y"),
                         4, "School reopening",     as_date("04/09/2020",format="%d/%m/%Y"), as_date("24/10/2020",format="%d/%m/%Y"),
-                        5, "Lockdown 2",           as_date("05/11/2020",format="%d/%m/%Y"), as_date("02/12/2020",format="%d/%m/%Y"),
-                        6, "Lockdown 2 easing",    as_date("03/12/2020",format="%d/%m/%Y"), as_date("19/12/2020",format="%d/%m/%Y"),
-                        7, "Lockdown 3",           as_date("05/01/2021",format="%d/%m/%Y"), as_date("07/03/2021",format="%d/%m/%Y"),
-                        8, "Lockdown 3 + schools", as_date("08/03/2021",format="%d/%m/%Y"), as_date("31/03/2021",format="%d/%m/%Y"),
+                        5, "2nd Lockdown",           as_date("05/11/2020",format="%d/%m/%Y"), as_date("02/12/2020",format="%d/%m/%Y"),
+                        6, "2nd Lockdown easing",    as_date("03/12/2020",format="%d/%m/%Y"), as_date("19/12/2020",format="%d/%m/%Y"),
+                        7, "3rd Lockdown",           as_date("05/01/2021",format="%d/%m/%Y"), as_date("07/03/2021",format="%d/%m/%Y"),
+                        8, "3rd Lockdown + schools", as_date("08/03/2021",format="%d/%m/%Y"), as_date("31/03/2021",format="%d/%m/%Y"),
                         9, "Step 2 + schools",     as_date("16/04/2021",format="%d/%m/%Y"), as_date("16/05/2021",format="%d/%m/%Y")) %>% 
   mutate(period=factor(period,levels = period))
 
@@ -192,7 +198,7 @@ contact_data <- contacts_bbc %>%
                               by=c("date"="date_start","date"="date_end"),
                               match_fun=list(`>=`,`<=`))
 
-#### impute out of HH values > 250 for BBC pandemic by fitting distribution to values from non-lockdown periods ----
+#### impute out of HH values > 250 for Pre-pandemic by fitting distribution to values from non-lockdown periods ----
 
 # Calculate proportion over 250 by time period
 contact_data %>%
@@ -209,17 +215,17 @@ dist_over_250 <- contact_data %>%
   pull(e_other) %>% 
   fitdistr(.,"exponential")
 
-#simulate individuals with high numbers of contacts for BBC pandemic
+#simulate individuals with high numbers of contacts for Pre-pandemic
 dat_append <- data.frame(e_other=round(rexptr(n=0.0016*1.0016*nrow(contact_data %>% 
-                                                                     filter(period=="BBC Pandemic")),
+                                                                     filter(period=="Pre-pandemic")),
                                               lambda=dist_over_250$estimate[1],
                                               range = c(250,Inf))),
                          e_home=sample(size=0.0016*1.0016*nrow(contact_data %>% 
-                                                                 filter(period=="BBC Pandemic")),
+                                                                 filter(period=="Pre-pandemic")),
                                        x=contact_data %>% 
-                                         filter(period=="BBC Pandemic") %>% 
+                                         filter(period=="Pre-pandemic") %>% 
                                          pull(e_home))) %>% 
-  mutate(e_all=e_home+e_other,period="BBC Pandemic",idx=3)
+  mutate(e_all=e_home+e_other,period="Pre-pandemic",idx=3)
 
 #append to data
 contact_data_adjusted <- contact_data %>% bind_rows(dat_append)

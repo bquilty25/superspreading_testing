@@ -49,7 +49,7 @@ boot_est %>%
   ggplot(aes(y=value,x=period,colour=name,group=name))+
   geom_point()+
   geom_line()+
-  geom_text_repel(data=. %>% filter.(period=="BBC Pandemic",name=="mu"),
+  geom_text_repel(data=. %>% filter.(period=="Pre-pandemic",name=="mu"),
                   aes(x=period,y=value,label=paste0("R0 = ",round(value,1))),family="Lato",nudge_x=1)+
   geom_segment(data=rt_by_time_period %>% mutate(name="mu"),aes(x=period,xend=period,y=lower,yend=upper),alpha=0.25,size=10)+
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
@@ -103,7 +103,7 @@ heterogen_plot <- processed_infections_heterogen_on_off %>%
   geom_point(aes(colour=heterogen_label,group=heterogen_label))+
   geom_line(aes(colour=heterogen_label,group=heterogen_label))+
   # geom_text_repel(data=. %>% 
-  #                   filter.(period=="BBC Pandemic",
+  #                   filter.(period=="Pre-pandemic",
   #                           name=="mu"),
   #                 aes(x=period,y=value,label=paste0("R0 = ",round(value,1))),
   #                 family="Lato")+
@@ -282,7 +282,7 @@ ggsave("results/lft_plot.pdf",dpi=600,width=210,height=350,units="mm",bg="white"
 
 #prop infecting 0, >10, >20...
 ss_dat <- processed_infections_testing %>% 
-  filter.(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+  filter.(period%in%c("Pre-pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
   summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size)) %>%
   summarise.(n=n(),
              ss_10=sum(sum_inf>10),
@@ -314,7 +314,7 @@ ggsave("results/prop_ss_testing.png",width=210,height=150,dpi=600,units="mm",bg=
 
 #prop infecting 0, >10, >20...
 ss_dat <- processed_infections_events %>% 
-  filter.(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+  filter.(period%in%c("Pre-pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
   summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size)) %>%
   summarise.(n=n(),
              ss_10=sum(sum_inf>10),

@@ -59,12 +59,13 @@ time_periods_of_interest <-
   crossing(time_periods) %>% 
   filter(date_end<as.Date("2021-01-01"),period!="POLYMOD") %>% 
   #filter(period!="POLYMOD") %>% 
-  #filter(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+  #filter(period%in%c("Pre-pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
   mutate(scenario_id=row_number()) %>% 
   select(-c(date_start,date_end)) %>% 
   crossing(heterogen_contacts=c(T))
 
-processed_infections_baseline <- time_periods_of_interest %>% run_model(.,browsing = F)
+processed_infections_baseline <- time_periods_of_interest %>% 
+  run_model(.,browsing = F)
 
 #heterogen onoff 
 testing_scenarios <- traj %>% 
@@ -79,7 +80,7 @@ time_periods_of_interest <-
   crossing(time_periods) %>% 
   filter(date_end<as.Date("2021-01-01"),period!="POLYMOD") %>% 
   #filter(period!="POLYMOD") %>% 
-  filter(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+  filter(period%in%c("Pre-pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
   mutate(scenario_id=row_number()) %>% 
   select(-c(date_start,date_end)) %>% 
   crossing(heterogen_contacts=c(T,F))
@@ -99,7 +100,7 @@ testing_scenarios <- traj %>%
 
 time_periods_of_interest <- 
   crossing(time_periods) %>% 
-  filter(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+  filter(period%in%c("Pre-pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
   mutate(scenario_id=row_number()) %>% 
   select(-c(date_start,date_end)) %>% 
   crossing(heterogen_contacts=c(T))
@@ -120,7 +121,7 @@ testing_scenarios <- traj %>%
 
 time_periods_of_interest <- 
   crossing(time_periods) %>% 
-  filter(period%in%c("BBC Pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
+  filter(period%in%c("Pre-pandemic","Lockdown 1","Relaxed restrictions","School reopening")) %>% 
   mutate(scenario_id=row_number()) %>% 
   select(-c(date_start,date_end)) %>% 
   crossing(heterogen_contacts=c(T))
