@@ -35,7 +35,8 @@ pacman::p_load(
   "ggrepel",
   "ggh4x",
   "lemon",
-  "geomtextpath"
+  "geomtextpath",
+  "ggnewscale"
 )
 
 if(packageVersion("tidytable")!="0.8.0"){
@@ -147,14 +148,14 @@ convert_Ct_logGEML <- function(Ct, m_conv=-3.609714286, b_conv=40.93733333){
 time_periods <- tribble(~idx,~period,~date_start,~date_end,
                         -1, "POLYMOD",             as_date("01/01/2008",format="%d/%m/%Y"), as_date("01/01/2008",format="%d/%m/%Y"),
                         0, "Pre-pandemic",         as_date("01/09/2017",format="%d/%m/%Y"), as_date("01/12/2018",format="%d/%m/%Y"),
-                        1, "1st Lockdown",           as_date("23/03/2020",format="%d/%m/%Y"), as_date("03/06/2020",format="%d/%m/%Y"),
-                        2, "1st Lockdown easing",    as_date("04/06/2020",format="%d/%m/%Y"), as_date("29/07/2020",format="%d/%m/%Y"),
+                        1, "1st lockdown",           as_date("23/03/2020",format="%d/%m/%Y"), as_date("03/06/2020",format="%d/%m/%Y"),
+                        2, "1st lockdown easing",    as_date("04/06/2020",format="%d/%m/%Y"), as_date("29/07/2020",format="%d/%m/%Y"),
                         3, "Relaxed restrictions", as_date("30/07/2020",format="%d/%m/%Y"), as_date("03/09/2020",format="%d/%m/%Y"),
                         4, "School reopening",     as_date("04/09/2020",format="%d/%m/%Y"), as_date("24/10/2020",format="%d/%m/%Y"),
-                        5, "2nd Lockdown",           as_date("05/11/2020",format="%d/%m/%Y"), as_date("02/12/2020",format="%d/%m/%Y"),
-                        6, "2nd Lockdown easing",    as_date("03/12/2020",format="%d/%m/%Y"), as_date("19/12/2020",format="%d/%m/%Y"),
-                        7, "3rd Lockdown",           as_date("05/01/2021",format="%d/%m/%Y"), as_date("07/03/2021",format="%d/%m/%Y"),
-                        8, "3rd Lockdown + schools", as_date("08/03/2021",format="%d/%m/%Y"), as_date("31/03/2021",format="%d/%m/%Y"),
+                        5, "2nd lockdown",           as_date("05/11/2020",format="%d/%m/%Y"), as_date("02/12/2020",format="%d/%m/%Y"),
+                        6, "2nd lockdown easing",    as_date("03/12/2020",format="%d/%m/%Y"), as_date("19/12/2020",format="%d/%m/%Y"),
+                        7, "3rd lockdown",           as_date("05/01/2021",format="%d/%m/%Y"), as_date("07/03/2021",format="%d/%m/%Y"),
+                        8, "3rd lockdown + schools", as_date("08/03/2021",format="%d/%m/%Y"), as_date("31/03/2021",format="%d/%m/%Y"),
                         9, "Step 2 + schools",     as_date("16/04/2021",format="%d/%m/%Y"), as_date("16/05/2021",format="%d/%m/%Y")) %>% 
   mutate(period=factor(period,levels = period))
 
@@ -398,7 +399,7 @@ mean_filter <- function(condition,df,col){
 }
 
 #### Main Model ----
-run_model <- function(scenarios, browsing=F){
+run_model <- function(testing_scenarios, scenarios, contact_dat=contact_data, browsing=F){
   
   if(browsing){browser()}
   
@@ -411,11 +412,11 @@ run_model <- function(scenarios, browsing=F){
                               pull.(period))) %>%   
     mutate.(hh_contacts=ifelse(heterogen_contacts,
                                sample_filter(condition = period, 
-                                             df = contact_data_adjusted, 
+                                             df = contact_dat, 
                                              col="e_home", 
                                              n=n()),
                                round(mean_filter(condition = period, 
-                                                 df = contact_data_adjusted, 
+                                                 df = contact_data, 
                                                  col="e_home"))),
             .by=c(period)) 
   
@@ -441,10 +442,10 @@ run_model <- function(scenarios, browsing=F){
     # Sample daily contacts
     mutate.(nhh_contacts = ifelse(heterogen_contacts,
                                   sample_filter(condition = period,
-                                                df=contact_data_adjusted,
+                                                df=contact_dat,
                                                 col="e_other",n=n()),
                                   round(mean_filter(condition = period,
-                                                    df=contact_data_adjusted,
+                                                    df=contact_dat,
                                                     col="e_other"))),
             .by=c(period)) %>% 
     
