@@ -22,7 +22,6 @@ pacman::p_load(
   "emdbook",
   "colorspace",
   "fuzzyjoin",
-  "qs",
   "ggpubr",
   "bench",
   "tictoc",
@@ -34,7 +33,6 @@ pacman::p_load(
   "MetBrewer",
   "ggrepel",
   "ggh4x",
-  "lemon",
   "geomtextpath",
   "ggnewscale"
 )
