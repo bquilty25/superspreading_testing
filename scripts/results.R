@@ -26,7 +26,7 @@ processed_infections_baseline %>%
 ggsave("results/gen_time.png",width=210,height=120,dpi=600,units="mm",bg="white")
 
 # R and K estimates over time
-boot_est <- processed_infections_baseline %>% 
+processed_infections_baseline %>% 
   summarise.(sum_inf=sum(total_infections),
              .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>%
   summarise.(dists=list(fitdist(sum_inf,"nbinom")),
@@ -132,6 +132,51 @@ heterogen_plot <- processed_infections_heterogen_on_off %>%
 ggsave("results/R and k heterogeneity.png",width=200,height=150,dpi=600,units="mm",bg="white")
 ggsave("results/R and k heterogeneity.pdf",width=200,height=150,dpi=600,units="mm",bg="white")
 
+#sensitivity analysis
+processed_infections_baseline %>% 
+  filter.(period=="Pre-pandemic") %>% 
+  mutate.(contacts="Unadjusted") %>% 
+  bind_rows.(processed_infections_sens %>% 
+               mutate.(contacts="Adjusted")) %>% 
+  summarise.(sum_inf=sum(total_infections),
+             .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,contacts)) %>%
+  summarise.(dists=list(fitdist(sum_inf,"nbinom")),
+             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% enframe() %>% pivot_wider(names_from=name,values_from = value)),
+             n=n(),
+             ss_10=sum(sum_inf>10),
+             ss_20=sum(sum_inf>20),
+             ss_0=sum(sum_inf<=0),
+             .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,contacts,-sim)) %>% 
+  mutate.(
+    prop_ss_10=ss_10/n*100,
+    #prop_ss_20 =ss_20/n,
+    prop_ss_0=ss_0/n*100) %>% 
+  unnest.(dist_means) %>% 
+  pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>% 
+  mutate.(name=fct_relevel(name,"mu","size","prop_ss_10","prop_ss_0"),
+          contacts=fct_relevel(contacts,"Unadjusted")) %>% 
+  filter.(variant=="wild") %>% 
+  ggplot(aes(y=value,x=contacts,colour=name,group=name,shape=contacts))+
+  geom_point(show.legend = F)+
+  geom_text_repel(data=. %>% filter.(period=="Pre-pandemic",name=="mu"),
+                  aes(x=contacts,y=value,label=paste0("R0 = ",round(value,1))),family="Lato",
+                  nudge_y = -0.2)+
+  geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
+  scale_colour_manual(values = quad_col_pal,guide="none")+
+  scale_linetype_manual(values=c("dashed",NA,NA,NA),guide="none")+
+  facet_grid2(~name,switch="y",scales="free_y",independent = "y",
+              labeller=labeller(name=c("mu"="Mean R","size"="k of R",
+                                       "prop_ss_0"= "Proportion infecting\n 0 others (%)",
+                                       "prop_ss_10"="Proportion infecting\n over 10 others (%)")),
+              axes="all",
+              remove_labels = "x")+
+  lims(y=c(0,NA))+
+  labs(y="",
+       x="Contact data tail adjustment")+
+  plotting_theme+
+  theme(axis.text.x=element_text(angle = 45, vjust = 1, hjust=1))
+  
+ggsave("results/R_and_k_contact_data_sensitivity.png",width=200,height=100,dpi=600,units="mm",bg="white")
 
 processed_infections_baseline %>%
   #filter.(prop_self_iso_test==0,sampling_freq==3) %>%

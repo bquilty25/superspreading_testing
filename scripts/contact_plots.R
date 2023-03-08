@@ -1,4 +1,5 @@
 #create figure 2
+source("scripts/utils.r")
 
 colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b", "#d72638")
 
@@ -56,11 +57,11 @@ line_plot <- contact_data %>%
   scale_x_discrete(expand = expansion(0,c(0.5,1.5)))+
   guides(colour = guide_legend(nrow = 1))+
   scale_colour_manual(name="Daily number of contacts", 
-                      values=cols,
+                      values=rev(colour_pal),
                       labels=c("over_5"= "Over 5", "over_10"= "Over 10", "over_20"="Over 20",
                                "over_50"= "Over 50", "over_100"= "Over 100", "over_200"="Over 200"))+
   scale_fill_manual(name="Daily number of contacts", 
-                      values=cols,
+                      values=rev(colour_pal),
                       labels=c("over_5"= "Over 5", "over_10"= "Over 10", "over_20"="Over 20",
                                "over_50"= "Over 50", "over_100"= "Over 100", "over_200"="Over 200"))+
   plotting_theme+
@@ -70,23 +71,23 @@ line_plot <- contact_data %>%
 
 ggsave("results/high_n_contacts4.png",width=210,height=150,dpi=600,units="mm",bg="white")
 
-dot_plot <- contact_data %>% 
-  filter(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
-  pivot_longer(cols=c(e_home,e_other,e_all)) %>%
-  summarise(n=n(),
-             .by=c(value,name,period))%>% 
-  mutate(prop=n/sum(n),.by=name,period) %>% 
+dot_plot <-   contact_data %>% 
+  filter.(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
+  pivot_longer.(cols=c(e_home,e_other,e_all)) %>%
+  mutate.(ecdf_x=ecdf(value)(value),.by=c(name,period)) %>% 
   ggplot()+
-  geom_point(aes(x=value,y=prop*100,colour=period),alpha=0.3)+
+  geom_point(aes(x=value,y=1-ecdf_x,colour=period),alpha=0.5)+
   facet_wrap2(~name,labeller = labeller(name=c("e_all"="All contacts",
                                                "e_home"="Household contacts",
                                                "e_other"="Out of household contacts")),
               axes="all")+
   scale_x_continuous(trans="pseudo_log",breaks = c(0,1,10,100,1000),expand = expansion(0,0))+
-  scale_y_continuous(trans="log10",labels=label_number(accuracy = 0.01))+
+  scale_y_continuous(trans="log10",labels=label_percent())+
   scale_colour_manual(name="Time period",values=colour_pal)+
   plotting_theme+
-  labs(x="Number of daily reported contacts",y="Proportion of participants (%)")
+  labs(x="Number of reported daily contacts",y=str_wrap("Proportion of participants reporting at least X contacts (%)",35))
+
+ggsave("results/contacts_ecdf.png",width=210,height=120,dpi=600,units="mm",bg="white")
 
 nbinom_plot <- contact_data %>%  
   pivot_longer.(c(e_all,e_home,e_other),names_to = "contact_type") %>% 
@@ -133,3 +134,23 @@ dot_plot_all <- contact_data %>%
 
 ggsave("results/contacts_dot_all.png",width=210,height=350,dpi=600,units="mm",bg="white")
 
+    
+dot_plot_all <- contact_data %>% 
+    filter.(period%!in%c("POLYMOD")) %>% 
+    pivot_longer.(cols=c(e_all)) %>%
+    mutate.(ecdf_x=ecdf(value)(value),.by=c(name,period)) %>% 
+    ggplot()+
+    geom_point(aes(x=value,y=1-ecdf_x,group=period),alpha=0.5)+
+    facet_grid2(period~.,labeller = labeller(name=c("e_all"="All contacts",
+                                                 "e_home"="Household contacts",
+                                                 "e_other"="Out of household contacts")),
+                )+
+    scale_x_continuous(trans="pseudo_log",breaks = c(0,1,10,100,1000),expand = expansion(0,0))+
+    scale_y_continuous(trans="log10",labels=label_percent())+
+    scale_colour_manual(name="Time period",values=colour_pal)+
+    plotting_theme+
+    labs(x="Number of reported daily contacts",y=str_wrap("Proportion of participants reporting at least X contacts (%)",35))
+  
+  ggsave("results/contacts_ecdf_all1.png",width=10,height=350,dpi=600,units="mm",bg="white")
+  
+  
