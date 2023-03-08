@@ -89,9 +89,10 @@ kissler_dat <- read_csv("CtTrajectories_B117/output/shared_params_df.csv") %>%
 
 kissler_dat_means <- kissler_dat %>% 
   select(-c(peakvl_sd:clear_sd)) %>% 
+  mutate(across(.cols=contains("vl"),~40-.x)) %>% 
   pivot_longer(everything()) %>% 
   group_by(name) %>% 
-  summarise(mean=40-median(value)) %>% 
+  summarise(mean=median(value)) %>% 
   separate(name,sep = "_",into=c("variant","param"))
 
 kissler_dat_sd <- kissler_dat %>% 
@@ -118,9 +119,10 @@ hay_dat <- read_csv(file="data/shared_params_df.csv") %>%
 
 hay_dat_means <- hay_dat %>% 
   select(-c(peakvl_sd:clear_sd)) %>% 
+  mutate(across(.cols=contains("vl"),~40-.x)) %>% 
   pivot_longer(everything()) %>% 
   group_by(name) %>% 
-  summarise(mean=40-median(value)) %>% 
+  summarise(mean=median(value)) %>% 
   separate(name,sep = "_",into=c("variant","param"))
 
 hay_dat_sd <- hay_dat %>% 
@@ -137,6 +139,7 @@ hay_dat_est <- hay_dat_means %>%
 vl_params <- bind_rows(kissler_dat_est,hay_dat_est) %>% 
   mutate(variant=as_factor(variant))
 
+#From Kissler et al. https://github.com/gradlab/CtTrajectories/blob/main/code/utilities/utils_analysis.R
 convert_Ct_logGEML <- function(Ct, m_conv=-3.609714286, b_conv=40.93733333){
   out <- (Ct-b_conv)/m_conv * log10(10) + log10(250)
   return(out) 
