@@ -22,7 +22,6 @@ pacman::p_load(
   "emdbook",
   "colorspace",
   "fuzzyjoin",
-  "qs",
   "ggpubr",
   "bench",
   "tictoc",
@@ -34,7 +33,6 @@ pacman::p_load(
   "MetBrewer",
   "ggrepel",
   "ggh4x",
-  "lemon",
   "geomtextpath",
   "ggnewscale"
 )
@@ -93,7 +91,7 @@ kissler_dat_means <- kissler_dat %>%
   select(-c(peakvl_sd:clear_sd)) %>% 
   pivot_longer(everything()) %>% 
   group_by(name) %>% 
-  summarise(mean=median(value)) %>% 
+  summarise(mean=40-median(value)) %>% 
   separate(name,sep = "_",into=c("variant","param"))
 
 kissler_dat_sd <- kissler_dat %>% 
@@ -122,7 +120,7 @@ hay_dat_means <- hay_dat %>%
   select(-c(peakvl_sd:clear_sd)) %>% 
   pivot_longer(everything()) %>% 
   group_by(name) %>% 
-  summarise(mean=median(value)) %>% 
+  summarise(mean=40-median(value)) %>% 
   separate(name,sep = "_",into=c("variant","param"))
 
 hay_dat_sd <- hay_dat %>% 
