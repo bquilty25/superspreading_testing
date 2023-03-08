@@ -203,7 +203,7 @@ contact_data <- contacts_bbc %>%
 
 # Calculate proportion over 250 by time period
 contact_data %>%
-  filter(period %in% c("Relaxed restrictions","School reopening","Step 2 + schools")) %>% 
+    filter(period %in% c("Relaxed restrictions","School reopening","Step 2 + schools")) %>% 
   summarise.(n=n(),over_250=sum(e_other>=250)) %>% 
   mutate.(prop=over_250/n)
 
@@ -527,7 +527,7 @@ hush=function(code){
 }
 
 # logarithmic spaced sequence
-# blatantly stolen from library("emdbook"), because need only this
+# from library("emdbook"), because need only this
 lseq <- function(from=1, to=100000, length.out=6) {
   
   exp(seq(log(from), log(to), length.out = length.out))
