@@ -1,6 +1,6 @@
 # Superspreading testing
 
-This repository contains code and data for the analyses in [Disentangling the drivers of heterogeneity in SARS-CoV-2 transmission from data on viral load and daily contact rates](). The aim of this work was to combine data from contact surveys and viral load studies to estimate the secondary infection distribution of SARS-CoV-2 over course of the pandemic in the UK in 2020 and the effectiveness of targeted testing strategies for reducing superspreading events.
+This repository contains code and data for the analyses in [Disentangling the drivers of heterogeneity in SARS-CoV-2 transmission from data on viral load and daily contact rates](). The aim of this work was to combine data from contact surveys and viral load studies to estimate the secondary infection distribution of SARS-CoV-2 over the course of the pandemic in the UK in 2020 and the effectiveness of targeted testing strategies for reducing superspreading events.
 
 ## Installation
 
@@ -13,7 +13,7 @@ install.packages("pacman")
 ```
 
 ## Data
-We used contact data from the [BBC Pandemic](https://github.com/adamkucharski/2020-cov-tracing/tree/62fe9be98e1d7ae7b49fd6fa0938f82970afb715/data) [1] and CoMix [2] contact surveys and [viral load trajectory parameter estimates](https://github.com/skissler/CtTrajectories_B117/tree/9a5b14eeb01d7c4b26eec80932d28eb3e9349ca1/output) from the literature [3] to simulate viral load trajectories. We converted viral load to infectiousness using laboratory data on the probability of culturing virus at different viral loads [4]. All data required for running the analyses is available in [data](data) or the linked repositories.
+We used contact data from the [BBC Pandemic](https://github.com/adamkucharski/2020-cov-tracing/tree/62fe9be98e1d7ae7b49fd6fa0938f82970afb715/data) [1] and CoMix [2] contact surveys and [viral load trajectory parameter estimates](https://github.com/skissler/CtTrajectories_B117/tree/9a5b14eeb01d7c4b26eec80932d28eb3e9349ca1/output) from the literature [3] to simulate viral load trajectories. We converted viral load to infectiousness using laboratory data on the probability of culturing virus at different viral loads [4]. All data required for running the analyses is available in the [data](data) folder or the linked repositories.
 
 ## Running the code
 
