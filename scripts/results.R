@@ -189,16 +189,8 @@ processed_infections_baseline %>%
 
 ggsave("contacts_infections.png")
 
-processed_infections_baseline %>%
-  #filter.(prop_self_iso_test==0,sampling_freq==3) %>%
-  ggplot(aes(x=vl,y=total_contacts,colour=total_infections))+
-  geom_jitter(alpha=0.5)+
-  scale_y_log10()+
-  scale_colour_viridis_c(trans="log10",na.value=NA,option="turbo")+
-  facet_grid(prop_self_iso_test~period+sampling_freq)+
-  plotting_theme
-
-
+#LFT testing
+## regular testing
 testing_plot <-processed_infections_testing %>% 
   summarise.(sum_inf=sum(total_infections),.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size)) %>%
   summarise.(.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,event_size,-sim),
