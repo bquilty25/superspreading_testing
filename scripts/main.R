@@ -129,8 +129,7 @@ time_periods_of_interest <-
   filter(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
   mutate(scenario_id=row_number()) %>% 
   select(-c(date_start,date_end)) %>% 
-  crossing(heterogen_contacts=c(T))%>% 
-  run_model(.,browsing = F)
+  crossing(heterogen_contacts=c(T))
 
 processed_infections_events <- run_model(testing_scenarios=testing_scenarios,contact_dat = contact_data,scenarios = time_periods_of_interest,browsing = F)
 
