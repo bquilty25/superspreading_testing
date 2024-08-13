@@ -1,5 +1,12 @@
-
 #### Results ####
+source("scripts/utils.R")
+
+#load output
+processed_infections_baseline <- qread("results/processed_infections_baseline.qs")
+processed_infections_heterogen_on_off <- qread("results/processed_infections_heterogen_on_off.qs")
+processed_infections_testing <- qread("results/processed_infections_testing")
+processed_infections_events <- qread("results/processed_infections_events")
+processed_infections_sens <- qread("results/processed_infections_sens")
 
 #inferred generation time
 processed_infections_baseline %>% 
@@ -48,7 +55,7 @@ processed_infections_baseline %>%
   geom_point()+
   geom_line()+
   geom_text_repel(data=. %>% filter.(period=="Pre-pandemic",name=="mu"),
-                  aes(x=period,y=value,label=paste0("R0 = ",round(value,1))),family="Lato",nudge_x=1)+
+                  aes(x=period,y=value,label=paste0("R0 = ",round(value,1))),nudge_x=1)+
   geom_segment(data=rt_by_time_period %>% mutate(name="mu"),aes(x=period,xend=period,y=lower,yend=upper),alpha=0.25,size=10)+
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
   scale_colour_manual(values = quad_col_pal,guide="none")+
@@ -159,7 +166,7 @@ processed_infections_baseline %>%
   ggplot(aes(y=value,x=contacts,colour=name,group=name,shape=contacts))+
   geom_point(show.legend = F)+
   geom_text_repel(data=. %>% filter.(period=="Pre-pandemic",name=="mu"),
-                  aes(x=contacts,y=value,label=paste0("R0 = ",round(value,1))),family="Lato",
+                  aes(x=contacts,y=value,label=paste0("R0 = ",round(value,1))),
                   nudge_y = -0.2)+
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
   scale_colour_manual(values = quad_col_pal,guide="none")+
