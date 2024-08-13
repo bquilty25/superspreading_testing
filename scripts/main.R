@@ -1,9 +1,9 @@
-#Estimate secondary case distribution pre-pandemic (R0, BBC) and with various levels of contact reduction from Comix
+#Estimate secondary case distribution pre-pandemic (R0, BBC) and with various levels of contact reduction from CoMix
 source("scripts/utils.R")
 source("scripts/duration.R")
 
 N_sims <- 10000
-#Make VL trajectories
+#Make viral load (VL) trajectories
 traj <- vl_params %>% 
   filter.(variant%in%c("wild")) %>%
   mutate.(variant=fct_drop(variant)) %>% 
@@ -76,7 +76,7 @@ testing_scenarios <- traj %>%
   mutate.(self_iso_test = rbernoulli(n=n(),prop_self_iso_test),
           begin_testing = rdunif(n(),0, sampling_freq)) 
 
- time_periods_of_interest <- 
+time_periods_of_interest <- 
   crossing(time_periods) %>% 
   filter(date_end<as.Date("2021-01-01"),period!="POLYMOD") %>% 
   #filter(period!="POLYMOD") %>% 
@@ -85,11 +85,11 @@ testing_scenarios <- traj %>%
   select(-c(date_start,date_end)) %>% 
   crossing(heterogen_contacts=c(T,F))
 
- processed_infections_heterogen_on_off <- run_model(testing_scenarios=testing_scenarios,contact_dat = contact_data,scenarios = time_periods_of_interest,browsing = F)
+processed_infections_heterogen_on_off <- run_model(testing_scenarios=testing_scenarios,contact_dat = contact_data,scenarios = time_periods_of_interest,browsing = F)
 
- rm(testing_scenarios)
- rm(time_periods_of_interest)
- 
+rm(testing_scenarios)
+rm(time_periods_of_interest)
+
 #testing
 testing_scenarios <- traj %>% 
   filter.(heterogen_vl==T) %>% 
