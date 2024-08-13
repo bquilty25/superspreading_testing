@@ -17,20 +17,27 @@ We used contact data from the [BBC Pandemic](https://github.com/adamkucharski/20
 
 ## Running the code
 
-The main analysis can be run by navigating to where the code was download and running:
+The main analysis can be run by setting the working directory to where the code was downloaded and running:
 
 ```R
 source("scripts/main.R")
 ```
 
-The results can then be visualised by immediately following this with:
+The results can then be visualised by running:
 
 ```
 source("scripts/results.R")
 ```
 
+which will generate the plots showing the mean, _R_, and overdispersion, _k_, of the secondary infection distribution over time; the overdispersion over time with and without hetereogeneity in contacts and/or viral load; the impact of LFT testing for regular and pre-event testing; and the sensitivity analysis for _R_ and _k_ when imputing a heavier tail in the BBC Pandemic contact distribution (Fig. S3).
+
+The other scripts in the [scripts](scripts) folder can be used to generate the other plots in the paper:
+* [contact_plots.R](scripts/contact_plots.R) produces the figure of the variation in contact rates over time in the BBC Pandemic and CoMix surveys, and the plots of the household and non-household contact distributions for the different time periods (Fig. S1)
+* [curve_plot.R](scripts/curve_plot.R) produces the figure showing how viral load is converted into infectivity
+* [duration.R](scripts/duration.R) generates the contact duration distribution plot for household and non-household contacts (Fig. S2)
+
 ## Output
-The results plots are saved in the [results](results) folder.
+The simulations output and results plots are saved in the [results](results) folder.
 
 ## Built With
 
