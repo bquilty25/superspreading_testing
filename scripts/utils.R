@@ -1,43 +1,39 @@
 # Load required packages scripts
-pacman::p_load(
-  "qs",
-  "ggdist",
-  "fitdistrplus",
-  "EnvStats",
-  "tidyverse",
-  "patchwork",
-  "here",
-  "rriskDistributions",
-  "rms",
-  "DescTools",
-  "MESS",
-  "lubridate",
-  "lemon",
-  "boot",
-  "furrr",
-  "data.table",
-  "ggtext",
-  "fst",
-  "extraDistr",
-  "emdbook",
-  "colorspace",
-  "fuzzyjoin",
-  "ggpubr",
-  "bench",
-  "tictoc",
-  "naniar",
-  "scales",
-  "ggforce",
-  "RGeode",
-  "tsibble",
-  "MetBrewer",
-  "ggrepel",
-  "ggh4x",
-  "geomtextpath",
-  "ggnewscale",
-  "tictoc",
-  "ggdist"
-)
+library(qs)
+library(ggdist)
+library(fitdistrplus)
+library(EnvStats)
+library(tidyverse)
+library(patchwork)
+library(here)
+library(rriskDistributions)
+library(rms)
+library(DescTools)
+library(MESS)
+library(lubridate)
+library(lemon)
+library(boot)
+library(furrr)
+library(data.table)
+library(ggtext)
+library(fst)
+library(extraDistr)
+library(emdbook)
+library(colorspace)
+library(fuzzyjoin)
+library(ggpubr)
+library(bench)
+library(tictoc)
+library(naniar)
+library(scales)
+library(ggforce)
+library(RGeode)
+library(tsibble)
+library(MetBrewer)
+library(ggrepel)
+library(ggh4x)
+library(geomtextpath)
+library(ggnewscale)
 
 if(packageVersion("tidytable")!="0.8.0"){
 remotes::install_version("tidytable", version = "0.8")
