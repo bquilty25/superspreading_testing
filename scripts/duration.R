@@ -1,20 +1,18 @@
-source("scripts/utils.R")
+contacts_duration <- qs::qread(file="data/contacts_duration.qs")
 
-qs::qsave(contacts_duration_qs,file="data/contacts_duration.qs")
-
-contacts_hh_duration <- contacts_duration_qs %>% 
+contacts_hh_duration <- contacts_duration %>% 
   drop_na(cnt_minutes_max) %>% 
   filter(cnt_household==1) %>% 
   mutate(cnt_duration=cnt_minutes_max/1440,cnt_duration=ifelse(cnt_duration>=1,1,cnt_duration)) %>% 
   pull(cnt_duration)
 
-contacts_nhh_duration <- contacts_duration_qs %>% 
+contacts_nhh_duration <- contacts_duration %>% 
   drop_na(cnt_minutes_max) %>% 
   filter(cnt_household==0) %>% 
   mutate(cnt_duration=cnt_minutes_max/1440,cnt_duration=ifelse(cnt_duration>=1,1,cnt_duration)) %>% 
   pull(cnt_duration)
 
-contacts_duration_qs %>%
+contacts_duration %>%
   drop_na(cnt_minutes_max) %>% 
   ggplot()+
   geom_histogram(aes(x=cnt_minutes_max/60,y=..density..,fill=factor(cnt_household)),binwidth = 1)+
