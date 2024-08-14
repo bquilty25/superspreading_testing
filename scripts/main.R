@@ -164,6 +164,6 @@ processed_infections_sens <- run_model(testing_scenarios=testing_scenarios,
 #save output
 qsave(processed_infections_baseline,"results/processed_infections_baseline.qs")
 qsave(processed_infections_heterogen_on_off,"results/processed_infections_heterogen_on_off.qs")
-qsave(processed_infections_testing,"results/processed_infections_testing")
-qsave(processed_infections_events,"results/processed_infections_events")
-qsave(processed_infections_sens,"results/processed_infections_sens")
+qsave(processed_infections_testing,"results/processed_infections_testing.qs")
+qsave(processed_infections_events,"results/processed_infections_events.qs")
+qsave(processed_infections_sens,"results/processed_infections_sens.qs")
