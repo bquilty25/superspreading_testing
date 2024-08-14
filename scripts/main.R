@@ -42,9 +42,6 @@ traj_ <- traj %>%
                    infectious = FALSE)) %>% 
   select.(-c(prolif, start, end))
 
-#Scenarios to investigate
-key_grouping_var <- c("sim","variant","period","lower_inf_thresh","heterogen_vl","heterogen_contacts")
-
 #baseline 
 testing_scenarios <- traj %>% 
   filter.(heterogen_vl==T) %>% 
