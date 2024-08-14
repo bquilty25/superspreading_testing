@@ -2,7 +2,7 @@
 source("scripts/utils.R")
 source("scripts/duration.R")
 
-N_sims <- 5000
+N_sims <- 10000
 #Make VL trajectories
 traj <- vl_params %>% 
   filter.(variant%in%c("wild")) %>%
