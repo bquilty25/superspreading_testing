@@ -1,8 +1,9 @@
+
 #Estimate secondary case distribution pre-pandemic (R0, BBC) and with various levels of contact reduction from Comix
 source("scripts/utils.R")
 source("scripts/duration.R")
 
-N_sims <- 10000
+N_sims <- 5000
 #Make VL trajectories
 traj <- vl_params %>% 
   filter.(variant%in%c("wild")) %>%
@@ -68,6 +69,7 @@ rm(testing_scenarios)
 rm(time_periods_of_interest)
 
 #heterogen onoff 
+
 testing_scenarios <- traj %>% 
   select.(-m) %>% 
   crossing.(prop_self_iso_test=c(0),
@@ -79,13 +81,13 @@ testing_scenarios <- traj %>%
  time_periods_of_interest <- 
   crossing(time_periods) %>% 
   filter(date_end<as.Date("2021-01-01"),period!="POLYMOD") %>% 
-  #filter(period!="POLYMOD") %>% 
-  filter(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
+  #filter(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
   mutate(scenario_id=row_number()) %>% 
   select(-c(date_start,date_end)) %>% 
   crossing(heterogen_contacts=c(T,F))
 
  processed_infections_heterogen_on_off <- run_model(testing_scenarios=testing_scenarios,contact_dat = contact_data,scenarios = time_periods_of_interest,browsing = F)
+ 
 
  rm(testing_scenarios)
  rm(time_periods_of_interest)
@@ -129,8 +131,7 @@ time_periods_of_interest <-
   filter(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
   mutate(scenario_id=row_number()) %>% 
   select(-c(date_start,date_end)) %>% 
-  crossing(heterogen_contacts=c(T))%>% 
-  run_model(.,browsing = F)
+  crossing(heterogen_contacts=c(T))
 
 processed_infections_events <- run_model(testing_scenarios=testing_scenarios,contact_dat = contact_data,scenarios = time_periods_of_interest,browsing = F)
 
@@ -162,3 +163,4 @@ processed_infections_sens <- run_model(testing_scenarios=testing_scenarios,
                                        contact_dat = contact_data_adjusted,
                                        scenarios = time_periods_of_interest,browsing = F)
 
+toc()

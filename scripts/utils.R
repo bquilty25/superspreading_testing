@@ -34,7 +34,9 @@ pacman::p_load(
   "ggrepel",
   "ggh4x",
   "geomtextpath",
-  "ggnewscale"
+  "ggnewscale",
+  "tictoc",
+  "ggdist"
 )
 
 if(packageVersion("tidytable")!="0.8.0"){
@@ -51,7 +53,9 @@ covid_pal <- c("#e66101", "#5e3c99", "#0571b0")
 
 `%!in%` = Negate(`%in%`)
 
-plotting_theme <- theme_minimal(base_family = "Lato")+
+plotting_theme <- theme_minimal(
+  #base_family = "Lato"
+  )+
   theme(axis.ticks = element_line(colour="#2E4C6D"),
         axis.title = element_text(colour="#2E4C6D"),
         axis.text = element_text(colour="#2E4C6D"),
@@ -64,7 +68,9 @@ plotting_theme <- theme_minimal(base_family = "Lato")+
         strip.placement = "outside",
         axis.line = element_line(colour="#2E4C6D"),
         line = element_line(colour="#2E4C6D"),
-        text = element_text(colour="#2E4C6D",family = "Lato"))
+        text = element_text(colour="#2E4C6D"
+                            #,family = "Lato"
+                            ))
 
 bi_col_pal <- c("#396EB0","#FC997C")
 tri_col_pal <- c("#396EB0","#DADDFC","#FC997C")
@@ -286,7 +292,7 @@ rt_by_time_period <- rt %>% filter(date<as.Date("2021-01-01")) %>%
                               by=c("date"="date_start","date"="date_end"),
                               match_fun=list(`>=`,`<=`)) %>%
   group_by(across(-c(date,lower,upper))) %>% 
-  summarise(lower=mean(lower),upper=mean(upper)) %>% 
+  summarise(lo=mean(lower),hi=mean(upper)) %>% 
   ungroup() %>% 
   filter(period!="Lockdown 1") #very minimal overlap with lockdown 1 period (Rt starts 29/5/2020)
 

@@ -1,6 +1,7 @@
 
 #### Results ####
 
+
 #inferred generation time
 processed_infections_baseline %>% 
   summarise.(sum_inf=sum(total_infections),
@@ -26,67 +27,91 @@ processed_infections_baseline %>%
 ggsave("results/gen_time.png",width=210,height=120,dpi=600,units="mm",bg="white")
 
 # R and K estimates over time
-processed_infections_baseline %>% 
+tic()
+boot_res <- processed_infections_baseline %>% 
+  #filter(period=="Pre-pandemic") %>% 
   summarise.(sum_inf=sum(total_infections),
              .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>%
-  summarise.(dists=list(fitdist(sum_inf,"nbinom")),
-             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% enframe() %>% pivot_wider(names_from=name,values_from = value)),
-             n=n(),
-             ss_10=sum(sum_inf>10),
-             ss_20=sum(sum_inf>20),
-             ss_0=sum(sum_inf<=0),
-             .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim)) %>% 
-  mutate.(
-    prop_ss_10=ss_10/n*100,
-    #prop_ss_20 =ss_20/n,
-    prop_ss_0=ss_0/n*100) %>% 
-  unnest.(dist_means) %>% 
-  pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>% 
-  mutate.(name=fct_relevel(name,"mu","size","prop_ss_10","prop_ss_0")) %>% 
+  summarise.(dists=list(bootdist(fitdist(sum_inf,"nbinom"),
+                                 bootmethod="nonparam",
+                                 parallel="multicore",
+                                 ncpus=8)$CI%>% 
+                          as.data.frame() %>% 
+                          rownames_to_column(var = "name") %>% 
+                          rename("lo"=`2.5%`,
+                                 "hi"=`97.5%`)),
+             .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim))
+toc()
+
+boot_res %>% 
+  unnest.(dists) %>%  
   filter.(variant=="wild") %>% 
-  ggplot(aes(y=value,x=period,colour=name,group=name))+
-  geom_point()+
+  mutate.(name=as.factor(name),
+          name=fct_relevel(name,"mu","size","prop_ss_10","prop_ss_0")) %>% 
+  as_tibble() %>% 
+  ggplot(aes(y=Median,ymin=lo,ymax=hi,x=period,colour=name,fill=name,group=name))+
   geom_line()+
-  geom_text_repel(data=. %>% filter.(period=="Pre-pandemic",name=="mu"),
-                  aes(x=period,y=value,label=paste0("R0 = ",round(value,1))),family="Lato",nudge_x=1)+
-  geom_segment(data=rt_by_time_period %>% mutate(name="mu"),aes(x=period,xend=period,y=lower,yend=upper),alpha=0.25,size=10)+
-  geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
-  scale_colour_manual(values = quad_col_pal,guide="none")+
-  scale_linetype_manual(values=c("dashed",NA,NA,NA),guide="none")+
-  facet_grid2(name~.,switch="y",scales="free_y",independent = "y",
-              labeller=labeller(name=c("mu"="Mean R","size"="k of R",
+  geom_point()+
+  #geom_ribbon(alpha=0.4,colour=NA)+
+  geom_segment(data=rt_by_time_period %>% mutate(name="mu"),
+               aes(x=period,
+                   y=lo,
+                   yend=hi),
+               alpha=0.25,
+               size=10)+
+  facet_grid2(rows=vars(name),switch="y",scales="free",
+              labeller=labeller(name=c("mu"="R","size"="k",
                                        "prop_ss_0"= "Proportion infecting\n 0 others (%)",
                                        "prop_ss_10"="Proportion infecting\n over 10 others (%)")),
               axes="all",
-              remove_labels = "x")+
+              remove_labels = "x",
+  )+
+  facetted_pos_scales(y=list(scale_y_continuous(limits=c(0,NA)),
+                             #scale_y_continuous(),
+                             #scale_y_continuous(),
+                             scale_y_log10(limits=c(NA,NA),breaks=log_breaks())))+
+  geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
+  scale_colour_manual(values = bi_col_pal,guide="none")+
+  scale_fill_manual(values = bi_col_pal,guide="none")+
+  scale_linetype_manual(values=c("dashed",NA,NA,NA),guide="none")+
   lims(y=c(0,NA))+
   labs(y="",
        x="Time period")+
   plotting_theme+
   theme(axis.text.x=element_text(angle = 45, vjust = 1, hjust=1))
 
-ggsave("results/R and k over time.png",width=150,height=150,dpi=600,units="mm",bg="white")
+ggsave("results/Fig4 - R and k over time.png",width=150,height=100,dpi=600,units="mm",bg="white")
+ggsave("results/Fig4 - R and k over time.pdf",width=150,height=100,dpi=600,units="mm",bg="white")
 
 # heterogen_on_off
-heterogen_plot <- processed_infections_heterogen_on_off %>% 
+tic()
+boot_res_heterogen <- processed_infections_heterogen_on_off %>% 
+  #filter(period=="Pre-pandemic") %>% 
   summarise.(sum_inf=sum(total_infections),
              .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test)) %>%
-  summarise.(.by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim),
-             dist_means=list(fitdist(sum_inf,"nbinom")$estimate %>% 
-                               enframe() %>% 
-                               pivot_wider(names_from=name,values_from = value)
-                             ),
-             n=n(),
-             ss_10=sum(sum_inf>10),
-             ss_20=sum(sum_inf>20),
-             ss_0=sum(sum_inf<=0)) %>% 
-  mutate.(
-    prop_ss_10=ss_10/n*100,
-    prop_ss_0=ss_0/n*100) %>% 
-  unnest.(dist_means) %>% 
-  pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>% 
+  summarise.(dists=list(bootdist(fitdist(sum_inf,"nbinom"),
+                                 bootmethod="nonparam",
+                                 parallel="multicore",
+                                 ncpus=8)$CI%>% 
+                          as.data.frame() %>% 
+                          rownames_to_column(var = "name") %>% 
+                          rename("lo"=`2.5%`,
+                                 "hi"=`97.5%`)),
+             .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim))
+toc()
+
+other_est <- tribble(~study,~xmin,~xmax,~ymin,~ymax, ~y,
+                     "Endo et al. 2020", -Inf, Inf, 0.05, 0.2, 0.1,
+                     "Rio & Althaus 2020", -Inf, Inf, 0.014, 6.95, 0.54,
+                     "Adam et al. 2020", -Inf, Inf, 0.45, 0.72, 0.58,
+                     "Laxminarayan et al. 2020", -Inf, Inf, 0.49, 0.52, 0.51)
+
+(heterogen_plot <- (boot_res_heterogen %>% 
+  unnest.(dists) %>% 
+  #pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>% 
   mutate.(name=fct_relevel(name,"mu","size","prop_ss_10","prop_ss_0")) %>% 
-  filter.(variant=="wild",!(heterogen_vl==F&heterogen_contacts==F&name=="size")) %>% 
+  filter.(variant=="wild",!(heterogen_vl==F&heterogen_contacts==F&name=="size"),
+          name%in%c("size")) %>% 
   mutate.(heterogen_label=case_when.(heterogen_vl&heterogen_contacts~"Variable viral load and contacts",
                                heterogen_vl&!heterogen_contacts~"Variable viral load, equal contacts",
                                !heterogen_vl&heterogen_contacts~"Equal viral load, variable contacts",
@@ -95,23 +120,30 @@ heterogen_plot <- processed_infections_heterogen_on_off %>%
                                 "Variable viral load and contacts",
                                 "Variable viral load, equal contacts",
                                 "Equal viral load, variable contacts",
-                                "Equal viral load and equal contacts")) %>%
-  ggplot(aes(y=value,x=period,colour=name))+
-  geom_point(aes(colour=heterogen_label,group=heterogen_label))+
-  geom_line(aes(colour=heterogen_label,group=heterogen_label))+
-  scale_linetype(name="")+
-  scale_shape(name="")+
-  ggnewscale::new_scale(new_aes="linetype")+
-  geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
-  scale_colour_manual(values = quad_col_pal,name="")+
-  scale_linetype_manual(values=c("dashed",NA,NA,NA),guide="none")+
+                                "Equal viral load and equal contacts"),
+    heterogen_vl=ifelse(heterogen_vl,"Heterogeneous viral load","Homogeneous viral load"),
+    heterogen_contacts=ifelse(heterogen_contacts,"Heterogeneous contacts","Homogeneous contacts")) %>%
+  ggplot(aes(y=Median,ymin=lo,ymax=hi,x=period,colour=name))+
+    geom_line(aes(colour=heterogen_label,fill=heterogen_label,group=heterogen_label,linetype=heterogen_label))+
+    geom_point(aes(colour=heterogen_label,fill=heterogen_label,group=heterogen_label,linetype=heterogen_label))+
+  # geom_lineribbon(aes(colour=heterogen_label,fill=heterogen_label,group=heterogen_label,linetype=heterogen_label),
+  #                 alpha=0.4)+
+  scale_colour_manual(values = tri_col_pal)+
+    scale_fill_manual(values = tri_col_pal)+  
+  #scale_linetype_manual(values=c("solid","dashed","dashed"))+
+  labs(y="",#"Mean parameter value",
+         x="Time period",
+       linetype = "",
+       colour="",
+       fill = ""
+    )+
   facet_grid2(name~.,
               switch="y",
               independent = "y",
               scales="free_y",
               axes="all",
               remove_labels = "x",
-              labeller=labeller(name=c("mu"="Mean R","size"="k of R",
+              labeller=labeller(name=c("mu"="Mean R","size"="Overdispersion (k)",
                                        "prop_ss_0"= "Proportion infecting\n 0 others (%)",
                                        "prop_ss_10"="Proportion infecting\n over 10 others (%)"),
                                 heterogen_vl=c("TRUE"="Variable viral load trajectory",
@@ -119,18 +151,20 @@ heterogen_plot <- processed_infections_heterogen_on_off %>%
                                 heterogen_contacts=c("TRUE"="Variable contacts",
                                                      "FALSE"="Same contacts"))
   )+
-  ggh4x::facetted_pos_scales(y=list(scale_y_continuous(limits = c(0,NA)),scale_y_log10()))+
-  labs(y="",#"Mean parameter value",
-       x="Time period"
-  )+
-  plotting_theme+
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
-        legend.direction = "vertical",
-        legend.position = "right")
+  scale_y_log10(limits=c(0.1,10))#|
+    # ggplot(other_est,aes(x=study, ymin=ymin, ymax=ymax, y = y, colour=study))+
+    # geom_pointrange(fatten=4, alpha=0.5)+
+    # scale_y_log10(limit=c(0.01,10))
+  )&
+    plotting_theme&
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+          legend.direction = "vertical",
+          legend.position = "right")
+  )
 
 
-ggsave("results/R and k heterogeneity.png",width=200,height=150,dpi=600,units="mm",bg="white")
-ggsave("results/R and k heterogeneity.pdf",width=200,height=150,dpi=600,units="mm",bg="white")
+ggsave(heterogen_plot,file = "results/Fig5 - R and k heterogeneity.png",width=200,height=150/1.5,dpi=600,units="mm",bg="white")
+ggsave(heterogen_plot,file = "results/Fig5 - R and k heterogeneity.pdf",width=200,height=150,dpi=600,units="mm",bg="white")
 
 #sensitivity analysis
 processed_infections_baseline %>% 
@@ -158,14 +192,14 @@ processed_infections_baseline %>%
   filter.(variant=="wild") %>% 
   ggplot(aes(y=value,x=contacts,colour=name,group=name,shape=contacts))+
   geom_point(show.legend = F)+
-  geom_text_repel(data=. %>% filter.(period=="Pre-pandemic",name=="mu"),
-                  aes(x=contacts,y=value,label=paste0("R0 = ",round(value,1))),family="Lato",
-                  nudge_y = -0.2)+
+  # geom_text_repel(data=. %>% filter.(period=="Pre-pandemic",name=="mu"),
+  #                 aes(x=contacts,y=value,label=paste0("R0 = ",round(value,1))),family="Lato",
+  #                 nudge_y = -0.2)+
   geom_hline(aes(linetype=name,yintercept=1),colour=quad_col_pal[1])+
   scale_colour_manual(values = quad_col_pal,guide="none")+
   scale_linetype_manual(values=c("dashed",NA,NA,NA),guide="none")+
   facet_grid2(~name,switch="y",scales="free_y",independent = "y",
-              labeller=labeller(name=c("mu"="Mean R","size"="k of R",
+              labeller=labeller(name=c("mu"="R","size"="k",
                                        "prop_ss_0"= "Proportion infecting\n 0 others (%)",
                                        "prop_ss_10"="Proportion infecting\n over 10 others (%)")),
               axes="all",
@@ -225,7 +259,7 @@ testing_plot <-processed_infections_testing %>%
               remove_labels = "x",
               axes = "all",
               #independent = "y",
-              labeller=labeller(name=c("mu"="Mean R","size"="k of R",
+              labeller=labeller(name=c("mu"="R","size"="k",
                                        "prop_ss_0"= "Proportion infecting\n 0 others (%)",
                                        "prop_ss_10"="Proportion infecting\n over 10 others (%)")),
               switch="y"
@@ -239,7 +273,7 @@ testing_plot <-processed_infections_testing %>%
        x="Uptake of/adherence to lateral flow testing (%)",
        colour="Testing frequency (days between tests)")+
   plotting_theme+
-  theme(axis.text.x=element_text(angle = 45, vjust = 1, hjust=1))
+  theme(axis.text.x=element_text(angle = 0, vjust = 1, hjust=1))
 
 ggsave("results/lft_impact_testing.png",width=210,height=150,dpi=600,units="mm",bg="white")
 
@@ -274,7 +308,7 @@ events_plot <- processed_infections_events %>%
               remove_labels = "x",
               #independent = "y",
               axes = "all",
-              labeller=labeller(name=c("mu"="Mean R","size"="k of R",
+              labeller=labeller(name=c("mu"="R","size"="k",
                                        "prop_ss_0"= "Proportion infecting\n 0 others (%)",
                                        "prop_ss_10"="Proportion infecting\n over 10 others (%)")),
               switch="y"
@@ -288,13 +322,15 @@ events_plot <- processed_infections_events %>%
        x="Uptake of/adherence to pre-event lateral flow testing (%)",
        colour="Minimum event size\nto prompt testing")+
   plotting_theme+
-  theme(axis.text.x=element_text(angle = 45, vjust = 1, hjust=1))
+  theme(axis.text.x=element_text(angle = 0, vjust = 1, hjust=1))
 
 ggsave("results/lft_impact_events.png",width=210,height=150,dpi=600,units="mm",bg="white")
+ggsave("results/lft_impact_events.png",width=210,height=150,dpi=600,units="mm",bg="white")
+
 
 testing_plot/events_plot+plot_annotation(tag_levels = "A")
-ggsave("results/lft_plot.png",dpi=600,width=210,height=325,units="mm",bg="white")
-ggsave("results/lft_plot.pdf",dpi=600,width=210,height=300,units="mm",bg="white",device = cairo_pdf)
+ggsave("results/Fig6 - lft_plot.png",dpi=600,width=210,height=325,units="mm",bg="white")
+ggsave("results/Fig6 - lft_plot.pdf",dpi=600,width=210,height=300,units="mm",bg="white")
 
 # boot_est %>%  
 #   mutate.(boot_dist=map.(.x=dists, ~bootdist(f =.,bootmethod = "nonparam",parallel="snow",ncpus=8)$CI %>% 
