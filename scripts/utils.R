@@ -166,6 +166,9 @@ time_periods <- tribble(~idx,~period,~date_start,~date_end,
                         9, "Step 2 + schools",     as_date("16/04/2021",format="%d/%m/%Y"), as_date("16/05/2021",format="%d/%m/%Y")) %>% 
   mutate(period=factor(period,levels = period))
 
+#Scenarios to investigate
+key_grouping_var <- c("sim","variant","period","lower_inf_thresh","heterogen_vl","heterogen_contacts")
+
 #### Load contact data ----
 contacts_polymod <- 
   read.csv(here("data","2008_Mossong_POLYMOD_contact_common.csv")) %>% 
