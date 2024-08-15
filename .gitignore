@@ -1,12 +1,10 @@
+.DS_Store
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
 *.fst
-
-
 processing/
-
 data/comix/comix_shared/
-
-presentations
+data/contacts.qs
+presentations/
