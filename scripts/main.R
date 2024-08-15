@@ -2,7 +2,7 @@
 source("scripts/utils.R")
 source("scripts/duration.R")
 
-N_sims <- 5000
+N_sims <- 10000
 #Make VL trajectories
 traj <- vl_params %>% 
   filter.(variant%in%c("wild")) %>%
@@ -41,9 +41,6 @@ traj_ <- traj %>%
   replace_na.(list(test       = FALSE,
                    infectious = FALSE)) %>% 
   select.(-c(prolif, start, end))
-
-#Scenarios to investigate
-key_grouping_var <- c("sim","variant","period","lower_inf_thresh","heterogen_vl","heterogen_contacts")
 
 #baseline 
 testing_scenarios <- traj %>% 
