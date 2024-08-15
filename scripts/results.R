@@ -1,7 +1,7 @@
 #### Results ####
 source("scripts/utils.R")
 
-#load output
+#load simulation output
 processed_infections_baseline <- qread("results/processed_infections_baseline.qs")
 processed_infections_heterogen_on_off <- qread("results/processed_infections_heterogen_on_off.qs")
 processed_infections_testing <- qread("results/processed_infections_testing.qs")
@@ -48,19 +48,24 @@ boot_res <- processed_infections_baseline %>%
                                  "hi"=`97.5%`)),
              .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim))
 toc()
+qsave(boot_res,"results/R_and_k_bootstrap_ests.qs")
 
-boot_res %>% 
+boot_res_sum <- boot_res %>% 
   unnest.(dists) %>%  
   filter.(variant=="wild") %>% 
   mutate.(name=as.factor(name),
           name=fct_relevel(name,"mu","size","prop_ss_10","prop_ss_0")) %>% 
-  as_tibble() %>% 
+  as_tibble() 
+write.csv(boot_res_sum,"results/R_and_k_bootstrap_ests.csv")
+
+boot_res_sum %>% 
   ggplot(aes(y=Median,ymin=lo,ymax=hi,x=period,colour=name,fill=name,group=name))+
   geom_line()+
   geom_point()+
-  #geom_ribbon(alpha=0.4,colour=NA)+
+  geom_ribbon(alpha=0.4,colour=NA)+
   geom_segment(data=rt_by_time_period %>% mutate(name="mu"),
                aes(x=period,
+                   xend=period,
                    y=lo,
                    yend=hi),
                alpha=0.25,
@@ -105,6 +110,7 @@ boot_res_heterogen <- processed_infections_heterogen_on_off %>%
                                  "hi"=`97.5%`)),
              .by=c(all_of(key_grouping_var),sampling_freq,prop_self_iso_test,-sim))
 toc()
+qsave(boot_res_heterogen,"results/R_and_k_bootstrap_ests_heterogen.qs")
 
 # other_est <- tribble(~study,~xmin,~xmax,~ymin,~ymax, ~y,
 #                      "Endo et al. 2020", -Inf, Inf, 0.05, 0.2, 0.1,
@@ -112,7 +118,7 @@ toc()
 #                      "Adam et al. 2020", -Inf, Inf, 0.45, 0.72, 0.58,
 #                      "Laxminarayan et al. 2020", -Inf, Inf, 0.49, 0.52, 0.51)
 
-(heterogen_plot <- (boot_res_heterogen %>% 
+boot_res_heterogen_sum <- boot_res_heterogen %>% 
   unnest.(dists) %>% 
   #pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>% 
   mutate.(name=fct_relevel(name,"mu","size","prop_ss_10","prop_ss_0")) %>% 
@@ -128,12 +134,14 @@ toc()
                                 "Equal viral load, variable contacts",
                                 "Equal viral load and equal contacts"),
     heterogen_vl=ifelse(heterogen_vl,"Heterogeneous viral load","Homogeneous viral load"),
-    heterogen_contacts=ifelse(heterogen_contacts,"Heterogeneous contacts","Homogeneous contacts")) %>%
-  ggplot(aes(y=Median,ymin=lo,ymax=hi,x=period,colour=name))+
+    heterogen_contacts=ifelse(heterogen_contacts,"Heterogeneous contacts","Homogeneous contacts"))
+write.csv(boot_res_heterogen_sum,"results/R_and_k_bootstrap_ests_heterogen.csv")
+
+(heterogen_plot <- (boot_res_heterogen_sum %>% ggplot(aes(y=Median,ymin=lo,ymax=hi,x=period,colour=name))+
     geom_line(aes(colour=heterogen_label,fill=heterogen_label,group=heterogen_label,linetype=heterogen_label))+
     geom_point(aes(colour=heterogen_label,fill=heterogen_label,group=heterogen_label,linetype=heterogen_label))+
-  # geom_lineribbon(aes(colour=heterogen_label,fill=heterogen_label,group=heterogen_label,linetype=heterogen_label),
-  #                 alpha=0.4)+
+  geom_lineribbon(aes(colour=heterogen_label,fill=heterogen_label,group=heterogen_label,linetype=heterogen_label),
+                  alpha=0.4)+
   scale_colour_manual(values = tri_col_pal)+
     scale_fill_manual(values = tri_col_pal)+  
   #scale_linetype_manual(values=c("solid","dashed","dashed"))+
