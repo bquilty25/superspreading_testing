@@ -1,6 +1,6 @@
 # Superspreading testing
 
-This repository contains code and data for the analyses in [Disentangling the drivers of heterogeneity in SARS-CoV-2 transmission from data on viral load and daily contact rates](). The aim of this work was to combine data from contact surveys and viral load studies to estimate the secondary infection distribution of SARS-CoV-2 over the course of the pandemic in the UK in 2020 and the effectiveness of targeted testing strategies for reducing superspreading events.
+This repository contains code and data for the analyses in the preprint ['Disentangling the drivers of heterogeneity in SARS-CoV-2 transmission from data on viral load and daily contact rates'](https://doi.org/10.1101/2024.08.15.24311977 ). The aim of this work was to combine data from contact surveys and viral load studies to estimate the secondary infection distribution of SARS-CoV-2 over the course of the pandemic in the UK in 2020 and the effectiveness of targeted testing strategies for reducing superspreading events.
 
 ## Installation
 
@@ -35,11 +35,15 @@ The simulations output and results plots are saved in the [results](results) fol
 
 ## Built With
 
-* [R version X.X.X (XXXX-XX-XX)](https://www.r-project.org/)
+* [R version 4.2.2 (2022-11-01)](https://www.r-project.org/)
 
 ## Authors
 
 * Billy Quilty: <billy.quilty@lshtm.ac.uk>
+* Lloyd Chapman <l.chapman4@lancaster.ac.uk>
+
+## Citation
+Quilty B.J., Chapman L.A.C., Munday J.D., Wong K.L.M., Gimma A., Pickering S., Neil S.J.D., Galao R-P., Edmunds W.J., Jarvis C.I., Kucharski A.J., CMMID COVID-19 Working Group. Disentangling the drivers of heterogeneity in SARS-CoV-2 transmission from data on viral load and daily contact rates. medRxiv 2024.08.15.24311977; doi: [https://doi.org/10.1101/2024.08.15.24311977](https://doi.org/10.1101/2024.08.15.24311977)
 
 ## References
 1. Klepac, P. et al. Contacts in Context: Large-Scale Setting-Specific Social Mixing Matrices from the BBC Pandemic Project. medRxiv (2020). [http://doi.org/10.1101/2020.02.16.20023754](http://doi.org/10.1101/2020.02.16.20023754)
