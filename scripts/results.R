@@ -236,7 +236,7 @@ processed_infections_baseline %>%
   facet_grid(prop_self_iso_test~period+sampling_freq)+
   plotting_theme
 
-ggsave("contacts_infections.png")
+# ggsave("contacts_infections.png")
 
 #### LFT testing ----
 
