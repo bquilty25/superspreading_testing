@@ -34,6 +34,7 @@ library(ggrepel)
 library(ggh4x)
 library(geomtextpath)
 library(ggnewscale)
+library(nlme)
 
 if(packageVersion("tidytable")!="0.8.0"){
 remotes::install_version("tidytable", version = "0.8")
@@ -145,6 +146,10 @@ vl_params <- bind_rows(kissler_dat_est,hay_dat_est) %>%
 convert_Ct_logGEML <- function(Ct, m_conv=-3.609714286, b_conv=40.93733333){
   out <- (Ct-b_conv)/m_conv * log10(10) + log10(250)
   return(out) 
+}
+
+convert_Ct_vl <- function(Ct){
+  11.35 - 0.25 * Ct
 }
 
 #Define time periods of interest
@@ -271,6 +276,31 @@ test_model_choice <- function(boolean){
 
 culture_mod <- glm(culture~vl,data=pickering,family="binomial") 
 
+#### Ke et al. model
+# From https://github.com/BROOKELAB/Viral-dynamics-modeling/blob/main/Code_Ke_et_all.Rmd
+generate_popParas_corr <- function(paras_pop, num){
+  mean_2 <- paras_pop$value[1]
+  mean_4 <- paras_pop$value[2]
+  sd_2 <- paras_pop$value[4]
+  sd_4 <- paras_pop$value[5]
+  corr <- paras_pop$value[6]
+  cov24 <- corr*sd_2*sd_4
+  sigma <- rbind(c(sd_2^2, cov24), c(cov24, sd_4^2))
+  mu <- c(log(mean_2), log(mean_4))
+  res <- mvrnorm(n=num, mu=mu, Sigma=sigma)
+  
+  Paras <- matrix(0, num, 3)
+  Paras[, 1:2] <- exp(res)
+  Paras[, 3] <- paras_pop$value[3]
+  return(Paras)
+}
+
+ke_pop_params <- read_csv("Viral-dynamics-modeling/Data/params_pop_cellCulture.csv")
+
+culture_prob <- function(vl, Vm, Km, h){
+  1 - exp(-Vm/(1+(Km/10^vl)^h))
+}
+
 #sensitivity analysis for infectiousness as culture prob or lft prob
 inf_model_choice <- function(boolean){
   #browser()
@@ -368,11 +398,15 @@ make_trajectories <- function(
   
 }
 
-inf_curve_func <- function(m,start=0,end=30,interval=1,trunc_t){
+inf_curve_func <- function(m,start=0,end=30,interval=1,trunc_t,ke_model){
   #browser()
   x <- tidytable(t=seq(start,end,by=interval)) %>% 
     mutate.(ct=m(t),
-            vl=convert_Ct_logGEML(ct))
+            vl=if(ke_model){
+              convert_Ct_vl(ct)
+            } else {
+              convert_Ct_logGEML(ct)
+            })
   
   return(infectiousness=x)
 }
