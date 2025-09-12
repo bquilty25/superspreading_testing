@@ -10,3 +10,6 @@
 [submodule "comix_data_clean"]
 	path = comix_data_clean
 	url = https://github.com/jarvisc1/comix_data_clean.git
+[submodule "Viral-dynamics-modeling"]
+	path = Viral-dynamics-modeling
+	url = https://github.com/BROOKELAB/Viral-dynamics-modeling
