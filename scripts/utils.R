@@ -397,7 +397,7 @@ make_trajectories <- function(
   
 }
 
-inf_curve_func <- function(m,start=0,end=30,interval=1,trunc_t,ke_model){
+inf_curve_func <- function(m,start=0,end=30,interval=1,ke_model=F){
   #browser()
   x <- tidytable(t=seq(start,end,by=interval)) %>% 
     mutate.(ct=m(t),
