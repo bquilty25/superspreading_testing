@@ -3,6 +3,8 @@ source("scripts/utils.R")
 source("scripts/duration.R")
 
 N_sims <- 10000
+ke_model <- TRUE
+
 #Make VL trajectories
 traj <- vl_params %>% 
   filter.(variant%in%c("wild")) %>%
@@ -12,21 +14,31 @@ traj <- vl_params %>%
   map.(~make_trajectories(n_sims = N_sims,asymp_parms=asymp_fraction,variant_info=.x,browsing=F)) %>% 
   bind_rows.()
 
+infctsnss_params <- generate_popParas_corr(ke_pop_params, N_sims) %>%
+  as_tidytable(.) %>%
+  rename.(Vm = V1, h = V2, Km = V3) %>%
+  mutate.(sim = row_number())
+
+traj <- traj %>% left_join.(infctsnss_params, by = "sim")
+
 #Calculate daily infectiousness and test positivity, remove never-infectious
 traj_ <- traj %>%
   mutate.(infectiousness = pmap(inf_curve_func, .l = list(
-    m = m, start = start, end = end, interval = 1
+    m = m, start = start, end = end, interval = 1, ke_model = ke_model
   )))  %>%
   unnest.(infectiousness) %>%
   crossing.(
     lower_inf_thresh = c(FALSE)
   ) %>%
   mutate.(
-    culture_p        = stats::predict(
-      object = inf_model_choice(lower_inf_thresh),
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
+    culture_p        = if (ke_model){
+      culture_prob(vl, Vm, Km, h)
+    } else {
+      stats::predict(
+        object = inf_model_choice(lower_inf_thresh),
+        type = "response",
+        newdata = tidytable(vl = vl))
+    },
     infectious = rbernoulli(n = n(),
                             p = culture_p),
     test_p           = stats::predict(
