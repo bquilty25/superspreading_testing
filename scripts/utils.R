@@ -34,7 +34,6 @@ library(ggrepel)
 library(ggh4x)
 library(geomtextpath)
 library(ggnewscale)
-library(nlme)
 
 if(packageVersion("tidytable")!="0.8.0"){
 remotes::install_version("tidytable", version = "0.8")
