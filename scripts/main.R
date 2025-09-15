@@ -12,6 +12,13 @@ traj <- vl_params %>%
   map.(~make_trajectories(n_sims = N_sims,asymp_parms=asymp_fraction,variant_info=.x,browsing=F)) %>% 
   bind_rows.()
 
+infctsnss_params <- generate_params(culture_mod, N_sims) %>%
+  as_tidytable(.) %>%
+  rename.(beta0 = "(Intercept)", beta1 = vl) %>%
+  mutate.(sim = row_number())
+
+traj <- traj %>% left_join.(infctsnss_params, by = "sim")
+
 #Calculate daily infectiousness and test positivity, remove never-infectious
 traj_ <- traj %>%
   mutate.(infectiousness = pmap(inf_curve_func, .l = list(
@@ -22,20 +29,16 @@ traj_ <- traj %>%
     lower_inf_thresh = c(FALSE)
   ) %>%
   mutate.(
-    culture_p        = stats::predict(
-      object = inf_model_choice(lower_inf_thresh),
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
+    culture_p = culture_prob(vl, beta0, beta1),
     infectious = rbernoulli(n = n(),
                             p = culture_p),
-    test_p           = stats::predict(
+    test_p = stats::predict(
       object =  innova_mod,
       type = "response",
       newdata = tidytable(vl = vl)
     ),
-    test       = rbernoulli(n = n(),
-                            p = test_p),
+    test = rbernoulli(n = n(),
+                      p = test_p),
     .by = c(lower_inf_thresh)
   ) %>%
   replace_na.(list(test       = FALSE,
