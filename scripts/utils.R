@@ -271,6 +271,17 @@ test_model_choice <- function(boolean){
 
 culture_mod <- glm(culture~vl,data=pickering,family="binomial") 
 
+generate_params <- function(mod, n){
+  mu <- coef(mod)
+  Sigma <- vcov(mod)
+  res <- mvrnorm(n, mu, Sigma)
+  return(res)
+}
+
+culture_prob <- function(vl, beta0, beta1){
+  1 / (1 + exp(-(beta0 + beta1 * vl)))
+}
+
 #sensitivity analysis for infectiousness as culture prob or lft prob
 inf_model_choice <- function(boolean){
   #browser()
