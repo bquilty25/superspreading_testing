@@ -165,10 +165,11 @@ write.csv(boot_res_heterogen_sum,"results/R_and_k_bootstrap_ests_heterogen.csv")
                                 heterogen_contacts=c("TRUE"="Variable contacts",
                                                      "FALSE"="Same contacts"))
   )+
-  scale_y_log10(limits=c(0.1,10))#|
+  scale_y_log10()#|
     # ggplot(other_est,aes(x=study, ymin=ymin, ymax=ymax, y = y, colour=study))+
     # geom_pointrange(fatten=4, alpha=0.5)+
     # scale_y_log10(limit=c(0.01,10))
+  + coord_cartesian(ylim = c(0.1,10))
   )&
     plotting_theme&
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
