@@ -432,7 +432,7 @@ run_model <- function(testing_scenarios, scenarios, contact_dat=contact_data, br
                                              df = contact_dat, 
                                              col="e_home", 
                                              n=n()),
-                               round(mean_filter(condition = period, 
+                               rpois(n=n(), mean_filter(condition = period, 
                                                  df = contact_data, 
                                                  col="e_home"))),
             .by=c(period)) 
@@ -461,7 +461,7 @@ run_model <- function(testing_scenarios, scenarios, contact_dat=contact_data, br
                                   sample_filter(condition = period,
                                                 df=contact_dat,
                                                 col="e_other",n=n()),
-                                  round(mean_filter(condition = period,
+                                  rpois(n=n(), mean_filter(condition = period,
                                                     df=contact_dat,
                                                     col="e_other"))),
             .by=c(period)) %>% 
