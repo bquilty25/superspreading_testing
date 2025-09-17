@@ -92,7 +92,7 @@ boot_res_sum %>%
   theme(axis.text.x=element_text(angle = 45, vjust = 1, hjust=1))
 
 ggsave("results/Fig4 - R and k over time.png",width=150,height=100,dpi=600,units="mm",bg="white")
-ggsave("results/Fig4 - R and k over time.pdf",width=150,height=100,dpi=600,units="mm",bg="white")
+ggsave("results/Fig4 - R and k over time.pdf",width=150,height=100,units="mm",bg="white")
 
 # heterogen_on_off
 tic()
@@ -124,15 +124,15 @@ boot_res_heterogen_sum <- boot_res_heterogen %>%
   mutate.(name=fct_relevel(name,"mu","size","prop_ss_10","prop_ss_0")) %>% 
   filter.(variant=="wild",!(heterogen_vl==F&heterogen_contacts==F&name=="size"),
           name%in%c("size")) %>% 
-  mutate.(heterogen_label=case_when.(heterogen_vl&heterogen_contacts~"Variable viral load and contacts",
-                               heterogen_vl&!heterogen_contacts~"Variable viral load, equal contacts",
-                               !heterogen_vl&heterogen_contacts~"Equal viral load, variable contacts",
-                               !heterogen_vl&!heterogen_contacts~"Equal viral load and equal contacts"),
+  mutate.(heterogen_label=case_when.(heterogen_vl&heterogen_contacts~"Variable viral load and NB contacts",
+                               heterogen_vl&!heterogen_contacts~"Variable viral load, Poisson contacts",
+                               !heterogen_vl&heterogen_contacts~"Equal viral load, NB contacts",
+                               !heterogen_vl&!heterogen_contacts~"Equal viral load and Poisson contacts"),
     heterogen_label=fct_relevel(heterogen_label,
-                                "Variable viral load and contacts",
-                                "Variable viral load, equal contacts",
-                                "Equal viral load, variable contacts",
-                                "Equal viral load and equal contacts"),
+                                "Variable viral load and NB contacts",
+                                "Variable viral load, Poisson contacts",
+                                "Equal viral load, NB contacts",
+                                "Equal viral load and Poisson contacts"),
     heterogen_vl=ifelse(heterogen_vl,"Heterogeneous viral load","Homogeneous viral load"),
     heterogen_contacts=ifelse(heterogen_contacts,"Heterogeneous contacts","Homogeneous contacts"))
 write.csv(boot_res_heterogen_sum,"results/R_and_k_bootstrap_ests_heterogen.csv")
@@ -179,7 +179,7 @@ write.csv(boot_res_heterogen_sum,"results/R_and_k_bootstrap_ests_heterogen.csv")
 
 
 ggsave(heterogen_plot,file = "results/Fig5 - R and k heterogeneity.png",width=200,height=150/1.5,dpi=600,units="mm",bg="white")
-ggsave(heterogen_plot,file = "results/Fig5 - R and k heterogeneity.pdf",width=200,height=150,dpi=600,units="mm",bg="white")
+ggsave(heterogen_plot,file = "results/Fig5 - R and k heterogeneity.pdf",width=200,height=150/1.5,units="mm",bg="white")
 
 #### Sensitivity analysis ----
 
@@ -335,9 +335,9 @@ events_plot <- processed_infections_events %>%
   theme(axis.text.x=element_text(angle = 0, vjust = 1, hjust=1))
 
 ggsave("results/lft_impact_events.png",width=210,height=150,dpi=600,units="mm",bg="white")
-ggsave("results/lft_impact_events.png",width=210,height=150,dpi=600,units="mm",bg="white")
+ggsave("results/lft_impact_events.pdf",width=210,height=150,units="mm",bg="white")
 
 
 testing_plot/events_plot+plot_annotation(tag_levels = "A")
 ggsave("results/Fig6 - lft_plot.png",dpi=600,width=210,height=325,units="mm",bg="white")
-ggsave("results/Fig6 - lft_plot.pdf",dpi=600,width=210,height=300,units="mm",bg="white")
+ggsave("results/Fig6 - lft_plot.pdf",width=210,height=300,units="mm",bg="white")
