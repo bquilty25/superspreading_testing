@@ -124,14 +124,14 @@ boot_res_heterogen_sum <- boot_res_heterogen %>%
   mutate.(name=fct_relevel(name,"mu","size","prop_ss_10","prop_ss_0")) %>% 
   filter.(variant=="wild",!(heterogen_vl==F&heterogen_contacts==F&name=="size"),
           name%in%c("size")) %>% 
-  mutate.(heterogen_label=case_when.(heterogen_vl&heterogen_contacts~"Variable viral load and NB contacts",
+  mutate.(heterogen_label=case_when.(heterogen_vl&heterogen_contacts~"Variable viral load, overdispersed contacts",
                                heterogen_vl&!heterogen_contacts~"Variable viral load, Poisson contacts",
-                               !heterogen_vl&heterogen_contacts~"Equal viral load, NB contacts",
+                               !heterogen_vl&heterogen_contacts~"Equal viral load, overdispersed contacts",
                                !heterogen_vl&!heterogen_contacts~"Equal viral load and Poisson contacts"),
     heterogen_label=fct_relevel(heterogen_label,
-                                "Variable viral load and NB contacts",
+                                "Variable viral load, overdispersed contacts",
                                 "Variable viral load, Poisson contacts",
-                                "Equal viral load, NB contacts",
+                                "Equal viral load, overdispersed contacts",
                                 "Equal viral load and Poisson contacts"),
     heterogen_vl=ifelse(heterogen_vl,"Heterogeneous viral load","Homogeneous viral load"),
     heterogen_contacts=ifelse(heterogen_contacts,"Heterogeneous contacts","Homogeneous contacts"))
@@ -174,12 +174,12 @@ write.csv(boot_res_heterogen_sum,"results/R_and_k_bootstrap_ests_heterogen.csv")
     plotting_theme&
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
           legend.direction = "vertical",
-          legend.position = "right")
+          legend.position = "bottom")
   )
 
 
-ggsave(heterogen_plot,file = "results/Fig5 - R and k heterogeneity.png",width=200,height=150/1.5,dpi=600,units="mm",bg="white")
-ggsave(heterogen_plot,file = "results/Fig5 - R and k heterogeneity.pdf",width=200,height=150/1.5,units="mm",bg="white")
+ggsave(heterogen_plot,file = "results/Fig5 - R and k heterogeneity.png",width=200,height=150,dpi=600,units="mm",bg="white")
+ggsave(heterogen_plot,file = "results/Fig5 - R and k heterogeneity.pdf",width=200,height=150,units="mm",bg="white")
 
 #### Sensitivity analysis ----
 
