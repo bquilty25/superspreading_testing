@@ -1,71 +1,50 @@
 source("scripts/utils.R")
 
+n_sims <- 5000
 
-plot_dat <- vl_params %>% 
+traj <- vl_params %>% 
   filter.(variant%in%c("wild")) %>%
   mutate.(variant=fct_drop(variant)) %>% 
   crossing(heterogen_vl=c(TRUE,FALSE)) %>% 
   group_split.(variant,heterogen_vl) %>% 
-  map.(~make_trajectories(n_sims = 5000,asymp_parms=asymp_fraction,variant_info=.x,browsing = F)) %>% 
-  bind_rows.()%>% 
+  map.(~make_trajectories(n_sims = n_sims,asymp_parms=asymp_fraction,variant_info=.x,browsing = F)) %>% 
+  bind_rows.()
+
+infctsnss_params <- generate_params(culture_mod, n_sims) %>%
+  as_tidytable(.) %>%
+  rename.(beta0 = "(Intercept)", beta1 = vl) %>%
+  mutate.(sim = row_number())
+
+traj <- traj %>% left_join.(infctsnss_params, by = "sim")
+
+plot_dat <- traj %>% 
   mutate.(infectivity = pmap(inf_curve_func, .l = list(
     m = m, start = start, end = end,interval=1
   )))  %>%
   unnest.(infectivity) %>%
   crossing.(lower_inf_thresh = c(FALSE)) %>%
   mutate.(
-    culture_p        = stats::predict(
-      object = inf_model_choice(lower_inf_thresh),
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
+    culture_p = culture_prob(vl, beta0, beta1),
     infectious = rbernoulli(n = n(),
                             p = culture_p),
-    test_p           = stats::predict(
+    test_p = stats::predict(
       object =  innova_mod,
       type = "response",
       newdata = tidytable(vl = vl)
     ),
-    test       = rbernoulli(n = n(),
-                            p = test_p),
+    test = rbernoulli(n = n(),
+                      p = test_p),
     .by = c(lower_inf_thresh)
   ) %>%
   replace_na.(list(test       = FALSE,
                    infectious = FALSE)) %>% 
   select.(-c(prolif, start, end)) 
 
-log_plot <- vl_params %>% 
-  filter.(variant%in%c("wild")) %>%
-  mutate.(variant=fct_drop(variant)) %>% 
-  crossing(heterogen_vl=c(TRUE)) %>% 
-  group_split.(variant,heterogen_vl) %>% 
-  map.(~make_trajectories(n_sims = 1000,asymp_parms=asymp_fraction,variant_info=.x,browsing = F)) %>% 
-  bind_rows.()%>% 
-  mutate.(infectivity = pmap(inf_curve_func, .l = list(
-    m = m, start = start, end = end,interval=0.1
-  )))  %>%
-  unnest.(infectivity) %>%
-  crossing.(lower_inf_thresh = c(FALSE)) %>%
-  mutate.(
-    culture_p        = stats::predict(
-      object = inf_model_choice(lower_inf_thresh),
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
-    infectious = rbernoulli(n = n(),
-                            p = culture_p),
-    test_p           = stats::predict(
-      object =  innova_mod,
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
-    test       = rbernoulli(n = n(),
-                            p = test_p),
-    .by = c(lower_inf_thresh)
-  ) %>%
-  replace_na.(list(test       = FALSE,
-                   infectious = FALSE)) %>% 
-  select.(-c(prolif, start, end)) %>% 
+plot_dat1 <- plot_dat %>% 
+  filter.(sim <= 1000)
+
+log_plot <- plot_dat1 %>% 
+  filter.(heterogen_vl==T) %>%
   mutate.(vl=10^(vl)) %>% 
   ggplot()+
   geom_line(data=. %>% filter.(heterogen_vl==T),
@@ -79,18 +58,18 @@ log_plot <- vl_params %>%
                 #,
             alpha=0.05
   )+
-  geom_line(data=. %>% filter.(heterogen_vl==F) %>% filter.(sim==1),
-            aes(x=t,
-                y=vl,
-                group=sim,
-                #colour=culture_p
-                ),
-                colour=tri_col_pal[1],
-                #colour=zoo::rollmean(culture_p,4,fill=0)
-                
-            #alpha=0.1,
-            size=1
-  )+
+  # geom_line(data=. %>% filter.(heterogen_vl==F) %>% filter.(sim==1),
+  #           aes(x=t,
+  #               y=vl,
+  #               group=sim,
+  #               #colour=culture_p
+  #               ),
+  #               colour=tri_col_pal[1],
+  #               #colour=zoo::rollmean(culture_p,4,fill=0)
+  #               
+  #           #alpha=0.1,
+  #           size=1
+  # )+
   geom_hline(yintercept=1.6e7,linetype="dashed",hjust=1)+
   #scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1])+
   # scale_colour_viridis_c(name="Probability of infectivity",option="inferno",begin = 0.2,end=0.8,limits=c(0,1),
@@ -115,48 +94,13 @@ days_inf_plot <- plot_dat %>%
   ggplot()+
   geom_bar(aes(x=n_inf,y=..count../sum(..count..)),fill=bi_col_pal[2])+
   ylab("Probability")+
-  scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1],guide="none")+
-  # scale_colour_viridis_c(name="Probability of infectivity",option="inferno",begin = 0.2,end=0.8,limits=c(0,1),
-  #                        guide=guide_colorsteps(barwidth=unit(3,"cm"),barheight=unit(0.5,"cm"),show.limits = T))+
-  scale_x_continuous(name="Days infectious",breaks = breaks_width(1))+
-  #scale_y_log10(name="RNA copies/ml",labels=label_log())+
-  #coord_cartesian(xlim=c(NA,20),ylim=c(10^3.5,NA))+
+  scale_x_continuous(name="Number of days individuals infected contacts",
+                     breaks = breaks_width(1),
+                     expand = c(0.04,0.04))+
   plotting_theme+guides(colour="none")
 
 
-culture_plot <- vl_params %>% 
-  filter.(variant%in%c("wild")) %>%
-  mutate.(variant=fct_drop(variant)) %>% 
-  crossing(heterogen_vl=c(TRUE)) %>% 
-  group_split.(variant,heterogen_vl) %>% 
-  map.(~make_trajectories(n_sims = 1000,asymp_parms=asymp_fraction,variant_info=.x,browsing = F)) %>% 
-  bind_rows.()%>% 
-  mutate.(infectivity = pmap(inf_curve_func, .l = list(
-    m = m, start = start, end = end,interval=0.1
-  )))  %>%
-  unnest.(infectivity) %>%
-  crossing.(lower_inf_thresh = c(FALSE)) %>%
-  mutate.(
-    culture_p        = stats::predict(
-      object = inf_model_choice(lower_inf_thresh),
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
-    infectious = rbernoulli(n = n(),
-                            p = culture_p),
-    test_p           = stats::predict(
-      object =  innova_mod,
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
-    test       = rbernoulli(n = n(),
-                            p = test_p),
-    .by = c(lower_inf_thresh)
-  ) %>%
-  replace_na.(list(test       = FALSE,
-                   infectious = FALSE)) %>% 
-  select.(-c(prolif, start, end)) %>% 
-  mutate.(vl=10^(vl)) %>% 
+culture_plot <- plot_dat1 %>%
   filter.(heterogen_vl==T) %>% 
   ggplot()+
   geom_line(data=. %>% filter.(heterogen_vl==T),
@@ -180,39 +124,14 @@ culture_plot <- vl_params %>%
        #,subtitle = "Duration of P(infectivity)>0.5:\n1.9 days (95% CI: 0, 5.8)")
 
 
-auc_dat <- vl_params %>% 
-  filter.(variant%in%c("wild")) %>%
-  mutate.(variant=fct_drop(variant)) %>% 
-  crossing(heterogen_vl=c(TRUE)) %>% 
-  group_split.(variant,heterogen_vl) %>% 
-  map.(~make_trajectories(n_sims = 5000,asymp_parms=asymp_fraction,variant_info=.x,browsing = F)) %>% 
-  bind_rows.()%>% 
-  mutate.(infectivity = pmap(inf_curve_func, .l = list(
-    m = m, start = start, end = end,interval=1
-  )))  %>%
-  unnest.(infectivity) %>%
-  crossing.(lower_inf_thresh = c(FALSE)) %>%
-  mutate.(
-    culture_p        = stats::predict(
-      object = inf_model_choice(lower_inf_thresh),
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
-    infectious = rbernoulli(n = n(),
-                            p = culture_p),
-    test_p           = stats::predict(
-      object =  innova_mod,
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
-    test       = rbernoulli(n = n(),
-                            p = test_p),
-    .by = c(lower_inf_thresh)
-  ) %>%
-  replace_na.(list(test       = FALSE,
-                   infectious = FALSE)) %>% 
-  select.(-c(prolif, start, end)) %>% 
+auc_dat <- plot_dat %>%
+  filter.(heterogen_vl==T) %>%
   summarise.(sum_inf=sum(culture_p),.by=sim) 
+
+q95 <- auc_dat[,quantile(sum_inf, c(0.025, 0.975))]
+q95[2]/q95[1]
+
+auc_gamma_params <- fitdist(auc_dat[,sum_inf], "gamma")$estimate
 
 auc_plot <- auc_dat %>% 
   ggplot(aes(x=sum_inf))+
@@ -262,38 +181,8 @@ ggsave("results/days_inf_and_auc_plot.pdf",dpi=600,width=210,height=100,units="m
 
 #dens_plot+jitter_plot
 
-violin_plot <- vl_params %>% 
-  filter.(variant%in%c("wild")) %>%
-  mutate.(variant=fct_drop(variant)) %>% 
-  crossing(heterogen_vl=c(TRUE)) %>% 
-  group_split.(variant,heterogen_vl) %>% 
-  map.(~make_trajectories(n_sims = 1000,asymp_parms=asymp_fraction,variant_info=.x,browsing = F)) %>% 
-  bind_rows.()%>% 
-  mutate.(infectivity = pmap(inf_curve_func, .l = list(
-    m = m, start = start, end = end,interval=1
-  )))  %>%
-  unnest.(infectivity) %>%
-  crossing.(lower_inf_thresh = c(FALSE)) %>%
-  mutate.(
-    culture_p        = stats::predict(
-      object = inf_model_choice(lower_inf_thresh),
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
-    infectious = rbernoulli(n = n(),
-                            p = culture_p),
-    test_p           = stats::predict(
-      object =  innova_mod,
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
-    test       = rbernoulli(n = n(),
-                            p = test_p),
-    .by = c(lower_inf_thresh)
-  ) %>%
-  replace_na.(list(test       = FALSE,
-                   infectious = FALSE)) %>% 
-  select.(-c(prolif, start, end))  %>% 
+violin_plot <- plot_dat1  %>% 
+  filter.(heterogen_vl==T) %>%
   mutate.(median_p=mean(culture_p),.by=c(t,heterogen_vl)) %>% 
   filter.(t<20) %>% 
   ggplot()+
@@ -324,25 +213,48 @@ violin_plot <- vl_params %>%
   #coord_cartesian(ylim=c(10^3.5,NA))+
   plotting_theme
 
+prob_culture <- infctsnss_params %>%
+  crossing(ct=seq(10, 40, by=0.5)) %>%
+  mutate.(vl=convert_Ct_logGEML(ct), 
+          culture_p = culture_prob(vl, beta0, beta1)) %>%
+  arrange.(sim)
 
-inf_plot <- pickering %>% 
-  mutate(vl=10^vl) %>% 
-  ggplot()+
-  stat_smooth(aes(x=vl,y=culture,
-                  colour=..y..),
-                  method="glm",
-                  method.args=list(family="binomial"),
-                  #alpha=0.25,
-              size=2,
-              geom="line")+
+inf_plot <- prob_culture %>%
+  mutate.(vl=10^vl) %>%
+  group_by(vl) %>%
+  summarise(
+    median_p = median(culture_p, na.rm = TRUE),
+    lower = quantile(culture_p, 0.025, na.rm = TRUE),
+    upper = quantile(culture_p, 0.975, na.rm = TRUE)
+  ) %>%
+  ggplot(aes(x = vl)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = bi_col_pal[1], alpha = 0.3) +
+  geom_line(aes(y = median_p), colour = bi_col_pal[1], size = 1) +
   geom_vline(xintercept=1.6e7,linetype="dashed")+
-  scale_x_log10(name="RNA copies/ml",labels=label_log(),limits=c(10^3.5,NA))+
-  scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1],guide = "none")+
+  scale_x_log10(name="RNA copies/ml",labels=label_log(),limits=c(10^3.5,NA)) +
+  scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1],guide = "none") +
   labs(y="Probability of\nculturing virus",
-       caption="Pickering et al. 2021",
-       #subtitle=expression(paste("VL at 50% = 1.6 x ",10^7," RNA copies/ml (Ct = 21.8)"))
-       )+
+       caption="Pickering et al. 2021") +
   plotting_theme
+
+# inf_plot <- pickering %>% 
+#   mutate(vl=10^vl) %>% 
+#   ggplot()+
+#   stat_smooth(aes(x=vl,y=culture,
+#                   colour=..y..),
+#                   method="glm",
+#                   method.args=list(family="binomial"),
+#                   #alpha=0.25,
+#               size=2,
+#               geom="line")+
+#   geom_vline(xintercept=1.6e7,linetype="dashed")+
+#   scale_x_log10(name="RNA copies/ml",labels=label_log(),limits=c(10^3.5,NA))+
+#   scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1],guide = "none")+
+#   labs(y="Probability of\nculturing virus",
+#        caption="Pickering et al. 2021",
+#        #subtitle=expression(paste("VL at 50% = 1.6 x ",10^7," RNA copies/ml (Ct = 21.8)"))
+#        )+
+#   plotting_theme
 
 
 (log_plot|inf_plot|culture_plot)/(auc_plot|days_inf_plot)+plot_annotation(tag_levels = "A")
