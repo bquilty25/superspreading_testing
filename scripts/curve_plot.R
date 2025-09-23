@@ -20,7 +20,7 @@ traj <- traj %>% left_join.(infctsnss_params, by = "sim")
 
 plot_dat <- traj %>% 
   mutate.(infectivity = pmap(inf_curve_func, .l = list(
-    m = m, start = start, end = end,interval=time_step
+    m = m, start = start, end = end
   )))  %>%
   unnest.(infectivity) %>%
   crossing.(lower_inf_thresh = c(FALSE)) %>%
@@ -44,8 +44,29 @@ plot_dat <- traj %>%
 plot_dat1 <- plot_dat %>% 
   filter.(sim <= 1000)
 
-log_plot <- plot_dat1 %>% 
-  filter.(heterogen_vl==T) %>%
+log_plot <- traj %>% 
+  mutate.(infectivity = pmap(inf_curve_func, .l = list(
+    m = m, start = start, end = end, interval = time_step
+  )))  %>%
+  unnest.(infectivity) %>%
+  crossing.(lower_inf_thresh = c(FALSE)) %>%
+  mutate.(
+    culture_p = culture_prob(vl, beta0, beta1),
+    infectious = rbernoulli(n = n(),
+                            p = culture_p),
+    test_p = stats::predict(
+      object =  innova_mod,
+      type = "response",
+      newdata = tidytable(vl = vl)
+    ),
+    test = rbernoulli(n = n(),
+                      p = test_p),
+    .by = c(lower_inf_thresh)
+  ) %>%
+  replace_na.(list(test       = FALSE,
+                   infectious = FALSE)) %>% 
+  select.(-c(prolif, start, end)) %>% 
+  filter.(sim<=1000) %>%
   mutate.(vl=10^(vl)) %>% 
   ggplot()+
   geom_line(data=. %>% filter.(heterogen_vl==T),
@@ -85,12 +106,12 @@ ggsave("results/log_plot.png",dpi=600,width=210,height=150,units="mm",bg="white"
 
 # Average number of days spent infectious
 plot_dat %>% 
-  summarise.(n_inf=sum(infectious==T)*time_step,.by=c(sim,heterogen_vl)) %>% 
+  summarise.(n_inf=sum(infectious==T),.by=c(sim,heterogen_vl)) %>% 
   summarise.(q=list(quibble2(n_inf,c(0.025,0.5,0.975))),.by=heterogen_vl) %>% 
   unnest.(q)
 
 days_inf_plot <- plot_dat %>% 
-  summarise.(n_inf=sum(infectious==T)*time_step,.by=c(sim,heterogen_vl)) %>% 
+  summarise.(n_inf=sum(infectious==T),.by=c(sim,heterogen_vl)) %>% 
   filter.(heterogen_vl==T) %>% 
   mutate.(n_inf_days=floor(n_inf)) %>%
   ggplot()+
@@ -104,7 +125,29 @@ days_inf_plot <- plot_dat %>%
   plotting_theme+guides(colour="none")
 
 
-culture_plot <- plot_dat1 %>%
+culture_plot <- traj %>% 
+  mutate.(infectivity = pmap(inf_curve_func, .l = list(
+  m = m, start = start, end = end, interval = time_step
+  )))  %>%
+  unnest.(infectivity) %>%
+  crossing.(lower_inf_thresh = c(FALSE)) %>%
+  mutate.(
+    culture_p = culture_prob(vl, beta0, beta1),
+    infectious = rbernoulli(n = n(),
+                            p = culture_p),
+    test_p = stats::predict(
+      object =  innova_mod,
+      type = "response",
+      newdata = tidytable(vl = vl)
+    ),
+    test = rbernoulli(n = n(),
+                      p = test_p),
+    .by = c(lower_inf_thresh)
+  ) %>%
+  replace_na.(list(test       = FALSE,
+                   infectious = FALSE)) %>% 
+  select.(-c(prolif, start, end)) %>% 
+  filter.(sim<=1000) %>%
   filter.(heterogen_vl==T) %>% 
   ggplot()+
   geom_line(data=. %>% filter.(heterogen_vl==T),
@@ -130,7 +173,7 @@ culture_plot <- plot_dat1 %>%
 
 auc_dat <- plot_dat %>%
   filter.(heterogen_vl==T) %>%
-  summarise.(sum_inf=sum(culture_p)*time_step,.by=sim) 
+  summarise.(sum_inf=sum(culture_p),.by=sim) 
 
 q95 <- auc_dat[,quantile(sum_inf, c(0.025, 0.975))]
 q95[2]/q95[1]
