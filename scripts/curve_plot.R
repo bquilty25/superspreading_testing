@@ -1,5 +1,6 @@
 source("scripts/utils.R")
 
+time_step <- 0.1
 n_sims <- 5000
 
 traj <- vl_params %>% 
@@ -19,7 +20,7 @@ traj <- traj %>% left_join.(infctsnss_params, by = "sim")
 
 plot_dat <- traj %>% 
   mutate.(infectivity = pmap(inf_curve_func, .l = list(
-    m = m, start = start, end = end,interval=1
+    m = m, start = start, end = end,interval=time_step
   )))  %>%
   unnest.(infectivity) %>%
   crossing.(lower_inf_thresh = c(FALSE)) %>%
@@ -84,15 +85,18 @@ ggsave("results/log_plot.png",dpi=600,width=210,height=150,units="mm",bg="white"
 
 # Average number of days spent infectious
 plot_dat %>% 
-  summarise.(n_inf=sum(infectious==T),.by=c(sim,heterogen_vl)) %>% 
+  summarise.(n_inf=sum(infectious==T)*time_step,.by=c(sim,heterogen_vl)) %>% 
   summarise.(q=list(quibble2(n_inf,c(0.025,0.5,0.975))),.by=heterogen_vl) %>% 
   unnest.(q)
 
 days_inf_plot <- plot_dat %>% 
-  summarise.(n_inf=sum(infectious==T),.by=c(sim,heterogen_vl)) %>% 
+  summarise.(n_inf=sum(infectious==T)*time_step,.by=c(sim,heterogen_vl)) %>% 
   filter.(heterogen_vl==T) %>% 
+  mutate.(n_inf_days=floor(n_inf)) %>%
   ggplot()+
-  geom_bar(aes(x=n_inf,y=..count../sum(..count..)),fill=bi_col_pal[2])+
+  geom_bar(aes(x=n_inf_days,
+               y=after_stat(count)/sum(after_stat(count))),
+           fill=bi_col_pal[2])+
   ylab("Probability")+
   scale_x_continuous(name="Number of days individuals infected contacts",
                      breaks = breaks_width(1),
@@ -126,7 +130,7 @@ culture_plot <- plot_dat1 %>%
 
 auc_dat <- plot_dat %>%
   filter.(heterogen_vl==T) %>%
-  summarise.(sum_inf=sum(culture_p),.by=sim) 
+  summarise.(sum_inf=sum(culture_p)*time_step,.by=sim) 
 
 q95 <- auc_dat[,quantile(sum_inf, c(0.025, 0.975))]
 q95[2]/q95[1]
@@ -263,4 +267,3 @@ inf_plot <- prob_culture %>%
 
 ggsave("results/Fig3 - viral_load_combined_plot.png",dpi=600,width=300,height=150,units="mm",bg="white")
 ggsave("results/Fig3 - viral_load_combined_plot.pdf",dpi=600,width=300,height=150,units="mm",bg="white")
-
