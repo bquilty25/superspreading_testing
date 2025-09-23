@@ -41,10 +41,7 @@ plot_dat <- traj %>%
                    infectious = FALSE)) %>% 
   select.(-c(prolif, start, end)) 
 
-plot_dat1 <- plot_dat %>% 
-  filter.(sim <= 1000)
-
-log_plot <- traj %>% 
+plot_dat1 <- traj %>% 
   mutate.(infectivity = pmap(inf_curve_func, .l = list(
     m = m, start = start, end = end, interval = time_step
   )))  %>%
@@ -65,7 +62,9 @@ log_plot <- traj %>%
   ) %>%
   replace_na.(list(test       = FALSE,
                    infectious = FALSE)) %>% 
-  select.(-c(prolif, start, end)) %>% 
+  select.(-c(prolif, start, end)) 
+
+log_plot <- plot_dat1 %>%
   filter.(sim<=1000) %>%
   mutate.(vl=10^(vl)) %>% 
   ggplot()+
@@ -125,28 +124,7 @@ days_inf_plot <- plot_dat %>%
   plotting_theme+guides(colour="none")
 
 
-culture_plot <- traj %>% 
-  mutate.(infectivity = pmap(inf_curve_func, .l = list(
-  m = m, start = start, end = end, interval = time_step
-  )))  %>%
-  unnest.(infectivity) %>%
-  crossing.(lower_inf_thresh = c(FALSE)) %>%
-  mutate.(
-    culture_p = culture_prob(vl, beta0, beta1),
-    infectious = rbernoulli(n = n(),
-                            p = culture_p),
-    test_p = stats::predict(
-      object =  innova_mod,
-      type = "response",
-      newdata = tidytable(vl = vl)
-    ),
-    test = rbernoulli(n = n(),
-                      p = test_p),
-    .by = c(lower_inf_thresh)
-  ) %>%
-  replace_na.(list(test       = FALSE,
-                   infectious = FALSE)) %>% 
-  select.(-c(prolif, start, end)) %>% 
+culture_plot <- plot_dat1 %>% 
   filter.(sim<=1000) %>%
   filter.(heterogen_vl==T) %>% 
   ggplot()+
@@ -228,7 +206,8 @@ ggsave("results/days_inf_and_auc_plot.pdf",dpi=600,width=210,height=100,units="m
 
 #dens_plot+jitter_plot
 
-violin_plot <- plot_dat1  %>% 
+violin_plot <- plot_dat  %>% 
+  filter.(sim<=1000) %>%
   filter.(heterogen_vl==T) %>%
   mutate.(median_p=mean(culture_p),.by=c(t,heterogen_vl)) %>% 
   filter.(t<20) %>% 
