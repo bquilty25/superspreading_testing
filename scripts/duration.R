@@ -13,7 +13,16 @@ contacts_nhh_duration <- contacts_duration %>%
   pull(cnt_duration)
 
 contacts_duration %>%
+  group_by(cnt_household) %>%
+  summarise(
+    q25 = quantile(cnt_minutes_max, 0.25, na.rm = T),
+    q50 = quantile(cnt_minutes_max, 0.50, na.rm = T),
+    q75 = quantile(cnt_minutes_max, 0.75, na.rm = T)
+  )
+
+contacts_duration %>%
   drop_na(cnt_minutes_max) %>% 
+  mutate(cnt_household=factor(cnt_household,levels=c("1","0"))) %>%
   ggplot()+
   geom_histogram(aes(x=cnt_minutes_max/60,y=..density..,fill=factor(cnt_household)),binwidth = 1)+
   scale_x_continuous("Per-contact time (hours)",breaks = scales::breaks_width(2))+
