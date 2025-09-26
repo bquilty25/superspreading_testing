@@ -124,8 +124,25 @@ dot_plot <-   contact_data %>%
 #   plotting_theme+
 #   labs(x="Number of daily reported contacts",y="Percentage of participants (%)")
 
-
 ggsave("results/contacts_ecdf.png",width=210,height=120,dpi=600,units="mm",bg="white")
+
+dot_plot_adjusted <-   contact_data_adjusted %>% 
+  filter.(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
+  pivot_longer.(cols=c(e_home,e_other,e_all)) %>%
+  mutate.(ecdf_x=ecdf(value)(value),.by=c(name,period)) %>% 
+  ggplot()+
+  geom_point(aes(x=value,y=1-ecdf_x,colour=period),alpha=0.5)+
+  facet_wrap2(~name,labeller = labeller(name=c("e_all"="All contacts",
+                                               "e_home"="Household contacts",
+                                               "e_other"="Out of household contacts")),
+              axes="all")+
+  scale_x_continuous(trans="pseudo_log",breaks = c(0,1,10,100,1000),expand = expansion(0,0))+
+  scale_y_continuous(trans="log10",labels=label_percent())+
+  scale_colour_manual(name="Time period",values=colour_pal)+
+  plotting_theme+
+  labs(x="Reported daily contacts",y=str_wrap("Percentage of participants reporting at least X contacts (%)",35))
+
+ggsave("results/contacts_adjusted_ecdf.png",width=210,height=120,dpi=600,units="mm",bg="white")
 
 nbinom_plot <- contact_data %>%  
   pivot_longer.(c(e_all,e_home,e_other),names_to = "contact_type") %>% 
