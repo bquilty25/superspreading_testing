@@ -1,4 +1,5 @@
 source("scripts/utils.R")
+source("scripts/duration.R")
 
 time_step <- 0.1
 n_sims <- 5000
@@ -27,7 +28,7 @@ plot_dat <- traj %>%
   mutate.(
     culture_p = culture_prob(vl, beta0, beta1),
     infectious = rbernoulli(n = n(),
-                            p = culture_p),
+                            p = pmin(culture_p * median_contact_duration, 1)),
     test_p = stats::predict(
       object =  innova_mod,
       type = "response",

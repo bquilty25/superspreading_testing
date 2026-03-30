@@ -12,6 +12,8 @@ contacts_nhh_duration <- contacts_duration %>%
   mutate(cnt_duration=cnt_minutes_max/1440,cnt_duration=ifelse(cnt_duration>=1,1,cnt_duration)) %>% 
   pull(cnt_duration)
 
+median_contact_duration <- median(c(contacts_hh_duration, contacts_nhh_duration), na.rm = TRUE)
+
 contacts_duration %>%
   group_by(cnt_household) %>%
   summarise(

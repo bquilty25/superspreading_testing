@@ -1,15 +1,15 @@
-#Estimate secondary case distribution pre-pandemic (R0, BBC) and with various levels of contact reduction from CoMix
+# Estimate secondary case distribution pre-pandemic (R0, BBC) and with various levels of contact reduction from CoMix
 source("scripts/utils.R")
 source("scripts/duration.R")
 
 N_sims <- 10000
-#Make VL trajectories
-traj <- vl_params %>% 
-  filter.(variant%in%c("wild")) %>%
-  mutate.(variant=fct_drop(variant)) %>% 
-  crossing(heterogen_vl=c(TRUE,FALSE)) %>% 
-  group_split.(variant,heterogen_vl) %>% 
-  map.(~make_trajectories(n_sims = N_sims,asymp_parms=asymp_fraction,variant_info=.x,browsing=F)) %>% 
+# Make VL trajectories
+traj <- vl_params %>%
+  filter.(variant %in% c("wild")) %>%
+  mutate.(variant = fct_drop(variant)) %>%
+  crossing(heterogen_vl = c(TRUE, FALSE)) %>%
+  group_split.(variant, heterogen_vl) %>%
+  map.(~ make_trajectories(n_sims = N_sims, asymp_parms = asymp_fraction, variant_info = .x, browsing = F)) %>%
   bind_rows.()
 
 infctsnss_params <- generate_params(culture_mod, N_sims) %>%
@@ -19,151 +19,291 @@ infctsnss_params <- generate_params(culture_mod, N_sims) %>%
 
 traj <- traj %>% left_join.(infctsnss_params, by = "sim")
 
-#Calculate daily infectiousness and test positivity, remove never-infectious
+# Calculate daily infectiousness and test positivity, remove never-infectious
 traj_ <- traj %>%
   mutate.(infectiousness = pmap(inf_curve_func, .l = list(
     m = m, start = start, end = end, interval = 1
-  )))  %>%
+  ))) %>%
   unnest.(infectiousness) %>%
   crossing.(
     lower_inf_thresh = c(FALSE)
   ) %>%
   mutate.(
     culture_p = culture_prob(vl, beta0, beta1),
-    infectious = rbernoulli(n = n(),
-                            p = culture_p),
+    infectious = rbernoulli(
+      n = n(),
+      p = pmin(culture_p * median_contact_duration, 1)
+    ),
     test_p = stats::predict(
-      object =  innova_mod,
+      object = innova_mod,
       type = "response",
       newdata = tidytable(vl = vl)
     ),
-    test = rbernoulli(n = n(),
-                      p = test_p),
+    test = rbernoulli(
+      n = n(),
+      p = test_p
+    ),
     .by = c(lower_inf_thresh)
   ) %>%
-  replace_na.(list(test       = FALSE,
-                   infectious = FALSE)) %>% 
+  replace_na.(list(
+    test = FALSE,
+    infectious = FALSE
+  )) %>%
   select.(-c(prolif, start, end))
 
-#baseline 
-testing_scenarios <- traj %>% 
-  filter.(heterogen_vl==T) %>% 
-  select.(-m) %>% 
-  crossing.(prop_self_iso_test=c(0),
-            sampling_freq=c(7),
-            event_size=NA) %>% 
-  mutate.(self_iso_test = rbernoulli(n=n(),prop_self_iso_test),
-          begin_testing = rdunif(n(),0, sampling_freq)) 
+# baseline
+testing_scenarios <- traj %>%
+  filter.(heterogen_vl == T) %>%
+  select.(-m) %>%
+  crossing.(
+    prop_self_iso_test = c(0),
+    sampling_freq = c(7),
+    event_size = NA
+  ) %>%
+  mutate.(
+    self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
+    begin_testing = rdunif(n(), 0, sampling_freq)
+  )
 
-time_periods_of_interest <- 
-  crossing(time_periods) %>% 
-  filter(date_end<as.Date("2021-01-01"),period!="POLYMOD") %>%  
-  mutate(scenario_id=row_number()) %>% 
-  select(-c(date_start,date_end)) %>% 
-  crossing(heterogen_contacts=c(T))
+time_periods_of_interest <-
+  crossing(time_periods) %>%
+  filter(date_end < as.Date("2021-01-01"), period != "POLYMOD") %>%
+  mutate(scenario_id = row_number()) %>%
+  select(-c(date_start, date_end)) %>%
+  crossing(heterogen_contacts = c(T))
 
-processed_infections_baseline <- run_model(testing_scenarios=testing_scenarios,contact_dat = contact_data,scenarios = time_periods_of_interest,browsing = F)
-
-rm(testing_scenarios)
-rm(time_periods_of_interest)
-
-#heterogen onoff 
-
-testing_scenarios <- traj %>% 
-  select.(-m) %>% 
-  crossing.(prop_self_iso_test=c(0),
-            sampling_freq=NA,
-            event_size=NA) %>% 
-  mutate.(self_iso_test = rbernoulli(n=n(),prop_self_iso_test),
-          begin_testing = rdunif(n(),0, sampling_freq)) 
-
-time_periods_of_interest <- 
-  crossing(time_periods) %>% 
-  filter(date_end<as.Date("2021-01-01"),period!="POLYMOD") %>% 
-  #filter(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
-  mutate(scenario_id=row_number()) %>% 
-  select(-c(date_start,date_end)) %>% 
-  crossing(heterogen_contacts=c(T,F))
-
-processed_infections_heterogen_on_off <- run_model(testing_scenarios=testing_scenarios,contact_dat = contact_data,scenarios = time_periods_of_interest,browsing = F)
+processed_infections_baseline <- run_model(testing_scenarios = testing_scenarios, contact_dat = contact_data, scenarios = time_periods_of_interest, browsing = F)
 
 rm(testing_scenarios)
 rm(time_periods_of_interest)
 
-#testing
-testing_scenarios <- traj %>% 
-  filter.(heterogen_vl==T) %>% 
-  select.(-m) %>% 
-  crossing.(prop_self_iso_test=seq(0,1,by=0.1),
-            sampling_freq=c(1,3,7),
-            event_size=NA) %>% 
-  mutate.(self_iso_test = rbernoulli(n=n(),prop_self_iso_test),
-          begin_testing = rdunif(n(),0, sampling_freq)) 
+# heterogen onoff
 
-time_periods_of_interest <- 
-  crossing(time_periods) %>% 
-  filter(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
-  mutate(scenario_id=row_number()) %>% 
-  select(-c(date_start,date_end)) %>% 
-  crossing(heterogen_contacts=c(T))
+testing_scenarios <- traj %>%
+  select.(-m) %>%
+  crossing.(
+    prop_self_iso_test = c(0),
+    sampling_freq = NA,
+    event_size = NA
+  ) %>%
+  mutate.(
+    self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
+    begin_testing = rdunif(n(), 0, sampling_freq)
+  )
 
-processed_infections_testing <- run_model(testing_scenarios=testing_scenarios,contact_dat = contact_data,scenarios = time_periods_of_interest,browsing = F)
+time_periods_of_interest <-
+  crossing(time_periods) %>%
+  filter(date_end < as.Date("2021-01-01"), period != "POLYMOD") %>%
+  # filter(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>%
+  mutate(scenario_id = row_number()) %>%
+  select(-c(date_start, date_end)) %>%
+  crossing(heterogen_contacts = c(T, F))
+
+processed_infections_heterogen_on_off <- run_model(testing_scenarios = testing_scenarios, contact_dat = contact_data, scenarios = time_periods_of_interest, browsing = F)
+
+rm(testing_scenarios)
+rm(time_periods_of_interest)
+
+# testing
+testing_scenarios <- traj %>%
+  filter.(heterogen_vl == T) %>%
+  select.(-m) %>%
+  crossing.(
+    prop_self_iso_test = seq(0, 1, by = 0.1),
+    sampling_freq = c(1, 3, 7),
+    event_size = NA
+  ) %>%
+  mutate.(
+    self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
+    begin_testing = rdunif(n(), 0, sampling_freq)
+  )
+
+time_periods_of_interest <-
+  crossing(time_periods) %>%
+  filter(period %in% c("Pre-pandemic", "1st lockdown", "School reopening")) %>%
+  mutate(scenario_id = row_number()) %>%
+  select(-c(date_start, date_end)) %>%
+  crossing(heterogen_contacts = c(T))
+
+processed_infections_testing <- run_model(testing_scenarios = testing_scenarios, contact_dat = contact_data, scenarios = time_periods_of_interest, browsing = F)
 
 rm(testing_scenarios)
 rm(time_periods_of_interest)
 
-#event testing
+# event testing
 
-testing_scenarios <- traj %>% 
-  filter.(heterogen_vl==T) %>% 
-  select.(-m) %>% 
-  crossing.(prop_self_iso_test=seq(0,1,by=0.1),#c(0,.25,.5,0.75,1),
-            sampling_freq=c(NA),
-            event_size=c(10,20,50,NA)) %>% 
-  filter.(!(prop_self_iso_test>0&is.na(sampling_freq)&is.na(event_size))) %>% 
-  mutate.(self_iso_test = rbernoulli(n=n(),prop_self_iso_test),
-          begin_testing = rdunif(n(),0, sampling_freq)) 
+testing_scenarios <- traj %>%
+  filter.(heterogen_vl == T) %>%
+  select.(-m) %>%
+  crossing.(
+    prop_self_iso_test = seq(0, 1, by = 0.1), # c(0,.25,.5,0.75,1),
+    sampling_freq = c(NA),
+    event_size = c(10, 20, 50, NA)
+  ) %>%
+  filter.(!(prop_self_iso_test > 0 & is.na(sampling_freq) & is.na(event_size))) %>%
+  mutate.(
+    self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
+    begin_testing = rdunif(n(), 0, sampling_freq)
+  )
 
-time_periods_of_interest <- 
-  crossing(time_periods) %>% 
-  filter(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
-  mutate(scenario_id=row_number()) %>% 
-  select(-c(date_start,date_end)) %>% 
-  crossing(heterogen_contacts=c(T))
+time_periods_of_interest <-
+  crossing(time_periods) %>%
+  filter(period %in% c("Pre-pandemic", "1st lockdown", "School reopening")) %>%
+  mutate(scenario_id = row_number()) %>%
+  select(-c(date_start, date_end)) %>%
+  crossing(heterogen_contacts = c(T))
 
-processed_infections_events <- run_model(testing_scenarios=testing_scenarios,contact_dat = contact_data,scenarios = time_periods_of_interest,browsing = F)
+processed_infections_events <- run_model(testing_scenarios = testing_scenarios, contact_dat = contact_data, scenarios = time_periods_of_interest, browsing = F)
 
 rm(testing_scenarios)
 rm(time_periods_of_interest)
-#source("scripts/results.R")
+# source("scripts/results.R")
 
 ### Sensitivity analysis
 
-#imputing upper tail of distribution for BBC Pandemic
-#baseline 
-testing_scenarios <- traj %>% 
-  filter.(heterogen_vl==T) %>% 
-  select.(-m) %>% 
-  crossing.(prop_self_iso_test=c(0),
-            sampling_freq=c(7),
-            event_size=NA) %>% 
-  mutate.(self_iso_test = rbernoulli(n=n(),prop_self_iso_test),
-          begin_testing = rdunif(n(),0, sampling_freq)) 
+# imputing upper tail of distribution for BBC Pandemic
+# baseline
+testing_scenarios <- traj %>%
+  filter.(heterogen_vl == T) %>%
+  select.(-m) %>%
+  crossing.(
+    prop_self_iso_test = c(0),
+    sampling_freq = c(7),
+    event_size = NA
+  ) %>%
+  mutate.(
+    self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
+    begin_testing = rdunif(n(), 0, sampling_freq)
+  )
 
-time_periods_of_interest <- 
-  crossing(time_periods) %>% 
-  filter(date_end<as.Date("2021-01-01"),period=="Pre-pandemic") %>%  
-  mutate(scenario_id=row_number()) %>% 
-  select(-c(date_start,date_end)) %>% 
-  crossing(heterogen_contacts=c(T))
+time_periods_of_interest <-
+  crossing(time_periods) %>%
+  filter(date_end < as.Date("2021-01-01"), period == "Pre-pandemic") %>%
+  mutate(scenario_id = row_number()) %>%
+  select(-c(date_start, date_end)) %>%
+  crossing(heterogen_contacts = c(T))
 
-processed_infections_sens <- run_model(testing_scenarios=testing_scenarios,
-                                       contact_dat = contact_data_adjusted,
-                                       scenarios = time_periods_of_interest,browsing = F)
+processed_infections_sens <- run_model(
+  testing_scenarios = testing_scenarios,
+  contact_dat = contact_data_adjusted,
+  scenarios = time_periods_of_interest, browsing = F
+)
 
-#save output
-qsave(processed_infections_baseline,"results/processed_infections_baseline.qs")
-qsave(processed_infections_heterogen_on_off,"results/processed_infections_heterogen_on_off.qs")
-qsave(processed_infections_testing,"results/processed_infections_testing.qs")
-qsave(processed_infections_events,"results/processed_infections_events.qs")
-qsave(processed_infections_sens,"results/processed_infections_sens.qs")
+rm(testing_scenarios)
+rm(time_periods_of_interest)
+
+### Sensitivity analysis: amplified VL heterogeneity ----
+# Doubles SDs of peak VL, proliferation, and clearance to test whether
+# inflating unmeasured between-person infectiousness heterogeneity can
+# reverse the conclusion that contacts dominate overdispersion.
+
+vl_params_amplified <- vl_params %>%
+  mutate(
+    sd_peakvl = sd_peakvl * 2,
+    sd_prolif = sd_prolif * 2,
+    sd_clear = sd_clear * 2
+  )
+
+traj_amplified <- vl_params_amplified %>%
+  filter.(variant %in% c("wild")) %>%
+  mutate.(variant = fct_drop(variant)) %>%
+  crossing(heterogen_vl = c(TRUE, FALSE)) %>%
+  group_split.(variant, heterogen_vl) %>%
+  map.(~ make_trajectories(
+    n_sims = N_sims, asymp_parms = asymp_fraction,
+    variant_info = .x, browsing = F
+  )) %>%
+  bind_rows.()
+
+traj_amplified <- traj_amplified %>% left_join.(infctsnss_params, by = "sim")
+
+traj_amplified_ <- traj_amplified %>%
+  mutate.(infectiousness = pmap(inf_curve_func, .l = list(
+    m = m, start = start, end = end, interval = 1
+  ))) %>%
+  unnest.(infectiousness) %>%
+  crossing.(lower_inf_thresh = c(FALSE)) %>%
+  mutate.(
+    culture_p = culture_prob(vl, beta0, beta1),
+    infectious = rbernoulli(n = n(), p = pmin(culture_p * median_contact_duration, 1)),
+    test_p = stats::predict(
+      object = innova_mod, type = "response",
+      newdata = tidytable(vl = vl)
+    ),
+    test = rbernoulli(n = n(), p = test_p),
+    .by = c(lower_inf_thresh)
+  ) %>%
+  replace_na.(list(test = FALSE, infectious = FALSE)) %>%
+  select.(-c(prolif, start, end))
+
+testing_scenarios <- traj_amplified %>%
+  select.(-m) %>%
+  crossing.(
+    prop_self_iso_test = c(0),
+    sampling_freq = NA,
+    event_size = NA
+  ) %>%
+  mutate.(
+    self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
+    begin_testing = rdunif(n(), 0, sampling_freq)
+  )
+
+time_periods_of_interest <- crossing(time_periods) %>%
+  filter(date_end < as.Date("2021-01-01"), period != "POLYMOD") %>%
+  mutate(scenario_id = row_number()) %>%
+  select(-c(date_start, date_end)) %>%
+  crossing(heterogen_contacts = c(T, F))
+
+processed_infections_vl_sens <- run_model(
+  testing_scenarios = testing_scenarios,
+  contact_dat       = contact_data,
+  scenarios         = time_periods_of_interest,
+  traj_full         = traj_amplified,
+  traj_processed    = traj_amplified_,
+  browsing          = F
+)
+
+rm(testing_scenarios)
+rm(time_periods_of_interest)
+
+### Additional analysis: testing effectiveness under heterogeneous vs homogeneous contacts ----
+# Addresses reviewer request to show whether testing has a differential
+# impact in a model with versus without contact heterogeneity.
+
+testing_scenarios <- traj %>%
+  filter.(heterogen_vl == T) %>%
+  select.(-m) %>%
+  crossing.(
+    prop_self_iso_test = seq(0, 1, by = 0.1),
+    sampling_freq = c(1, 3, 7),
+    event_size = NA
+  ) %>%
+  mutate.(
+    self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
+    begin_testing = rdunif(n(), 0, sampling_freq)
+  )
+
+time_periods_of_interest <- crossing(time_periods) %>%
+  filter(period %in% c("Pre-pandemic", "1st lockdown", "School reopening")) %>%
+  mutate(scenario_id = row_number()) %>%
+  select(-c(date_start, date_end)) %>%
+  crossing(heterogen_contacts = c(T, F))
+
+processed_infections_testing_by_heterogen <- run_model(
+  testing_scenarios = testing_scenarios,
+  contact_dat       = contact_data,
+  scenarios         = time_periods_of_interest,
+  browsing          = F
+)
+
+rm(testing_scenarios)
+rm(time_periods_of_interest)
+
+# save output
+qsave(processed_infections_baseline, "results/processed_infections_baseline.qs")
+qsave(processed_infections_heterogen_on_off, "results/processed_infections_heterogen_on_off.qs")
+qsave(processed_infections_testing, "results/processed_infections_testing.qs")
+qsave(processed_infections_events, "results/processed_infections_events.qs")
+qsave(processed_infections_sens, "results/processed_infections_sens.qs")
+qsave(processed_infections_vl_sens, "results/processed_infections_vl_sens.qs")
+qsave(processed_infections_testing_by_heterogen, "results/processed_infections_testing_by_heterogen.qs")
