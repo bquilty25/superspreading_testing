@@ -538,21 +538,21 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
         pull.(period))
     ) %>%
     mutate.(
-      hh_contacts = ifelse(heterogen_contacts,
-        sample_filter(
-          condition = period,
-          df = contact_dat,
-          col = "e_home",
-          n = n()
-        ),
-        rpois(n = n(), mean_filter(
-          condition = period,
-          df = contact_data,
-          col = "e_home"
-        ))
-      ),
-      .by = c(period)
-    )
+      # Sample row indices jointly so each individual gets HH and NHH contacts
+      # from the same survey respondent, preserving the empirical joint distribution.
+      .row_idx = if (heterogen_contacts[1]) {
+        rows <- which(as.character(contact_dat$period) == as.character(period[1]))
+        sample(rows, size = n(), replace = TRUE)
+      } else {
+        rep(NA_integer_, n())
+      },
+      hh_contacts  = if (heterogen_contacts[1]) contact_dat$e_home[.row_idx]
+                     else rpois(n(), mean_filter(period[1], contact_data, "e_home")),
+      nhh_contacts = if (heterogen_contacts[1]) contact_dat$e_other[.row_idx]
+                     else rpois(n(), mean_filter(period[1], contact_data, "e_other")),
+      .by = c(period, heterogen_contacts)
+    ) %>%
+    select.(-.row_idx)
 
   indiv_params_long <- indiv_params %>%
     left_join.(traj_processed)
@@ -578,15 +578,13 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
 
   nhh_infections <- indiv_params_long %>%
     mutate.(
-      nhh_contacts = if (heterogen_contacts[1] && within_person_re) {
-        # NEW: draw once per individual from empirical distribution — preserves marginal
-        # distribution while adding perfect within-person day-to-day correlation.
-        sample_filter(condition = period[1], df = contact_dat, col = "e_other", n = 1L)
-      } else if (heterogen_contacts[1] && !within_person_re) {
-        # OLD: draw independently each day from empirical distribution — no correlation.
+      nhh_contacts = if (!within_person_re && heterogen_contacts[1]) {
+        # within_person_re=FALSE: draw independently each day (old behaviour, no correlation)
         sample_filter(condition = period[1], df = contact_dat, col = "e_other", n = n())
       } else {
-        rpois(n = n(), mean_filter(condition = period[1], df = contact_dat, col = "e_other"))
+        # within_person_re=TRUE: use value already drawn jointly with HH in indiv_params,
+        # preserving the empirical HH/NHH joint distribution.
+        nhh_contacts
       },
       .by = all_of(key_grouping_var)
     ) %>%
