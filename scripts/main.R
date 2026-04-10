@@ -77,6 +77,8 @@ processed_infections_baseline <- run_model(testing_scenarios = testing_scenarios
 rm(testing_scenarios)
 rm(time_periods_of_interest)
 
+print("baseline done")
+
 # heterogen onoff
 
 testing_scenarios <- traj %>%
@@ -104,6 +106,8 @@ processed_infections_heterogen_on_off <- run_model(testing_scenarios = testing_s
 rm(testing_scenarios)
 rm(time_periods_of_interest)
 
+print("heterogen on/off done")
+
 # testing
 testing_scenarios <- traj %>%
   filter.(heterogen_vl == T) %>%
@@ -129,6 +133,8 @@ processed_infections_testing <- run_model(testing_scenarios = testing_scenarios,
 
 rm(testing_scenarios)
 rm(time_periods_of_interest)
+
+print("testing done")
 
 # event testing
 
@@ -158,6 +164,8 @@ processed_infections_events <- run_model(testing_scenarios = testing_scenarios, 
 rm(testing_scenarios)
 rm(time_periods_of_interest)
 # source("scripts/results.R")
+
+print("event testing done")
 
 ### Sensitivity analysis
 
@@ -191,6 +199,8 @@ processed_infections_sens <- run_model(
 
 rm(testing_scenarios)
 rm(time_periods_of_interest)
+
+print("sens done")
 
 # ### Sensitivity analysis: amplified VL heterogeneity ----
 # # Doubles SDs of peak VL, proliferation, and clearance to test whether
@@ -266,6 +276,8 @@ rm(time_periods_of_interest)
 # rm(testing_scenarios)
 # rm(time_periods_of_interest)
 # 
+# print("sens 2 done")
+# 
 # ### Additional analysis: testing effectiveness under heterogeneous vs homogeneous contacts ----
 # # Addresses reviewer request to show whether testing has a differential
 # # impact in a model with versus without contact heterogeneity.
@@ -298,6 +310,8 @@ rm(time_periods_of_interest)
 # 
 # rm(testing_scenarios)
 # rm(time_periods_of_interest)
+# 
+# print("testing by heterogen done")
 
 # save output
 qsave(processed_infections_baseline, "results/processed_infections_baseline.qs")
