@@ -242,7 +242,7 @@ write.csv(boot_res_heterogen_sum, "results/R_and_k_bootstrap_ests_heterogen.csv"
   # geom_pointrange(fatten=4, alpha=0.5)+
   # scale_y_log10(limit=c(0.01,10))
   +
-  coord_cartesian(ylim = c(0.1, 10))
+  coord_cartesian(ylim = c(0.1, 1))
   +
   plotting_theme +
   theme(
@@ -370,7 +370,7 @@ testing_plot <- processed_infections_testing %>%
     switch = "y"
   ) +
   ggh4x::facetted_pos_scales(y = list(
-    scale_y_continuous(limits = c(0, 3)),
+    scale_y_continuous(limits = c(0, 3.5)),
     scale_y_log10(),
     scale_y_continuous(limits = c(0, NA)),
     scale_y_continuous(limits = c(0, NA))
@@ -429,7 +429,7 @@ events_plot <- processed_infections_events %>%
     switch = "y"
   ) +
   ggh4x::facetted_pos_scales(y = list(
-    scale_y_continuous(limits = c(0, 3)),
+    scale_y_continuous(limits = c(0, 3.5)),
     scale_y_log10(),
     scale_y_continuous(limits = c(0, NA)),
     scale_y_continuous(limits = c(0, NA))
