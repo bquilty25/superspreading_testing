@@ -60,7 +60,7 @@ vl_sens_plot <- boot_res_vl_sens %>%
     scale_colour_manual(values = quad_col_pal[1:3]) +
     scale_fill_manual(values = quad_col_pal[1:3]) +
     scale_y_log10() +
-    coord_cartesian(ylim = c(0.1, 10)) +
+    coord_cartesian(ylim = c(0.1, 1)) +
     labs(
         y = "Overdispersion (k)",
         x = "Time period",
@@ -130,7 +130,7 @@ testing_heterogen_plot <- processed_infections_testing_by_heterogen %>%
         switch = "y"
     ) +
     ggh4x::facetted_pos_scales(y = list(
-        scale_y_continuous(limits = c(0, 3)),
+        scale_y_continuous(limits = c(0, 3.5)),
         scale_y_log10(),
         scale_y_continuous(limits = c(0, NA)),
         scale_y_continuous(limits = c(0, NA))
