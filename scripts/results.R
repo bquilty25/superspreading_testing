@@ -77,21 +77,21 @@ boot_res_sum <- boot_res %>%
   as_tibble()
 write.csv(boot_res_sum, "results/R_and_k_bootstrap_ests.csv")
 
-# Derive 1/k rows (degree of overdispersion); CIs invert because 1/x is decreasing
-boot_res_sum <- boot_res_sum |>
-  bind_rows(
-    boot_res_sum |>
-      filter(name == "size") |>
-      mutate(
-        name = "inv_k",
-        tmp = lo,
-        lo = 1 / hi,
-        hi = 1 / tmp,
-        Median = 1 / Median
-      ) |>
-      select(-tmp)
-  ) |>
-  mutate(name = fct_relevel(name, "mu", "size", "inv_k", "prop_ss_10", "prop_ss_0"))
+# # Derive 1/k rows (degree of overdispersion); CIs invert because 1/x is decreasing
+# boot_res_sum <- boot_res_sum |>
+#   bind_rows(
+#     boot_res_sum |>
+#       filter(name == "size") |>
+#       mutate(
+#         name = "inv_k",
+#         tmp = lo,
+#         lo = 1 / hi,
+#         hi = 1 / tmp,
+#         Median = 1 / Median
+#       ) |>
+#       select(-tmp)
+#   ) |>
+#   mutate(name = fct_relevel(name, "mu", "size", "inv_k", "prop_ss_10", "prop_ss_0"))
 
 boot_res_sum %>%
   ggplot(aes(y = Median, ymin = lo, ymax = hi, x = period, colour = name, fill = name, group = name)) +
@@ -113,7 +113,7 @@ boot_res_sum %>%
     rows = vars(name), switch = "y", scales = "free",
     labeller = labeller(name = c(
       "mu" = "R", "size" = "k",
-      "inv_k" = "1/k (overdispersion)",
+      # "inv_k" = "1/k (overdispersion)",
       "prop_ss_0" = "Proportion infecting\n 0 others (%)",
       "prop_ss_10" = "Proportion infecting\n over 10 others (%)"
     )),
@@ -123,7 +123,7 @@ boot_res_sum %>%
   facetted_pos_scales(y = list(
     scale_y_continuous(limits = c(0, NA)),
     scale_y_log10(limits = c(NA, NA), breaks = log_breaks()),
-    scale_y_log10(limits = c(NA, NA), breaks = log_breaks()),
+    # scale_y_log10(limits = c(NA, NA), breaks = log_breaks()),
     scale_y_continuous(limits = c(0, NA)),
     scale_y_continuous(limits = c(0, NA))
   )) +
