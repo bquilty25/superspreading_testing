@@ -4,11 +4,11 @@ source("scripts/utils.r")
 colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b", "#d72638")
 
 (line_plot <- contact_data %>%
+  filter.(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
   mutate.(
     date_yw = yearweek(date),
     date_y = year(date)
   ) %>%
-  filter.(period %!in% c("POLYMOD")) %>%
   summarise.(
     n = n(),
     # zero = sum(e_all==0),
@@ -18,7 +18,7 @@ colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b"
     over_50 = sum(e_all > 50),
     over_100 = sum(e_all > 100),
     over_200 = sum(e_all > 200),
-    .by = c(date_yw, period)
+    .by = c(period)
   ) %>%
   pivot_longer.(c(over_5:over_200)) %>%
   mutate.(name = fct_relevel(
@@ -37,7 +37,7 @@ colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b"
   ggplot() +
   geom_line(
     aes(
-      x = as_date(date_yw),
+      x = period,
       group = name,
       y = estimate * 100,
       colour = fct_relevel(name, "over_5")
@@ -45,7 +45,7 @@ colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b"
   ) +
   geom_point(
     aes(
-      x = as_date(date_yw),
+      x = period,
       group = name,
       y = estimate * 100,
       colour = fct_relevel(name, "over_5")
@@ -54,7 +54,7 @@ colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b"
   ) +
   geom_linerange(
     aes(
-      x = as_date(date_yw),
+      x = period,
       group = name,
       ymin = conf.low * 100,
       ymax = conf.high * 100,
@@ -65,23 +65,20 @@ colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b"
   ) +
   facet_grid2(fct_rev(hi_lo) ~ ., scales = "free_y", axes = "all", remove_labels = "x") +
   scale_y_continuous("Percentage of participants (%)") +
-  scale_x_date(
-    name = "", date_breaks = "3 months", date_labels = "%b %Y",
-    expand = expansion(0, c(7, 7))
-  ) +
-  guides(colour = guide_legend(nrow = 1)) +
-  scale_colour_viridis_d(
-    name = "Reported daily contacts",
-    option = "viridis", direction = -1,
-    labels = c(
+  scale_x_discrete(expand = expansion(0, c(0.5,0.5))) +
+  guides(colour = guide_legend(nrow = 1)) + 
+  scale_colour_brewer(
+    name = "Reported daily contacts", 
+    palette = "Set2",
+    labels=c(
       "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
       "over_50" = "Over 50", "over_100" = "Over 100", "over_200" = "Over 200"
     )
   ) +
-  scale_fill_viridis_d(
-    name = "Daily number of contacts",
-    option = "viridis", direction = -1,
-    labels = c(
+  scale_fill_brewer(
+    name = "Reported daily contacts", 
+    palette = "Set2",
+    labels=c(
       "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
       "over_50" = "Over 50", "over_100" = "Over 100", "over_200" = "Over 200"
     )
@@ -124,8 +121,8 @@ dot_plot <- contact_data %>%
   plotting_theme +
   labs(x = "Reported daily contacts", y = str_wrap("Percentage of participants reporting at least X contacts (%)", 35))
 
-# dot_plot <-   contact_data %>%
-#   filter.(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>%
+# dot_plot <- contact_data %>%
+#   filter.(period %in% c("Pre-pandemic","1st lockdown","School reopening")) %>%
 #   pivot_longer(cols=c(e_home,e_other,e_all)) %>%
 #   summarise(n=n(),
 #             .by=c(value,name,period))%>%
@@ -144,25 +141,33 @@ dot_plot <- contact_data %>%
 
 ggsave("results/contacts_ecdf.png",width=210,height=120,dpi=600,units="mm",bg="white")
 
-dot_plot_adjusted <-   contact_data_adjusted %>% 
-  filter.(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>% 
-  pivot_longer.(cols=c(e_home,e_other,e_all)) %>%
-  mutate.(ecdf_x=ecdf(value)(value),.by=c(name,period)) %>% 
-  ggplot()+
-  geom_point(aes(x=value,y=1-ecdf_x,colour=period),alpha=0.5)+
-  facet_wrap2(~name,labeller = labeller(name=c("e_all"="All contacts",
-                                               "e_home"="Household contacts",
-                                               "e_other"="Out of household contacts")),
-              axes="all")+
-  scale_x_continuous(trans="pseudo_log",breaks = c(0,1,10,100,1000),expand = expansion(0,0))+
-  scale_y_continuous(trans="log10",labels=label_percent())+
-  scale_colour_manual(name="Time period",values=colour_pal)+
-  plotting_theme+
-  labs(x="Reported daily contacts",y=str_wrap("Percentage of participants reporting at least X contacts (%)",35))
+dot_plot_adjusted <- contact_data_adjusted %>% 
+  filter.(period %in% c("Pre-pandemic","1st lockdown","School reopening")) %>% 
+  mutate.(period = factor(
+    period,
+    levels = c("Pre-pandemic", "1st lockdown", "School reopening")
+  )) %>%
+  pivot_longer.(cols = c(e_home, e_other, e_all)) %>%
+  mutate.(ecdf_x = ecdf(value)(value), .by = c(name, period)) %>% 
+  ggplot() +
+  geom_point(aes(x = value,y = 1 - ecdf_x, colour = period), alpha = 0.5) +
+  facet_wrap2(~name,
+    labeller = labeller(name=c(
+      "e_all"="All contacts",
+      "e_home"="Household contacts",
+      "e_other"="Out of household contacts"
+    )),
+    axes = "all") +
+  scale_x_continuous(trans = "pseudo_log", breaks = c(0, 1, 10, 100, 1000), expand = expansion(0, 0)) +
+  scale_y_continuous(trans = "log10", labels = label_percent()) +
+  scale_colour_manual(name = "Time period", values = colour_pal) +
+  plotting_theme +
+  labs(x = "Reported daily contacts",y = str_wrap("Percentage of participants reporting at least X contacts (%)",35))
 
 ggsave("results/contacts_adjusted_ecdf.png",width=210,height=120,dpi=600,units="mm",bg="white")
 
 nbinom_plot <- contact_data %>%
+  filter(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
   pivot_longer.(c(e_all, e_home, e_other), names_to = "contact_type") %>%
   drop_na.(value) %>%
   summarise.(dist_means = list(fitdist(value, "nbinom")$estimate %>% enframe()), .by = c(period, contact_type)) %>%
@@ -192,7 +197,7 @@ ggsave("results/Fig2 - contacts.pdf", width = 210, height = 320, dpi = 600, unit
 
 # for supplement
 dot_plot_all <- contact_data %>%
-  filter(period %!in% c("POLYMOD")) %>%
+  filter(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
   pivot_longer(cols = c(e_home, e_other)) %>%
   summarise(
     n = n(),
@@ -217,7 +222,7 @@ dot_plot_all <- contact_data %>%
 
 
 dot_plot_all <- contact_data %>%
-  filter.(period %!in% c("POLYMOD")) %>%
+  filter.(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
   pivot_longer.(cols = c(e_home, e_other)) %>%
   mutate.(ecdf_x = ecdf(value)(value), .by = c(name, period)) %>%
   ggplot() +
