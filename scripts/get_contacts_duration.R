@@ -14,17 +14,18 @@ contacts_duration <- contacts[
   .(part_id = gsub("uk_", "", part_wave_uid), date, cnt_minutes_max, cnt_household, cnt_total_time)
 ]
 
-contacts_polymod1 <- fread("data/2008_Mossong_POLYMOD_contact_common.csv")
-survey_dates <- fread("data/2008_Mossong_POLYMOD_sday.csv")
+contacts_polymod1 <- fread("data/POLYMOD/2008_Mossong_POLYMOD_contact_common.csv")
+survey_dates <- fread("data/POLYMOD/2008_Mossong_POLYMOD_sday.csv")
 survey_dates[, date := as.Date(as.character(sday_id), "%Y%m%d")]
 contacts_polymod1 <- merge(contacts_polymod1, survey_dates, by = "part_id")
-# parts_polymod <- fread("~/Downloads/2008_Mossong_POLYMOD_participant_common.csv")
-# hh_polymod <- fread("~/Downloads/2008_Mossong_POLYMOD_hh_common.csv")
-# parts_polymod <- merge(parts_polymod, hh_polymod, by = "hh_id")
-# contacts_polymod1 <- merge(contacts_polymod1, parts_polymod, by = "part_id")
+parts_polymod <- fread("data/POLYMOD/2008_Mossong_POLYMOD_participant_common.csv")
+hh_polymod <- fread("data/POLYMOD/2008_Mossong_POLYMOD_hh_common.csv")
+parts_polymod <- merge(parts_polymod, hh_polymod, by = "hh_id")
+contacts_polymod1 <- merge(contacts_polymod1, parts_polymod, by = "part_id")
 
 contacts_duration_polymod <- contacts_polymod1[
-  ,.(part_id,
+  country == "GB",
+  .(part_id,
      date,
      cnt_household = as.numeric(cnt_home),
      cnt_total_time = fcase(

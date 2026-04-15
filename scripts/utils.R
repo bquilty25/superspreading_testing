@@ -176,7 +176,7 @@ key_grouping_var <- c("sim", "variant", "period", "lower_inf_thresh", "heterogen
 
 #### Load contact data ----
 contacts_polymod <-
-  read.csv(here("data", "2008_Mossong_POLYMOD_contact_common.csv")) %>%
+  read.csv(here("data", "POLYMOD/2008_Mossong_POLYMOD_contact_common.csv")) %>%
   pivot_longer(cols = c(cnt_home, cnt_school, cnt_work, cnt_transport, cnt_leisure, cnt_otherplace)) %>%
   filter(value) %>%
   select(-value) %>%
