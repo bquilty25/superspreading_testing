@@ -65,20 +65,20 @@ colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b"
   ) +
   facet_grid2(fct_rev(hi_lo) ~ ., scales = "free_y", axes = "all", remove_labels = "x") +
   scale_y_continuous("Percentage of participants (%)") +
-  scale_x_discrete(expand = expansion(0, c(0.5,0.5))) +
-  guides(colour = guide_legend(nrow = 1)) + 
+  scale_x_discrete(expand = expansion(0, c(0.5, 0.5))) +
+  guides(colour = guide_legend(nrow = 1)) +
   scale_colour_brewer(
-    name = "Reported daily contacts", 
+    name = "Reported daily contacts",
     palette = "Set2",
-    labels=c(
+    labels = c(
       "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
       "over_50" = "Over 50", "over_100" = "Over 100", "over_200" = "Over 200"
     )
   ) +
   scale_fill_brewer(
-    name = "Reported daily contacts", 
+    name = "Reported daily contacts",
     palette = "Set2",
-    labels=c(
+    labels = c(
       "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
       "over_50" = "Over 50", "over_100" = "Over 100", "over_200" = "Over 200"
     )
@@ -139,32 +139,33 @@ dot_plot <- contact_data %>%
 #   plotting_theme+
 #   labs(x="Number of daily reported contacts",y="Percentage of participants (%)")
 
-ggsave("results/contacts_ecdf.png",width=210,height=120,dpi=600,units="mm",bg="white")
+ggsave("results/contacts_ecdf.png", width = 210, height = 120, dpi = 600, units = "mm", bg = "white")
 
-dot_plot_adjusted <- contact_data_adjusted %>% 
-  filter.(period %in% c("Pre-pandemic","1st lockdown","School reopening")) %>% 
+dot_plot_adjusted <- contact_data_adjusted %>%
+  filter.(period %in% c("Pre-pandemic", "1st lockdown", "School reopening")) %>%
   mutate.(period = factor(
     period,
     levels = c("Pre-pandemic", "1st lockdown", "School reopening")
   )) %>%
   pivot_longer.(cols = c(e_home, e_other, e_all)) %>%
-  mutate.(ecdf_x = ecdf(value)(value), .by = c(name, period)) %>% 
+  mutate.(ecdf_x = ecdf(value)(value), .by = c(name, period)) %>%
   ggplot() +
-  geom_point(aes(x = value,y = 1 - ecdf_x, colour = period), alpha = 0.5) +
+  geom_point(aes(x = value, y = 1 - ecdf_x, colour = period), alpha = 0.5) +
   facet_wrap2(~name,
-    labeller = labeller(name=c(
-      "e_all"="All contacts",
-      "e_home"="Household contacts",
-      "e_other"="Out of household contacts"
+    labeller = labeller(name = c(
+      "e_all" = "All contacts",
+      "e_home" = "Household contacts",
+      "e_other" = "Out of household contacts"
     )),
-    axes = "all") +
+    axes = "all"
+  ) +
   scale_x_continuous(trans = "pseudo_log", breaks = c(0, 1, 10, 100, 1000), expand = expansion(0, 0)) +
   scale_y_continuous(trans = "log10", labels = label_percent()) +
   scale_colour_manual(name = "Time period", values = colour_pal) +
   plotting_theme +
-  labs(x = "Reported daily contacts",y = str_wrap("Percentage of participants reporting at least X contacts (%)",35))
+  labs(x = "Reported daily contacts", y = str_wrap("Percentage of participants reporting at least X contacts (%)", 35))
 
-ggsave("results/contacts_adjusted_ecdf.png",width=210,height=120,dpi=600,units="mm",bg="white")
+ggsave("results/contacts_adjusted_ecdf.png", width = 210, height = 120, dpi = 600, units = "mm", bg = "white")
 
 nbinom_plot <- contact_data %>%
   filter(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
@@ -192,8 +193,8 @@ nbinom_plot <- contact_data %>%
   ggh4x::facetted_pos_scales(y = list(scale_y_continuous(limits = c(0, NA), expand = expansion(c(0, 0.1))), scale_y_log10(limits = c(0.25, 3))))
 
 line_plot / dot_plot / nbinom_plot + plot_annotation(tag_levels = "A") + plot_layout(heights = c(1.5, 1, 1.5))
-ggsave("results/Fig2 - contacts.png", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
-ggsave("results/Fig2 - contacts.pdf", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
+ggsave("figures/fig1_contacts.png", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
+ggsave("figures/fig1_contacts.pdf", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
 
 # for supplement
 dot_plot_all <- contact_data %>%

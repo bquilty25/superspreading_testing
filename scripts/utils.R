@@ -44,6 +44,9 @@ if (packageVersion("tidytable") != "0.8.0") {
 seed <- 1000
 set.seed(seed)
 
+# Transmission scaling factor: calibrated in main.R so pre-pandemic mean R = target_R0
+beta_inf <- 1
+
 # plotting options
 covid_pal <- c("#e66101", "#5e3c99", "#0571b0")
 
@@ -547,10 +550,16 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
         rep(NA_integer_, n())
       },
       part_id = contact_dat$part_id[.row_idx],
-      hh_contacts  = if (heterogen_contacts[1]) contact_dat$e_home[.row_idx]
-                     else rpois(n(), mean_filter(period[1], contact_data, "e_home")),
-      nhh_contacts = if (heterogen_contacts[1]) contact_dat$e_other[.row_idx]
-                     else rpois(n(), mean_filter(period[1], contact_data, "e_other")),
+      hh_contacts = if (heterogen_contacts[1]) {
+        contact_dat$e_home[.row_idx]
+      } else {
+        rpois(n(), mean_filter(period[1], contact_data, "e_home"))
+      },
+      nhh_contacts = if (heterogen_contacts[1]) {
+        contact_dat$e_other[.row_idx]
+      } else {
+        rpois(n(), mean_filter(period[1], contact_data, "e_other"))
+      },
       .by = c(period, heterogen_contacts)
     ) %>%
     select.(-.row_idx)
@@ -563,25 +572,25 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
     contacts_hh_duration$cnt_duration,
     contacts_hh_duration$part_id
   )
-  
+
   lookup_period <- split(
     contacts_hh_duration$cnt_duration,
     contacts_hh_duration$period
   )
-  
+
   indiv_expanded <- indiv_params_long %>%
     uncount(hh_contacts, .id = "id", .remove = FALSE)
-  
+
   idx <- match(indiv_expanded$part_id, names(lookup))
-  
+
   period_vec <- as.character(indiv_expanded$period)
   # period_vec[period_vec == "Pre-pandemic"] <- "POLYMOD"
   period_vec[period_vec != "Pre-pandemic"] <- "Pandemic"
-  
+
   idx_period <- match(period_vec, names(lookup_period))
-  
+
   hh_duration <- numeric(length(idx))
-  
+
   for (i in seq_along(idx)) {
     vals <- lookup[[idx[i]]]
     if (is.null(vals)) {
@@ -589,7 +598,7 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
     }
     hh_duration[i] <- vals[sample.int(length(vals), 1)]
   }
-  
+
   hh_infections <- indiv_expanded %>%
     mutate(
       hh_duration = ifelse(
@@ -597,13 +606,13 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
         hh_duration,
         median(contacts_hh_duration$cnt_duration, na.rm = TRUE)
       ),
-      infected = rbernoulli(1, p = culture_p * hh_duration)
+      infected = rbernoulli(1, p = 1 - exp(-beta_inf * culture_p * hh_duration))
     ) %>%
     filter.(infected == T) %>%
     slice.(min(t), .by = c(all_of(key_grouping_var), hh_contacts, id)) %>%
     count.(t, all_of(key_grouping_var), hh_contacts, name = "hh_infected") %>%
     arrange.(sim)
-  
+
   rm(indiv_expanded)
   gc()
 
@@ -612,12 +621,12 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
     contacts_nhh_duration$cnt_duration,
     contacts_nhh_duration$part_id
   )
-  
+
   lookup_period <- split(
     contacts_nhh_duration$cnt_duration,
     contacts_nhh_duration$period
   )
-  
+
   indiv_expanded <- indiv_params_long %>%
     mutate.(
       nhh_contacts = if (!within_person_re && heterogen_contacts[1]) {
@@ -631,17 +640,17 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
       .by = all_of(key_grouping_var)
     ) %>%
     uncount.(nhh_contacts, .remove = F)
-  
+
   idx <- match(indiv_expanded$part_id, names(lookup))
-  
+
   period_vec <- as.character(indiv_expanded$period)
   # period_vec[period_vec == "Pre-pandemic"] <- "POLYMOD"
   period_vec[period_vec != "Pre-pandemic"] <- "Pandemic"
-  
+
   idx_period <- match(period_vec, names(lookup_period))
-  
+
   nhh_duration <- numeric(length(idx))
-  
+
   for (i in seq_along(idx)) {
     vals <- lookup[[idx[i]]]
     if (is.null(vals)) {
@@ -649,7 +658,7 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
     }
     nhh_duration[i] <- vals[sample.int(length(vals), 1)]
   }
-  
+
   nhh_infections <- indiv_expanded %>%
     # Simulate infections
     mutate.(
@@ -658,7 +667,7 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
         nhh_duration,
         median(contacts_nhh_duration$cnt_duration)
       ),
-      nhh_infected = rbernoulli(n = n(), p = culture_p * nhh_duration)
+      nhh_infected = rbernoulli(n = n(), p = 1 - exp(-beta_inf * culture_p * nhh_duration))
     ) %>%
     summarise.(nhh_infected = sum(nhh_infected), .by = c(t, all_of(key_grouping_var), nhh_contacts, test)) %>%
     # Testing: determine if and when testing + isolating by specified sampling frequency, adherence
@@ -677,7 +686,7 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
     ) %>%
     filter.(test_iso == F) %>%
     select.(everything(), -test_iso, -test, -earliest_pos, -test_day)
-  
+
   rm(indiv_expanded)
   gc()
 
@@ -692,6 +701,74 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
       total_contacts = nhh_contacts + hh_contacts,
       total_infections = nhh_infected + hh_infected
     )
+}
+
+# Calibrate beta_inf so that mean pre-pandemic secondary cases equals target_R0.
+# Uses a reduced number of simulations (n_calib) for speed during optimisation;
+# the calibrated value is then saved and re-used by all downstream scripts.
+calibrate_beta <- function(target_R0 = 2.5, n_calib = 2000, lower = 0.01, upper = 100) {
+  calib_scenarios <- crossing(time_periods) %>%
+    filter(period == "Pre-pandemic") %>%
+    mutate(scenario_id = row_number()) %>%
+    select(-c(date_start, date_end)) %>%
+    crossing(heterogen_contacts = TRUE)
+
+  traj_full_calib <- traj %>%
+    filter.(heterogen_vl == TRUE, sim <= n_calib)
+
+  # Build traj_processed internally — culture_p doesn't depend on beta_inf
+  traj_calib_processed <- traj_full_calib %>%
+    mutate.(infectiousness = pmap(inf_curve_func, .l = list(
+      m = m, start = start, end = end, interval = 1
+    ))) %>%
+    unnest.(infectiousness) %>%
+    crossing.(lower_inf_thresh = c(FALSE)) %>%
+    mutate.(
+      culture_p = culture_prob(vl, beta0, beta1),
+      infectious = rbernoulli(n = n(), p = pmin(culture_p * median_contact_duration, 1)),
+      test_p = stats::predict(
+        object = innova_mod, type = "response",
+        newdata = tidytable(vl = vl)
+      ),
+      test = rbernoulli(n = n(), p = test_p),
+      .by = c(lower_inf_thresh)
+    ) %>%
+    replace_na.(list(test = FALSE, infectious = FALSE)) %>%
+    select.(-c(prolif, start, end))
+
+  calib_testing <- traj_full_calib %>%
+    select.(-m) %>%
+    crossing.(
+      prop_self_iso_test = 0,
+      sampling_freq      = 7L,
+      event_size         = NA_real_
+    ) %>%
+    mutate.(
+      self_iso_test = FALSE,
+      begin_testing = 0L
+    )
+
+  obj_fn <- function(beta) {
+    beta_inf <<- beta
+    res <- run_model(
+      testing_scenarios = calib_testing,
+      scenarios         = calib_scenarios,
+      contact_dat       = contact_data,
+      traj_full         = traj_full_calib,
+      traj_processed    = traj_calib_processed,
+      within_person_re  = TRUE,
+      browsing          = FALSE
+    )
+    mean_R <- res %>%
+      group_by(sim) %>%
+      summarise(tot = sum(total_infections), .groups = "drop") %>%
+      pull(tot) %>%
+      mean()
+    message(sprintf("  beta_inf = %.4f  =>  mean R = %.4f  (target %.2f)", beta, mean_R, target_R0))
+    mean_R - target_R0
+  }
+
+  uniroot(obj_fn, interval = c(lower, upper), tol = 0.01)$root
 }
 
 # function to calculate the proportion above or below a defined threshold

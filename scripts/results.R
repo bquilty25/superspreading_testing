@@ -1,12 +1,22 @@
 #### Results ####
 source("scripts/utils.R")
 
+# Safe fitdist wrapper: returns NA estimates instead of crashing on degenerate data
+safe_nb_est <- function(x) {
+  tryCatch(
+    fitdist(x, "nbinom")$estimate,
+    error = function(e) c(mu = NA_real_, size = NA_real_)
+  )
+}
+
 # load simulation output
 processed_infections_baseline <- qread("results/processed_infections_baseline.qs")
 processed_infections_heterogen_on_off <- qread("results/processed_infections_heterogen_on_off.qs")
 processed_infections_testing <- qread("results/processed_infections_testing.qs")
 processed_infections_events <- qread("results/processed_infections_events.qs")
 processed_infections_sens <- qread("results/processed_infections_sens.qs")
+processed_infections_vl_sens <- qread("results/processed_infections_vl_sens.qs")
+processed_infections_testing_by_heterogen <- qread("results/processed_infections_testing_by_heterogen.qs")
 
 # inferred generation time
 processed_infections_baseline %>%
@@ -139,8 +149,8 @@ boot_res_sum %>%
   plotting_theme +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
-ggsave("results/Fig4 - R and k over time.png", width = 150, height = 100, dpi = 600, units = "mm", bg = "white")
-ggsave("results/Fig4 - R and k over time.pdf", width = 150, height = 100, units = "mm", bg = "white")
+ggsave("figures/fig3_rk.png", width = 150, height = 100, dpi = 600, units = "mm", bg = "white")
+ggsave("figures/fig3_rk.pdf", width = 150, height = 100, units = "mm", bg = "white")
 
 # heterogen_on_off
 tic()
@@ -254,8 +264,8 @@ write.csv(boot_res_heterogen_sum, "results/R_and_k_bootstrap_ests_heterogen.csv"
 )
 
 
-ggsave(heterogen_plot, file = "results/Fig5 - R and k heterogeneity.png", width = 200, height = 150, dpi = 600, units = "mm", bg = "white")
-ggsave(heterogen_plot, file = "results/Fig5 - R and k heterogeneity.pdf", width = 200, height = 150, units = "mm", bg = "white")
+ggsave(heterogen_plot, file = "figures/fig4_heterogen.png", width = 200, height = 150, dpi = 600, units = "mm", bg = "white")
+ggsave(heterogen_plot, file = "figures/fig4_heterogen.pdf", width = 200, height = 150, units = "mm", bg = "white")
 
 #### Sensitivity analysis ----
 
@@ -270,7 +280,7 @@ processed_infections_baseline %>%
   ) %>%
   summarise.(
     dists = list(fitdist(sum_inf, "nbinom")),
-    dist_means = list(fitdist(sum_inf, "nbinom")$estimate %>% enframe() %>% pivot_wider(names_from = name, values_from = value)),
+    dist_means = list(safe_nb_est(sum_inf) %>% enframe() %>% pivot_wider(names_from = name, values_from = value)),
     n = n(),
     ss_10 = sum(sum_inf > 10),
     ss_20 = sum(sum_inf > 20),
@@ -315,7 +325,7 @@ processed_infections_baseline %>%
   plotting_theme +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
-ggsave("results/R_and_k_contact_data_sensitivity.png", width = 200, height = 100, dpi = 600, units = "mm", bg = "white")
+ggsave("figures/fig_sensitivity.png", width = 200, height = 100, dpi = 600, units = "mm", bg = "white")
 
 processed_infections_baseline %>%
   # filter.(prop_self_iso_test==0,sampling_freq==3) %>%
@@ -337,7 +347,7 @@ testing_plot <- processed_infections_testing %>%
   summarise.(sum_inf = sum(total_infections), .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, event_size)) %>%
   summarise.(
     .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, event_size, -sim),
-    dist_means = list(fitdist(sum_inf, "nbinom")$estimate %>% enframe() %>% pivot_wider(names_from = name, values_from = value)),
+    dist_means = list(safe_nb_est(sum_inf) %>% enframe() %>% pivot_wider(names_from = name, values_from = value)),
     n = n(),
     ss_10 = sum(sum_inf > 10),
     ss_0 = sum(sum_inf <= 0)
@@ -393,7 +403,7 @@ events_plot <- processed_infections_events %>%
   summarise.(sum_inf = sum(total_infections), .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, event_size)) %>%
   summarise.(
     .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, event_size, -sim),
-    dist_means = list(fitdist(sum_inf, "nbinom")$estimate %>%
+    dist_means = list(safe_nb_est(sum_inf) %>%
       enframe() %>%
       pivot_wider(names_from = name, values_from = value)),
     n = n(),
@@ -448,145 +458,149 @@ ggsave("results/lft_impact_events.pdf", width = 210, height = 150, units = "mm",
 
 
 testing_plot / events_plot + plot_annotation(tag_levels = "A")
-ggsave("results/Fig6 - lft_plot.png", dpi = 600, width = 210, height = 325, units = "mm", bg = "white")
-ggsave("results/Fig6 - lft_plot.pdf", width = 210, height = 300, units = "mm", bg = "white")
-# #### Sensitivity analysis: amplified VL heterogeneity ----
-# 
-# processed_infections_vl_sens <- qread("results/processed_infections_vl_sens.qs")
-# processed_infections_testing_by_heterogen <- qread("results/processed_infections_testing_by_heterogen.qs")
-# 
-# # Bootstrap k for standard and amplified VL, both heteroge/homogeneous contacts
-# boot_res_vl_sens <- bind_rows(
-#   processed_infections_heterogen_on_off %>% mutate.(vl_sd_multiplier = "Standard (1x)"),
-#   processed_infections_vl_sens %>% mutate.(vl_sd_multiplier = "Amplified (2x SD)")
-# ) %>%
-#   summarise.(
-#     sum_inf = sum(total_infections),
-#     .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, vl_sd_multiplier)
-#   ) %>%
-#   summarise.(
-#     dists = list(bootdist(fitdist(sum_inf, "nbinom"),
-#       bootmethod = "nonparam", parallel = "multicore", ncpus = 8
-#     )$CI %>%
-#       as.data.frame() %>%
-#       rownames_to_column(var = "name") %>%
-#       rename("lo" = `2.5%`, "hi" = `97.5%`)),
-#     .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, vl_sd_multiplier, -sim)
-#   ) %>%
-#   unnest.(dists) %>%
-#   filter.(variant == "wild", name == "size") %>%
-#   mutate.(
-#     heterogen_label = case_when.(
-#       heterogen_vl & heterogen_contacts ~ "Variable VL, overdispersed contacts",
-#       heterogen_vl & !heterogen_contacts ~ "Variable VL, Poisson contacts",
-#       !heterogen_vl & heterogen_contacts ~ "Equal VL, overdispersed contacts",
-#       !heterogen_vl & !heterogen_contacts ~ "Equal VL, Poisson contacts"
-#     ),
-#     heterogen_label = fct_relevel(
-#       heterogen_label,
-#       "Variable VL, overdispersed contacts",
-#       "Variable VL, Poisson contacts",
-#       "Equal VL, overdispersed contacts",
-#       "Equal VL, Poisson contacts"
-#     ),
-#     vl_sd_multiplier = fct_relevel(vl_sd_multiplier, "Standard (1x)")
-#   )
-# 
-# vl_sens_plot <- boot_res_vl_sens %>%
-#   ggplot(aes(
-#     y = Median, ymin = lo, ymax = hi, x = period,
-#     colour = heterogen_label, fill = heterogen_label,
-#     group = heterogen_label, linetype = heterogen_label
-#   )) +
-#   geom_line() +
-#   geom_point() +
-#   geom_lineribbon(alpha = 0.25) +
-#   facet_wrap(~vl_sd_multiplier, ncol = 2) +
-#   scale_colour_manual(values = quad_col_pal) +
-#   scale_fill_manual(values = quad_col_pal) +
-#   scale_y_log10() +
-#   coord_cartesian(ylim = c(0.1, 10)) +
-#   labs(
-#     y = "Overdispersion (k)",
-#     x = "Time period",
-#     colour = "", fill = "", linetype = "",
-#     title = "Sensitivity: standard vs. amplified (2x SD) VL heterogeneity"
-#   ) +
-#   plotting_theme +
-#   theme(
-#     axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
-#     legend.direction = "vertical", legend.position = "bottom"
-#   )
-# 
-# ggsave(vl_sens_plot,
-#   file = "figures/fig_heterogen_vl_sens.png",
-#   width = 280, height = 150, dpi = 600, units = "mm", bg = "white"
-# )
-# ggsave(vl_sens_plot,
-#   file = "figures/fig_heterogen_vl_sens.pdf",
-#   width = 280, height = 150, units = "mm", bg = "white"
-# )
-# 
-# #### Additional figure: testing effectiveness by contact heterogeneity ----
-# 
-# testing_heterogen_plot <- processed_infections_testing_by_heterogen %>%
-#   summarise.(
-#     sum_inf = sum(total_infections),
-#     .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test)
-#   ) %>%
-#   summarise.(
-#     dist_means = list(fitdist(sum_inf, "nbinom")$estimate %>%
-#       enframe() %>% pivot_wider(names_from = name, values_from = value)),
-#     n = n(),
-#     ss_10 = sum(sum_inf > 10),
-#     ss_0 = sum(sum_inf <= 0),
-#     .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, -sim)
-#   ) %>%
-#   mutate.(prop_ss_10 = ss_10 / n * 100, prop_ss_0 = ss_0 / n * 100) %>%
-#   unnest.(dist_means) %>%
-#   pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>%
-#   mutate.(
-#     name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0"),
-#     contact_label = ifelse(heterogen_contacts, "Overdispersed contacts", "Poisson contacts")
-#   ) %>%
-#   filter.(variant == "wild") %>%
-#   drop_na.(sampling_freq) %>%
-#   ggplot(aes(
-#     y = value, x = prop_self_iso_test * 100,
-#     colour = factor(sampling_freq), linetype = contact_label,
-#     group = interaction(sampling_freq, contact_label)
-#   )) +
-#   geom_line() +
-#   geom_hline(aes(linetype2 = name, yintercept = 1), colour = quad_col_pal[1]) +
-#   scale_colour_manual(values = tri_col_pal) +
-#   facet_grid2(name ~ period,
-#     scales = "free_y", remove_labels = "x", axes = "all",
-#     labeller = labeller(name = c(
-#       "mu" = "R", "size" = "k",
-#       "prop_ss_0" = "Proportion infecting\n 0 others (%)",
-#       "prop_ss_10" = "Proportion infecting\n over 10 others (%)"
-#     )),
-#     switch = "y"
-#   ) +
-#   ggh4x::facetted_pos_scales(y = list(
-#     scale_y_continuous(limits = c(0, 3)),
-#     scale_y_log10(),
-#     scale_y_continuous(limits = c(0, NA)),
-#     scale_y_continuous(limits = c(0, NA))
-#   )) +
-#   labs(
-#     y = "", x = "Uptake of/adherence to lateral flow testing (%)",
-#     colour = "Testing frequency\n(days between tests)",
-#     linetype = "Contact distribution"
-#   ) +
-#   plotting_theme +
-#   theme(axis.text.x = element_text(angle = 0, vjust = 1, hjust = 1))
-# 
-# ggsave(testing_heterogen_plot,
-#   file = "figures/fig_testing_heterogen.png",
-#   width = 280, height = 200, dpi = 600, units = "mm", bg = "white"
-# )
-# ggsave(testing_heterogen_plot,
-#   file = "figures/fig_testing_heterogen.pdf",
-#   width = 280, height = 200, units = "mm", bg = "white"
-# )
+ggsave("figures/fig5_testing.png", dpi = 600, width = 210, height = 325, units = "mm", bg = "white")
+ggsave("figures/fig5_testing.pdf", width = 210, height = 300, units = "mm", bg = "white")
+#### Sensitivity analysis: amplified VL heterogeneity ----
+
+boot_res_vl_sens <- bind_rows(
+  processed_infections_heterogen_on_off %>% mutate.(vl_sd_multiplier = "Standard (1\u00d7 SD)"),
+  processed_infections_vl_sens %>% mutate.(vl_sd_multiplier = "Amplified (2\u00d7 SD)")
+) %>%
+  summarise.(
+    sum_inf = sum(total_infections),
+    .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, vl_sd_multiplier)
+  ) %>%
+  summarise.(
+    dists = list(bootdist(fitdist(sum_inf, "nbinom"),
+      bootmethod = "nonparam", parallel = "multicore", ncpus = 8
+    )$CI %>%
+      as.data.frame() %>%
+      rownames_to_column(var = "name") %>%
+      rename("lo" = `2.5%`, "hi" = `97.5%`)),
+    .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, vl_sd_multiplier, -sim)
+  ) %>%
+  unnest.(dists) %>%
+  filter.(
+    variant == "wild", name == "size",
+    !(heterogen_vl == FALSE & heterogen_contacts == FALSE)
+  ) %>%
+  mutate.(
+    heterogen_label = case_when.(
+      heterogen_vl & heterogen_contacts ~ "Variable VL, overdispersed contacts",
+      heterogen_vl & !heterogen_contacts ~ "Variable VL, Poisson contacts",
+      !heterogen_vl & heterogen_contacts ~ "Equal VL, overdispersed contacts",
+      !heterogen_vl & !heterogen_contacts ~ "Equal VL, Poisson contacts"
+    ),
+    heterogen_label = fct_relevel(
+      heterogen_label,
+      "Variable VL, overdispersed contacts",
+      "Variable VL, Poisson contacts",
+      "Equal VL, overdispersed contacts"
+    ),
+    vl_sd_multiplier = fct_relevel(vl_sd_multiplier, "Standard (1\u00d7 SD)")
+  )
+
+vl_sens_plot <- boot_res_vl_sens %>%
+  ggplot(aes(
+    y = Median, ymin = lo, ymax = hi, x = period,
+    colour = heterogen_label, fill = heterogen_label,
+    group = heterogen_label, linetype = heterogen_label
+  )) +
+  geom_line() +
+  geom_point() +
+  geom_lineribbon(alpha = 0.25) +
+  facet_wrap(~vl_sd_multiplier, ncol = 2) +
+  scale_colour_manual(values = quad_col_pal[1:3]) +
+  scale_fill_manual(values = quad_col_pal[1:3]) +
+  scale_y_log10() +
+  coord_cartesian(ylim = c(0.1, 1)) +
+  labs(
+    y = "Overdispersion (k)",
+    x = "Time period",
+    colour = "", fill = "", linetype = "",
+    caption = "Left: VL parameters as estimated from Kissler et al.\nRight: SDs of peak Ct, proliferation, and clearance all doubled."
+  ) +
+  plotting_theme +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+    legend.direction = "vertical", legend.position = "bottom"
+  )
+
+ggsave(vl_sens_plot,
+  file = "figures/fig_heterogen_vl_sens.png",
+  width = 280, height = 150, dpi = 600, units = "mm", bg = "white"
+)
+ggsave(vl_sens_plot,
+  file = "figures/fig_heterogen_vl_sens.pdf",
+  width = 280, height = 150, units = "mm", bg = "white"
+)
+#
+#### Additional figure: testing effectiveness by contact heterogeneity ----
+
+testing_heterogen_plot <- processed_infections_testing_by_heterogen %>%
+  summarise.(
+    sum_inf = sum(total_infections),
+    .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test)
+  ) %>%
+  summarise.(
+    dist_means = list(safe_nb_est(sum_inf) %>%
+      enframe() %>% pivot_wider(names_from = name, values_from = value)),
+    n = n(),
+    ss_10 = sum(sum_inf > 10),
+    ss_0 = sum(sum_inf <= 0),
+    .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, -sim)
+  ) %>%
+  mutate.(prop_ss_10 = ss_10 / n * 100, prop_ss_0 = ss_0 / n * 100) %>%
+  unnest.(dist_means) %>%
+  pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>%
+  mutate.(
+    name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0"),
+    contact_label = ifelse(heterogen_contacts, "Overdispersed contacts", "Poisson contacts")
+  ) %>%
+  filter.(variant == "wild") %>%
+  drop_na.(sampling_freq) %>%
+  ggplot(aes(
+    y = value, x = prop_self_iso_test * 100,
+    colour = factor(sampling_freq), linetype = contact_label,
+    group = interaction(sampling_freq, contact_label)
+  )) +
+  geom_line() +
+  geom_hline(
+    data = . %>% filter.(name == "mu"),
+    aes(yintercept = 1), colour = quad_col_pal[1], linetype = "dashed"
+  ) +
+  scale_colour_manual(values = tri_col_pal) +
+  scale_linetype_manual(values = c("solid", "dashed")) +
+  facet_grid2(name ~ period,
+    scales = "free_y", remove_labels = "x", axes = "all",
+    labeller = labeller(name = c(
+      "mu"          = "R",
+      "size"        = "k",
+      "prop_ss_0"   = "Proportion infecting\n0 others (%)",
+      "prop_ss_10"  = "Proportion infecting\n>10 others (%)"
+    )),
+    switch = "y"
+  ) +
+  ggh4x::facetted_pos_scales(y = list(
+    scale_y_continuous(limits = c(0, 3.5)),
+    scale_y_log10(),
+    scale_y_continuous(limits = c(0, NA)),
+    scale_y_continuous(limits = c(0, NA))
+  )) +
+  labs(
+    y = "",
+    x = "Uptake / adherence (%)",
+    colour = "Testing frequency\n(days between tests)",
+    linetype = "Contact distribution"
+  ) +
+  plotting_theme +
+  theme(axis.text.x = element_text(angle = 0, vjust = 1, hjust = 1))
+
+ggsave(testing_heterogen_plot,
+  file = "figures/fig_testing_heterogen.png",
+  width = 280, height = 200, dpi = 600, units = "mm", bg = "white"
+)
+ggsave(testing_heterogen_plot,
+  file = "figures/fig_testing_heterogen.pdf",
+  width = 280, height = 200, units = "mm", bg = "white"
+)
