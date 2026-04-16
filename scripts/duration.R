@@ -1,26 +1,26 @@
 contacts_duration <- qs::qread(file = "data/contacts_duration.qs")
 
 contacts_hh_duration <- contacts_duration %>%
-  drop_na(cnt_minutes_max) %>%
-  filter(cnt_household == 1) %>%
-  mutate(
+  drop_na.(cnt_minutes_max) %>%
+  filter.(cnt_household == 1) %>%
+  mutate.(
     cnt_duration = cnt_minutes_max / 1440,
     cnt_duration = ifelse(cnt_duration >= 1, 1, cnt_duration),
     period = ifelse(period %in% c("POLYMOD", "Pre-pandemic"), "Pre-pandemic", "Pandemic")
   ) %>%
-  select(part_id, cnt_duration, period)
+  select.(part_id, cnt_duration, period)
 
 contacts_nhh_duration <- contacts_duration %>%
-  drop_na(cnt_minutes_max) %>%
-  filter(cnt_household == 0) %>%
-  mutate(
+  drop_na.(cnt_minutes_max) %>%
+  filter.(cnt_household == 0) %>%
+  mutate.(
     cnt_duration = cnt_minutes_max / 1440,
     cnt_duration = ifelse(cnt_duration >= 1, 1, cnt_duration),
     period = ifelse(period %in% c("POLYMOD", "Pre-pandemic"), "Pre-pandemic", "Pandemic")
   ) %>%
-  select(part_id, cnt_duration, period)
+  select.(part_id, cnt_duration, period)
 
-median_contact_duration <- median(c(contacts_hh_duration[, cnt_duration], contacts_nhh_duration[, cnt_duration]), na.rm = TRUE)
+median_contact_duration <- median(c(contacts_hh_duration$cnt_duration, contacts_nhh_duration$cnt_duration), na.rm = TRUE)
 
 contacts_duration %>%
   group_by(cnt_household) %>%

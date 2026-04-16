@@ -380,7 +380,7 @@ testing_plot <- processed_infections_testing %>%
     switch = "y"
   ) +
   ggh4x::facetted_pos_scales(y = list(
-    scale_y_continuous(limits = c(0, 3.5)),
+    scale_y_continuous(limits = c(0, 3)),
     scale_y_log10(),
     scale_y_continuous(limits = c(0, NA)),
     scale_y_continuous(limits = c(0, NA))
@@ -439,7 +439,7 @@ events_plot <- processed_infections_events %>%
     switch = "y"
   ) +
   ggh4x::facetted_pos_scales(y = list(
-    scale_y_continuous(limits = c(0, 3.5)),
+    scale_y_continuous(limits = c(0, 3)),
     scale_y_log10(),
     scale_y_continuous(limits = c(0, NA)),
     scale_y_continuous(limits = c(0, NA))
@@ -581,7 +581,7 @@ testing_heterogen_plot <- processed_infections_testing_by_heterogen %>%
     switch = "y"
   ) +
   ggh4x::facetted_pos_scales(y = list(
-    scale_y_continuous(limits = c(0, 3.5)),
+    scale_y_continuous(limits = c(0, 3)),
     scale_y_log10(),
     scale_y_continuous(limits = c(0, NA)),
     scale_y_continuous(limits = c(0, NA))

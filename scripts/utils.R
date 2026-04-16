@@ -726,7 +726,7 @@ calibrate_beta <- function(target_R0 = 2.5, n_calib = 2000, lower = 0.01, upper 
     crossing.(lower_inf_thresh = c(FALSE)) %>%
     mutate.(
       culture_p = culture_prob(vl, beta0, beta1),
-      infectious = rbernoulli(n = n(), p = pmin(culture_p * median_contact_duration, 1)),
+      infectious = rbernoulli(n = n(), p = 1 - exp(-beta_inf * culture_p * median_contact_duration)),
       test_p = stats::predict(
         object = innova_mod, type = "response",
         newdata = tidytable(vl = vl)
