@@ -3,16 +3,6 @@ source("scripts/duration.R")
 
 dir.create("results/manuscript_figures", recursive = TRUE, showWarnings = FALSE)
 
-# Use calibrated beta_inf from main.R run (overrides beta_inf = 1 set in utils.R)
-if (file.exists("results/calibrated_beta.qs")) {
-  beta_inf <- qread("results/calibrated_beta.qs")
-} else {
-  message("results/calibrated_beta.qs not found — running calibration now ...")
-  beta_inf <- calibrate_beta(target_R0 = 2.5, n_calib = 2000)
-  message(sprintf("Calibrated beta_inf = %.4f", beta_inf))
-  qsave(beta_inf, "results/calibrated_beta.qs")
-}
-
 time_step <- 0.1
 n_sims <- 5000
 
@@ -30,6 +20,16 @@ infctsnss_params <- generate_params(culture_mod, n_sims) %>%
   mutate.(sim = row_number())
 
 traj <- traj %>% left_join.(infctsnss_params, by = "sim")
+
+# Use calibrated beta_inf from main.R run (overrides beta_inf = 1 set in utils.R)
+if (file.exists("results/calibrated_beta.qs")) {
+  beta_inf <- qread("results/calibrated_beta.qs")
+} else {
+  message("results/calibrated_beta.qs not found — running calibration now ...")
+  beta_inf <- calibrate_beta(target_R0 = 2.5, n_calib = 2000)
+  message(sprintf("Calibrated beta_inf = %.4f", beta_inf))
+  qsave(beta_inf, "results/calibrated_beta.qs")
+}
 
 plot_dat <- traj %>%
   mutate.(infectivity = pmap(inf_curve_func, .l = list(
