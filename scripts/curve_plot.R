@@ -1,6 +1,8 @@
 source("scripts/utils.R")
 source("scripts/duration.R")
 
+dir.create("results/manuscript_figures", recursive = TRUE, showWarnings = FALSE)
+
 # Use calibrated beta_inf from main.R run (overrides beta_inf = 1 set in utils.R)
 if (file.exists("results/calibrated_beta.qs")) {
   beta_inf <- qread("results/calibrated_beta.qs")
@@ -330,5 +332,5 @@ inf_plot <- prob_culture %>%
 
 # ((log_plot|inf_plot)/(violin_plot|auc_plot))+plot_annotation(tag_levels = "A")
 
-ggsave("figures/fig2_vl.png", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
-ggsave("figures/fig2_vl.pdf", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig2_vl.png", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig2_vl.pdf", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")

@@ -53,7 +53,7 @@ traj_ <- traj %>%
 
 # Calibrate beta_inf so pre-pandemic mean R matches target
 message("Calibrating beta_inf ...")
-beta_inf <- calibrate_beta(target_R0 = 2.5, n_calib = 2000)
+beta_inf <- calibrate_beta(target_R0 = 2.5, n_calib = 10000)
 message(sprintf("Calibrated beta_inf = %.4f", beta_inf))
 qsave(beta_inf, "results/calibrated_beta.qs")
 
@@ -242,7 +242,9 @@ traj_amplified <- vl_params_amplified %>%
   group_split.(variant, heterogen_vl) %>%
   map.(~ make_trajectories(
     n_sims = N_sims, asymp_parms = asymp_fraction,
-    variant_info = .x, browsing = F
+    variant_info = .x,
+    max_prolif = 28, max_clear = 60, max_peakvl = 80,
+    browsing = F
   )) %>%
   bind_rows.()
 

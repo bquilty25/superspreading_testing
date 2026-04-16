@@ -1,6 +1,8 @@
 # create figure 2
 source("scripts/utils.r")
 
+dir.create("results/manuscript_figures", recursive = TRUE, showWarnings = FALSE)
+
 colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b", "#d72638")
 
 (line_plot <- contact_data %>%
@@ -193,8 +195,8 @@ nbinom_plot <- contact_data %>%
   ggh4x::facetted_pos_scales(y = list(scale_y_continuous(limits = c(0, NA), expand = expansion(c(0, 0.1))), scale_y_log10(limits = c(0.25, 3))))
 
 line_plot / dot_plot / nbinom_plot + plot_annotation(tag_levels = "A") + plot_layout(heights = c(1.5, 1, 1.5))
-ggsave("figures/fig1_contacts.png", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
-ggsave("figures/fig1_contacts.pdf", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig1_contacts.png", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig1_contacts.pdf", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
 
 # for supplement
 dot_plot_all <- contact_data %>%

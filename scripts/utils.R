@@ -391,6 +391,9 @@ make_trajectories <- function(
     n_sims = 100,
     asymp_parms = asymp_fraction,
     variant_info,
+    max_prolif = 14,
+    max_clear = 30,
+    max_peakvl = 40,
     browsing = FALSE) {
   if (browsing) browser()
 
@@ -417,21 +420,21 @@ make_trajectories <- function(
       prolif = case_when.(
         heterogen_vl ~ rnormTrunc(
           n = n(), mean = mean_prolif,
-          sd = sd_prolif, min = 1, max = 14
+          sd = sd_prolif, min = 1, max = max_prolif
         ),
         TRUE ~ median(rnormTrunc(
           n = n(), mean = mean_prolif,
-          sd = sd_prolif, min = 1, max = 14
+          sd = sd_prolif, min = 1, max = max_prolif
         ))
       ),
       clear = case_when.(
         heterogen_vl ~ rnormTrunc(
           n = n(), mean = mean_clear,
-          sd = sd_clear, min = 1, max = 30
+          sd = sd_clear, min = 1, max = max_clear
         ),
         TRUE ~ median(rnormTrunc(
           n = n(), mean = mean_clear,
-          sd = sd_clear, min = 1, max = 30
+          sd = sd_clear, min = 1, max = max_clear
         ))
       ),
       end = prolif + clear,
@@ -452,12 +455,12 @@ make_trajectories <- function(
         heterogen_vl ~ rnormTrunc(
           n = n(),
           mean = mean_peakvl,
-          sd = sd_peakvl, min = 0, max = 40
+          sd = sd_peakvl, min = 0, max = max_peakvl
         ),
         TRUE ~ median(rnormTrunc(
           n = n(),
           mean = mean_peakvl,
-          sd = sd_peakvl, min = 0, max = 40
+          sd = sd_peakvl, min = 0, max = max_peakvl
         ))
       )
     )) %>%
@@ -584,7 +587,6 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
   idx <- match(indiv_expanded$part_id, names(lookup))
 
   period_vec <- as.character(indiv_expanded$period)
-  # period_vec[period_vec == "Pre-pandemic"] <- "POLYMOD"
   period_vec[period_vec != "Pre-pandemic"] <- "Pandemic"
 
   idx_period <- match(period_vec, names(lookup_period))
@@ -606,7 +608,7 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
         hh_duration,
         median(contacts_hh_duration$cnt_duration, na.rm = TRUE)
       ),
-      infected = rbernoulli(1, p = 1 - exp(-beta_inf * culture_p * hh_duration))
+      infected = rbernoulli(n(), p = 1 - exp(-beta_inf * culture_p * hh_duration))
     ) %>%
     filter.(infected == T) %>%
     slice.(min(t), .by = c(all_of(key_grouping_var), hh_contacts, id)) %>%
@@ -644,7 +646,6 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
   idx <- match(indiv_expanded$part_id, names(lookup))
 
   period_vec <- as.character(indiv_expanded$period)
-  # period_vec[period_vec == "Pre-pandemic"] <- "POLYMOD"
   period_vec[period_vec != "Pre-pandemic"] <- "Pandemic"
 
   idx_period <- match(period_vec, names(lookup_period))
@@ -750,6 +751,7 @@ calibrate_beta <- function(target_R0 = 2.5, n_calib = 2000, lower = 0.01, upper 
 
   obj_fn <- function(beta) {
     beta_inf <<- beta
+    set.seed(12345) # fixed seed so contact draws are identical every evaluation → smooth monotone objective
     res <- run_model(
       testing_scenarios = calib_testing,
       scenarios         = calib_scenarios,
@@ -768,7 +770,7 @@ calibrate_beta <- function(target_R0 = 2.5, n_calib = 2000, lower = 0.01, upper 
     mean_R - target_R0
   }
 
-  uniroot(obj_fn, interval = c(lower, upper), tol = 0.01)$root
+  uniroot(obj_fn, interval = c(lower, upper), tol = 0.001)$root
 }
 
 # function to calculate the proportion above or below a defined threshold

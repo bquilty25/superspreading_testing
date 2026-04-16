@@ -1,6 +1,8 @@
 #### Results ####
 source("scripts/utils.R")
 
+dir.create("results/manuscript_figures", recursive = TRUE, showWarnings = FALSE)
+
 # Safe fitdist wrapper: returns NA estimates instead of crashing on degenerate data
 safe_nb_est <- function(x) {
   tryCatch(
@@ -149,8 +151,8 @@ boot_res_sum %>%
   plotting_theme +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
-ggsave("figures/fig3_rk.png", width = 150, height = 100, dpi = 600, units = "mm", bg = "white")
-ggsave("figures/fig3_rk.pdf", width = 150, height = 100, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig3_rk.png", width = 150, height = 100, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig3_rk.pdf", width = 150, height = 100, units = "mm", bg = "white")
 
 # heterogen_on_off
 tic()
@@ -252,8 +254,6 @@ write.csv(boot_res_heterogen_sum, "results/R_and_k_bootstrap_ests_heterogen.csv"
   # geom_pointrange(fatten=4, alpha=0.5)+
   # scale_y_log10(limit=c(0.01,10))
   +
-  coord_cartesian(ylim = c(0.1, 1))
-  +
   plotting_theme +
   theme(
     axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
@@ -264,8 +264,8 @@ write.csv(boot_res_heterogen_sum, "results/R_and_k_bootstrap_ests_heterogen.csv"
 )
 
 
-ggsave(heterogen_plot, file = "figures/fig4_heterogen.png", width = 200, height = 150, dpi = 600, units = "mm", bg = "white")
-ggsave(heterogen_plot, file = "figures/fig4_heterogen.pdf", width = 200, height = 150, units = "mm", bg = "white")
+ggsave(heterogen_plot, file = "results/manuscript_figures/fig4_heterogen.png", width = 200, height = 150, dpi = 600, units = "mm", bg = "white")
+ggsave(heterogen_plot, file = "results/manuscript_figures/fig4_heterogen.pdf", width = 200, height = 150, units = "mm", bg = "white")
 
 #### Sensitivity analysis ----
 
@@ -325,7 +325,7 @@ processed_infections_baseline %>%
   plotting_theme +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
-ggsave("figures/fig_sensitivity.png", width = 200, height = 100, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_sensitivity.png", width = 200, height = 100, dpi = 600, units = "mm", bg = "white")
 
 processed_infections_baseline %>%
   # filter.(prop_self_iso_test==0,sampling_freq==3) %>%
@@ -458,8 +458,8 @@ ggsave("results/lft_impact_events.pdf", width = 210, height = 150, units = "mm",
 
 
 testing_plot / events_plot + plot_annotation(tag_levels = "A")
-ggsave("figures/fig5_testing.png", dpi = 600, width = 210, height = 325, units = "mm", bg = "white")
-ggsave("figures/fig5_testing.pdf", width = 210, height = 300, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig5_testing.png", dpi = 600, width = 210, height = 325, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig5_testing.pdf", width = 210, height = 300, units = "mm", bg = "white")
 #### Sensitivity analysis: amplified VL heterogeneity ----
 
 boot_res_vl_sens <- bind_rows(
@@ -513,7 +513,6 @@ vl_sens_plot <- boot_res_vl_sens %>%
   scale_colour_manual(values = quad_col_pal[1:3]) +
   scale_fill_manual(values = quad_col_pal[1:3]) +
   scale_y_log10() +
-  coord_cartesian(ylim = c(0.1, 1)) +
   labs(
     y = "Overdispersion (k)",
     x = "Time period",
@@ -527,11 +526,11 @@ vl_sens_plot <- boot_res_vl_sens %>%
   )
 
 ggsave(vl_sens_plot,
-  file = "figures/fig_heterogen_vl_sens.png",
+  file = "results/manuscript_figures/fig_heterogen_vl_sens.png",
   width = 280, height = 150, dpi = 600, units = "mm", bg = "white"
 )
 ggsave(vl_sens_plot,
-  file = "figures/fig_heterogen_vl_sens.pdf",
+  file = "results/manuscript_figures/fig_heterogen_vl_sens.pdf",
   width = 280, height = 150, units = "mm", bg = "white"
 )
 #
@@ -597,10 +596,10 @@ testing_heterogen_plot <- processed_infections_testing_by_heterogen %>%
   theme(axis.text.x = element_text(angle = 0, vjust = 1, hjust = 1))
 
 ggsave(testing_heterogen_plot,
-  file = "figures/fig_testing_heterogen.png",
+  file = "results/manuscript_figures/fig_testing_heterogen.png",
   width = 280, height = 200, dpi = 600, units = "mm", bg = "white"
 )
 ggsave(testing_heterogen_plot,
-  file = "figures/fig_testing_heterogen.pdf",
+  file = "results/manuscript_figures/fig_testing_heterogen.pdf",
   width = 280, height = 200, units = "mm", bg = "white"
 )
