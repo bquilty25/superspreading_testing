@@ -21,16 +21,6 @@ infctsnss_params <- generate_params(culture_mod, n_sims) %>%
 
 traj <- traj %>% left_join.(infctsnss_params, by = "sim")
 
-# Use calibrated beta_inf from main.R run (overrides beta_inf = 1 set in utils.R)
-if (file.exists("results/calibrated_beta.qs")) {
-  beta_inf <- qread("results/calibrated_beta.qs")
-} else {
-  message("results/calibrated_beta.qs not found — running calibration now ...")
-  beta_inf <- calibrate_beta(target_R0 = 2.5, n_calib = 2000)
-  message(sprintf("Calibrated beta_inf = %.4f", beta_inf))
-  qsave(beta_inf, "results/calibrated_beta.qs")
-}
-
 plot_dat <- traj %>%
   mutate.(infectivity = pmap(inf_curve_func, .l = list(
     m = m, start = start, end = end
@@ -41,7 +31,7 @@ plot_dat <- traj %>%
     culture_p = culture_prob(vl, beta0, beta1),
     infectious = rbernoulli(
       n = n(),
-      p = 1 - exp(-beta_inf * culture_p * median_contact_duration)
+      p = culture_p
     ),
     test_p = stats::predict(
       object = innova_mod,
@@ -132,13 +122,18 @@ log_plot <- plot_dat1 %>%
 ggsave("results/log_plot.png", dpi = 600, width = 210, height = 150, units = "mm", bg = "white")
 
 # Average number of days spent infectious
-plot_dat %>%
-  summarise.(n_inf = sum(infectious == T), .by = c(sim, heterogen_vl)) %>%
+days_inf <- plot_dat %>%
+  summarise.(n_inf = sum(infectious == T), .by = c(sim, heterogen_vl))
+
+days_inf %>%
+  count.(heterogen_vl,n_inf) %>%
+  mutate.(prop = n/sum(n), .by = heterogen_vl)
+
+days_inf %>%
   summarise.(q = list(quibble2(n_inf, c(0.025, 0.5, 0.975))), .by = heterogen_vl) %>%
   unnest.(q)
 
-days_inf_plot <- plot_dat %>%
-  summarise.(n_inf = sum(infectious == T), .by = c(sim, heterogen_vl)) %>%
+days_inf_plot <- days_inf %>%
   filter.(heterogen_vl == T) %>%
   mutate.(n_inf_days = floor(n_inf)) %>%
   ggplot() +
@@ -151,7 +146,7 @@ days_inf_plot <- plot_dat %>%
   ) +
   ylab("Probability") +
   scale_x_continuous(
-    name = "Number of days individuals infected contacts",
+    name = "Days infectious",
     breaks = breaks_width(1),
     expand = c(0.04, 0.04)
   ) +
@@ -176,7 +171,7 @@ culture_plot <- plot_dat1 %>%
     # ,
     alpha = 0.05
   ) +
-  ylab("Probability of infectivity") +
+  ylab("Relative infectivity") +
   scale_colour_gradient(high = bi_col_pal[2], low = bi_col_pal[1], guide = "none") +
   scale_x_continuous(name = "Days since first detectable by PCR (Ct<40)", breaks = breaks_width(5)) +
   # scale_y_log10(name="RNA copies/ml",labels=label_log())+
@@ -210,6 +205,15 @@ ggsave("results/days_inf_and_auc_plot.pdf", dpi = 600, width = 210, height = 100
 
 # log_plot/(auc_plot+cv_plot)+plot_annotation(tag_levels = "A")
 # ggsave("results/log_and_cv_plot.png",dpi=600,width=210,height=150,units="mm",bg="white")
+
+thresholds <- seq(0.5, 0.9, by = 0.1)
+plot_dat %>%
+  summarise.(vl = max(vl), 
+             culture_p = max(culture_p), 
+             .by = c(sim, heterogen_vl)) %>%
+  crossing.(threshold = thresholds) %>%
+  filter.(heterogen_vl == T) %>%
+  summarise.(prop = sum(culture_p > threshold)/n(), .by = threshold)
 
 
 # jitter_plot <- plot_dat %>%
@@ -334,3 +338,4 @@ inf_plot <- prob_culture %>%
 
 ggsave("results/manuscript_figures/fig2_vl.png", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig2_vl.pdf", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
+
