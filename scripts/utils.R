@@ -573,8 +573,8 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
       #   rpois(n(), mean_filter(period[1], contact_dat, "e_other"))
       # },
       .by = c(period, heterogen_contacts)
-    ) %>%
-    select.(-.row_idx)
+    ) #%>%
+    # select.(-.row_idx)
 
   indiv_params_long <- indiv_params %>%
     left_join.(traj_processed)
@@ -639,8 +639,12 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
   )
 
   lookup_nhh <- split(contact_dat$e_other, contact_dat$idx_id)
-  
+
+  mean_nhh_contacts <- contact_dat %>%
+    summarise(mean_e_other = mean(e_other, na.rm = TRUE), .by = period)
+    
   indiv_expanded <- indiv_params_long %>%
+    left_join.(mean_nhh_contacts, by = "period") %>%
     mutate.(idx = match(idx_id, names(lookup_nhh))) %>%
     mutate.(
       nhh_contacts = if (!within_person_re && heterogen_contacts[1]) {
@@ -654,13 +658,17 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
         # otherwise sample from Poisson distribution with mean number of NHH 
         # contacts for given time period
         if (heterogen_contacts[1]) {
-          vapply(idx, function(iid) {
-            if (is.na(iid) || length(lookup_nhh[[iid]]) == 0) return(NA_real_)
-            vals <- lookup_nhh[[iid]]
-            vals[sample.int(length(vals), 1)]
-          }, numeric(1))
+          if (period[1] == "Pre-pandemic"){
+            contact_dat$e_other[.row_idx]
+          } else {
+            vapply(idx, function(iid) {
+              if (is.na(iid) || length(lookup_nhh[[iid]]) == 0) return(NA_real_)
+              vals <- lookup_nhh[[iid]]
+              vals[sample.int(length(vals), 1)]
+            }, numeric(1))            
+          }
         } else {
-          rpois(n(), mean_filter(period[1], contact_dat, "e_other"))
+          rpois(n(), mean_e_other)
         }
       },
       .by = all_of(key_grouping_var)
