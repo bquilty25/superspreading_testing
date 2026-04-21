@@ -222,6 +222,10 @@ contact_data <- contacts_bbc %>%
   fuzzyjoin::fuzzy_inner_join(time_periods,
     by = c("date" = "date_start", "date" = "date_end"),
     match_fun = list(`>=`, `<=`)
+  ) %>%
+  mutate(
+    id = gsub("[A-Z][0-9]{1,2}_", "", part_id),
+    idx_id = paste(idx, id, sep = "_")
   )
 
 #### impute out of HH values > 250 for Pre-pandemic by fitting distribution to values from non-lockdown periods ----
@@ -257,7 +261,11 @@ dat_append <- data.frame(
       pull(e_home)
   )
 ) %>%
-  mutate(e_all = e_home + e_other, period = "Pre-pandemic", idx = 3)
+  mutate(e_all = e_home + e_other, period = "Pre-pandemic", 
+         idx = 0,
+         id = NA,
+         idx_id = paste(idx, id, sep = "_")
+  )
 
 # append to data
 contact_data_adjusted <- contact_data %>% bind_rows(dat_append)
@@ -553,16 +561,17 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
         rep(NA_integer_, n())
       },
       part_id = contact_dat$part_id[.row_idx],
+      idx_id = contact_dat$idx_id[.row_idx],
       hh_contacts = if (heterogen_contacts[1]) {
         contact_dat$e_home[.row_idx]
       } else {
-        rpois(n(), mean_filter(period[1], contact_data, "e_home"))
+        rpois(n(), mean_filter(period[1], contact_dat, "e_home"))
       },
-      nhh_contacts = if (heterogen_contacts[1]) {
-        contact_dat$e_other[.row_idx]
-      } else {
-        rpois(n(), mean_filter(period[1], contact_data, "e_other"))
-      },
+      # nhh_contacts = if (heterogen_contacts[1]) {
+      #   contact_dat$e_other[.row_idx]
+      # } else {
+      #   rpois(n(), mean_filter(period[1], contact_dat, "e_other"))
+      # },
       .by = c(period, heterogen_contacts)
     ) %>%
     select.(-.row_idx)
@@ -584,28 +593,28 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
   indiv_expanded <- indiv_params_long %>%
     uncount(hh_contacts, .id = "id", .remove = FALSE)
 
-  idx <- match(indiv_expanded$part_id, names(lookup))
+  idx_part <- match(indiv_expanded$part_id, names(lookup))
 
   period_vec <- as.character(indiv_expanded$period)
   period_vec[period_vec != "Pre-pandemic"] <- "Pandemic"
 
   idx_period <- match(period_vec, names(lookup_period))
 
-  hh_duration <- numeric(length(idx))
+  hh_duration_vec <- numeric(length(idx_part))
 
-  for (i in seq_along(idx)) {
-    vals <- lookup[[idx[i]]]
+  for (i in seq_along(idx_part)) {
+    vals <- lookup[[idx_part[i]]]
     if (is.null(vals)) {
       vals <- lookup_period[[idx_period[i]]]
     }
-    hh_duration[i] <- vals[sample.int(length(vals), 1)]
+    hh_duration_vec[i] <- vals[sample.int(length(vals), 1)]
   }
 
   hh_infections <- indiv_expanded %>%
     mutate(
       hh_duration = ifelse(
         heterogen_contacts,
-        hh_duration,
+        hh_duration_vec,
         median(contacts_hh_duration$cnt_duration, na.rm = TRUE)
       ),
       infected = rbernoulli(n(), p = 1 - exp(-beta_inf * culture_p * hh_duration))
@@ -629,35 +638,50 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
     contacts_nhh_duration$period
   )
 
+  lookup_nhh <- split(contact_dat$e_other, contact_dat$idx_id)
+  
   indiv_expanded <- indiv_params_long %>%
+    mutate.(idx = match(idx_id, names(lookup_nhh))) %>%
     mutate.(
       nhh_contacts = if (!within_person_re && heterogen_contacts[1]) {
         # within_person_re=FALSE: draw independently each day (old behaviour, no correlation)
         sample_filter(condition = period[1], df = contact_dat, col = "e_other", n = n())
       } else {
-        # within_person_re=TRUE: use value already drawn jointly with HH in indiv_params,
-        # preserving the empirical HH/NHH joint distribution.
-        nhh_contacts
+        # within_person_re=TRUE: 
+        # if heterogeneous contacts, sample NHH contacts from individual who HH 
+        # contacts were sampled from, to preserve the empirical HH/NHH joint
+        # distribution
+        # otherwise sample from Poisson distribution with mean number of NHH 
+        # contacts for given time period
+        if (heterogen_contacts[1]) {
+          vapply(idx, function(iid) {
+            if (is.na(iid) || length(lookup_nhh[[iid]]) == 0) return(NA_real_)
+            vals <- lookup_nhh[[iid]]
+            vals[sample.int(length(vals), 1)]
+          }, numeric(1))
+        } else {
+          rpois(n(), mean_filter(period[1], contact_dat, "e_other"))
+        }
       },
       .by = all_of(key_grouping_var)
     ) %>%
     uncount.(nhh_contacts, .remove = F)
 
-  idx <- match(indiv_expanded$part_id, names(lookup))
+  idx_part <- match(indiv_expanded$part_id, names(lookup))
 
   period_vec <- as.character(indiv_expanded$period)
   period_vec[period_vec != "Pre-pandemic"] <- "Pandemic"
 
   idx_period <- match(period_vec, names(lookup_period))
 
-  nhh_duration <- numeric(length(idx))
+  nhh_duration_vec <- numeric(length(idx_part))
 
-  for (i in seq_along(idx)) {
-    vals <- lookup[[idx[i]]]
+  for (i in seq_along(idx_part)) {
+    vals <- lookup[[idx_part[i]]]
     if (is.null(vals)) {
       vals <- lookup_period[[idx_period[i]]]
     }
-    nhh_duration[i] <- vals[sample.int(length(vals), 1)]
+    nhh_duration_vec[i] <- vals[sample.int(length(vals), 1)]
   }
 
   nhh_infections <- indiv_expanded %>%
@@ -665,7 +689,7 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
     mutate.(
       nhh_duration = ifelse(
         heterogen_contacts,
-        nhh_duration,
+        nhh_duration_vec,
         median(contacts_nhh_duration$cnt_duration)
       ),
       nhh_infected = rbernoulli(n = n(), p = 1 - exp(-beta_inf * culture_p * nhh_duration))

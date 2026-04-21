@@ -181,7 +181,7 @@ qsave(boot_res_heterogen, "results/R_and_k_bootstrap_ests_heterogen.qs")
 
 # other_est <- tribble(~study,~xmin,~xmax,~ymin,~ymax, ~y,
 #                      "Endo et al. 2020", -Inf, Inf, 0.05, 0.2, 0.1,
-#                      "Rio & Althaus 2020", -Inf, Inf, 0.014, 6.95, 0.54,
+#                      "Riou & Althaus 2020", -Inf, Inf, 0.014, 6.95, 0.54,
 #                      "Adam et al. 2020", -Inf, Inf, 0.45, 0.72, 0.58,
 #                      "Laxminarayan et al. 2020", -Inf, Inf, 0.49, 0.52, 0.51)
 
@@ -460,6 +460,7 @@ ggsave("results/lft_impact_events.pdf", width = 210, height = 150, units = "mm",
 testing_plot / events_plot + plot_annotation(tag_levels = "A")
 ggsave("results/manuscript_figures/fig5_testing.png", dpi = 600, width = 210, height = 325, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig5_testing.pdf", width = 210, height = 300, units = "mm", bg = "white")
+
 #### Sensitivity analysis: amplified VL heterogeneity ----
 
 boot_res_vl_sens <- bind_rows(
@@ -499,6 +500,7 @@ boot_res_vl_sens <- bind_rows(
     ),
     vl_sd_multiplier = fct_relevel(vl_sd_multiplier, "Standard (1\u00d7 SD)")
   )
+qsave(boot_res_vl_sens, "results/k_bootstrap_ests_vl_sens.qs")
 
 vl_sens_plot <- boot_res_vl_sens %>%
   ggplot(aes(
