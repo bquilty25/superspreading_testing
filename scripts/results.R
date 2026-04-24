@@ -269,7 +269,7 @@ ggsave(heterogen_plot, file = "results/manuscript_figures/fig4_heterogen.pdf", w
 
 #### Sensitivity analysis ----
 
-processed_infections_baseline %>%
+res_sens <- processed_infections_baseline %>%
   filter.(period == "Pre-pandemic") %>%
   mutate.(contacts = "Unadjusted") %>%
   bind_rows.(processed_infections_sens %>%
@@ -298,7 +298,9 @@ processed_infections_baseline %>%
     name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0"),
     contacts = fct_relevel(contacts, "Unadjusted")
   ) %>%
-  filter.(variant == "wild") %>%
+  filter.(variant == "wild") 
+
+res_sens %>%
   ggplot(aes(y = value, x = contacts, colour = name, group = name, shape = contacts)) +
   geom_point(show.legend = F) +
   # geom_text_repel(data=. %>% filter.(period=="Pre-pandemic",name=="mu"),
@@ -343,7 +345,7 @@ processed_infections_baseline %>%
 
 ## regular testing ----
 
-testing_plot <- processed_infections_testing %>%
+res_testing <- processed_infections_testing %>%
   summarise.(sum_inf = sum(total_infections), .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, event_size)) %>%
   summarise.(
     .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, event_size, -sim),
@@ -359,7 +361,9 @@ testing_plot <- processed_infections_testing %>%
   unnest.(dist_means) %>%
   filter.(variant == "wild") %>%
   pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>%
-  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) %>%
+  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) 
+
+testing_plot <- res_testing %>%
   ggplot(aes(y = value, x = prop_self_iso_test * 100, colour = factor(sampling_freq), group = sampling_freq)) +
   # geom_point()+
   geom_line() +
@@ -399,7 +403,7 @@ ggsave("results/lft_impact_testing.pdf", width = 210, height = 150, dpi = 600, u
 
 ## events ----
 
-events_plot <- processed_infections_events %>%
+res_events <- processed_infections_events %>%
   summarise.(sum_inf = sum(total_infections), .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, event_size)) %>%
   summarise.(
     .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, event_size, -sim),
@@ -418,7 +422,9 @@ events_plot <- processed_infections_events %>%
   drop_na.(event_size) %>%
   filter.(variant == "wild") %>%
   pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>%
-  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) %>%
+  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) 
+
+events_plot <- res_events %>%
   ggplot(aes(y = value, x = prop_self_iso_test * 100, colour = factor(event_size), group = event_size)) +
   # geom_point()+
   geom_line() +
@@ -501,6 +507,7 @@ boot_res_vl_sens <- bind_rows(
     vl_sd_multiplier = fct_relevel(vl_sd_multiplier, "Standard (1\u00d7 SD)")
   )
 qsave(boot_res_vl_sens, "results/k_bootstrap_ests_vl_sens.qs")
+write.csv(boot_res_vl_sens, "results/k_bootstrap_ests_vl_sens.csv")
 
 vl_sens_plot <- boot_res_vl_sens %>%
   ggplot(aes(
