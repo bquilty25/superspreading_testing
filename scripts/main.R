@@ -60,23 +60,29 @@ qsave(beta_inf, "results/calibrated_beta.qs")
 # Calibrate betas for heterogeneity-off combinations so that R0=2.5 in each case,
 # isolating the effect of heterogeneity on k rather than on both k and R0.
 message("Calibrating beta_inf (heterogen_vl=T, heterogen_contacts=F) ...")
-beta_inf_vl_on_contacts_off <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
-  heterogen_vl_flag = TRUE, heterogen_contacts_flag = FALSE)
+beta_inf_vl_on_contacts_off <- calibrate_beta(
+  target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = TRUE, heterogen_contacts_flag = FALSE
+)
 message(sprintf("Calibrated beta_inf (vl=T, contacts=F) = %.4f", beta_inf_vl_on_contacts_off))
 
 message("Calibrating beta_inf (heterogen_vl=F, heterogen_contacts=T) ...")
-beta_inf_vl_off_contacts_on <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
-  heterogen_vl_flag = FALSE, heterogen_contacts_flag = TRUE)
+beta_inf_vl_off_contacts_on <- calibrate_beta(
+  target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = FALSE, heterogen_contacts_flag = TRUE
+)
 message(sprintf("Calibrated beta_inf (vl=F, contacts=T) = %.4f", beta_inf_vl_off_contacts_on))
 
 message("Calibrating beta_inf (heterogen_vl=F, heterogen_contacts=F) ...")
-beta_inf_both_off <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
-  heterogen_vl_flag = FALSE, heterogen_contacts_flag = FALSE)
+beta_inf_both_off <- calibrate_beta(
+  target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = FALSE, heterogen_contacts_flag = FALSE
+)
 message(sprintf("Calibrated beta_inf (vl=F, contacts=F) = %.4f", beta_inf_both_off))
 
 qsave(
   list(
-    vl_on_contacts_on  = beta_inf,
+    vl_on_contacts_on = beta_inf,
     vl_on_contacts_off = beta_inf_vl_on_contacts_off,
     vl_off_contacts_on = beta_inf_vl_off_contacts_on,
     vl_off_contacts_off = beta_inf_both_off
@@ -124,9 +130,9 @@ time_periods_base_heterogen <- crossing(time_periods) %>%
   select(-c(date_start, date_end))
 
 heterogen_combos <- list(
-  list(het_vl = TRUE,  het_contacts = TRUE,  beta = beta_inf),
-  list(het_vl = TRUE,  het_contacts = FALSE, beta = beta_inf_vl_on_contacts_off),
-  list(het_vl = FALSE, het_contacts = TRUE,  beta = beta_inf_vl_off_contacts_on),
+  list(het_vl = TRUE, het_contacts = TRUE, beta = beta_inf),
+  list(het_vl = TRUE, het_contacts = FALSE, beta = beta_inf_vl_on_contacts_off),
+  list(het_vl = FALSE, het_contacts = TRUE, beta = beta_inf_vl_off_contacts_on),
   list(het_vl = FALSE, het_contacts = FALSE, beta = beta_inf_both_off)
 )
 
@@ -309,28 +315,36 @@ traj_amplified_ <- traj_amplified %>%
 # Calibrate betas for amplified VL analysis — one per heterogeneity combination
 # so R0=2.5 in each case, isolating heterogeneity effects on k.
 message("Calibrating beta_inf for amplified VL (het_vl=T, het_contacts=T) ...")
-beta_inf_amp_vl_on_contacts_on <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
-  heterogen_vl_flag = TRUE, heterogen_contacts_flag = TRUE, traj_data = traj_amplified)
+beta_inf_amp_vl_on_contacts_on <- calibrate_beta(
+  target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = TRUE, heterogen_contacts_flag = TRUE, traj_data = traj_amplified
+)
 message(sprintf("Calibrated beta_inf (amp, vl=T, contacts=T) = %.4f", beta_inf_amp_vl_on_contacts_on))
 
 message("Calibrating beta_inf for amplified VL (het_vl=T, het_contacts=F) ...")
-beta_inf_amp_vl_on_contacts_off <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
-  heterogen_vl_flag = TRUE, heterogen_contacts_flag = FALSE, traj_data = traj_amplified)
+beta_inf_amp_vl_on_contacts_off <- calibrate_beta(
+  target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = TRUE, heterogen_contacts_flag = FALSE, traj_data = traj_amplified
+)
 message(sprintf("Calibrated beta_inf (amp, vl=T, contacts=F) = %.4f", beta_inf_amp_vl_on_contacts_off))
 
 message("Calibrating beta_inf for amplified VL (het_vl=F, het_contacts=T) ...")
-beta_inf_amp_vl_off_contacts_on <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
-  heterogen_vl_flag = FALSE, heterogen_contacts_flag = TRUE, traj_data = traj_amplified)
+beta_inf_amp_vl_off_contacts_on <- calibrate_beta(
+  target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = FALSE, heterogen_contacts_flag = TRUE, traj_data = traj_amplified
+)
 message(sprintf("Calibrated beta_inf (amp, vl=F, contacts=T) = %.4f", beta_inf_amp_vl_off_contacts_on))
 
 message("Calibrating beta_inf for amplified VL (het_vl=F, het_contacts=F) ...")
-beta_inf_amp_vl_off_contacts_off <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
-  heterogen_vl_flag = FALSE, heterogen_contacts_flag = FALSE, traj_data = traj_amplified)
+beta_inf_amp_vl_off_contacts_off <- calibrate_beta(
+  target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = FALSE, heterogen_contacts_flag = FALSE, traj_data = traj_amplified
+)
 message(sprintf("Calibrated beta_inf (amp, vl=F, contacts=F) = %.4f", beta_inf_amp_vl_off_contacts_off))
 
 qsave(
   list(
-    vl_on_contacts_on  = beta_inf_amp_vl_on_contacts_on,
+    vl_on_contacts_on = beta_inf_amp_vl_on_contacts_on,
     vl_on_contacts_off = beta_inf_amp_vl_on_contacts_off,
     vl_off_contacts_on = beta_inf_amp_vl_off_contacts_on,
     vl_off_contacts_off = beta_inf_amp_vl_off_contacts_off
@@ -344,9 +358,9 @@ time_periods_base_amp <- crossing(time_periods) %>%
   select(-c(date_start, date_end))
 
 heterogen_combos_amp <- list(
-  list(het_vl = TRUE,  het_contacts = TRUE,  beta = beta_inf_amp_vl_on_contacts_on),
-  list(het_vl = TRUE,  het_contacts = FALSE, beta = beta_inf_amp_vl_on_contacts_off),
-  list(het_vl = FALSE, het_contacts = TRUE,  beta = beta_inf_amp_vl_off_contacts_on),
+  list(het_vl = TRUE, het_contacts = TRUE, beta = beta_inf_amp_vl_on_contacts_on),
+  list(het_vl = TRUE, het_contacts = FALSE, beta = beta_inf_amp_vl_on_contacts_off),
+  list(het_vl = FALSE, het_contacts = TRUE, beta = beta_inf_amp_vl_off_contacts_on),
   list(het_vl = FALSE, het_contacts = FALSE, beta = beta_inf_amp_vl_off_contacts_off)
 )
 
@@ -406,7 +420,7 @@ ts_testing_by_heterogen <- traj %>%
 beta_inf_saved <- beta_inf
 processed_infections_testing_by_heterogen <- map(
   list(
-    list(het_contacts = TRUE,  beta = beta_inf),
+    list(het_contacts = TRUE, beta = beta_inf),
     list(het_contacts = FALSE, beta = beta_inf_vl_on_contacts_off)
   ),
   function(combo) {

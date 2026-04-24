@@ -3,7 +3,8 @@ source("scripts/utils.r")
 
 dir.create("results/manuscript_figures", recursive = TRUE, showWarnings = FALSE)
 
-colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b", "#d72638")
+# Okabe-Ito colours for 3 contact-data time periods
+colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown=blue, school=green
 
 (line_plot <- contact_data %>%
   filter.(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
@@ -50,9 +51,10 @@ colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b"
       x = period,
       group = name,
       y = estimate * 100,
-      colour = fct_relevel(name, "over_5")
+      colour = fct_relevel(name, "over_5"),
+      shape = fct_relevel(name, "over_5")
     ),
-    size = 0.5
+    size = 2
   ) +
   geom_linerange(
     aes(
@@ -69,17 +71,25 @@ colour_pal <- c("#17877b", "#D7402B", "#055a8c", "#daa520", "#20bdcc", "#010f5b"
   scale_y_continuous("Percentage of participants (%)") +
   scale_x_discrete(expand = expansion(0, c(0.5, 0.5))) +
   guides(colour = guide_legend(nrow = 1)) +
-  scale_colour_brewer(
+  scale_colour_viridis_d(
     name = "Reported daily contacts",
-    palette = "Set2",
+    direction = -1,
     labels = c(
       "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
       "over_50" = "Over 50", "over_100" = "Over 100", "over_200" = "Over 200"
     )
   ) +
-  scale_fill_brewer(
+  scale_fill_viridis_d(
     name = "Reported daily contacts",
-    palette = "Set2",
+    direction = -1,
+    labels = c(
+      "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
+      "over_50" = "Over 50", "over_100" = "Over 100", "over_200" = "Over 200"
+    )
+  ) +
+  scale_shape_manual(
+    name = "Reported daily contacts",
+    values = c(16, 17, 15, 3, 4, 8),
     labels = c(
       "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
       "over_50" = "Over 50", "over_100" = "Over 100", "over_200" = "Over 200"
@@ -108,7 +118,7 @@ dot_plot <- contact_data %>%
   pivot_longer.(cols = c(e_home, e_other, e_all)) %>%
   mutate.(ecdf_x = ecdf(value)(value), .by = c(name, period)) %>%
   ggplot() +
-  geom_point(aes(x = value, y = 1 - ecdf_x, colour = period), alpha = 0.5) +
+  geom_point(aes(x = value, y = 1 - ecdf_x, colour = period, shape = period), alpha = 0.5) +
   facet_wrap2(~name,
     labeller = labeller(name = c(
       "e_all" = "All contacts",
@@ -120,6 +130,7 @@ dot_plot <- contact_data %>%
   scale_x_continuous(trans = "pseudo_log", breaks = c(0, 1, 10, 100, 1000), expand = expansion(0, 0)) +
   scale_y_continuous(trans = "log10", labels = label_percent()) +
   scale_colour_manual(name = "Time period", values = colour_pal) +
+  scale_shape_manual(name = "Time period", values = c(16, 17, 15)) +
   plotting_theme +
   labs(x = "Reported daily contacts", y = str_wrap("Percentage of participants reporting at least X contacts (%)", 35))
 
@@ -152,7 +163,7 @@ dot_plot_adjusted <- contact_data_adjusted %>%
   pivot_longer.(cols = c(e_home, e_other, e_all)) %>%
   mutate.(ecdf_x = ecdf(value)(value), .by = c(name, period)) %>%
   ggplot() +
-  geom_point(aes(x = value, y = 1 - ecdf_x, colour = period), alpha = 0.5) +
+  geom_point(aes(x = value, y = 1 - ecdf_x, colour = period, shape = period), alpha = 0.5) +
   facet_wrap2(~name,
     labeller = labeller(name = c(
       "e_all" = "All contacts",
@@ -164,6 +175,7 @@ dot_plot_adjusted <- contact_data_adjusted %>%
   scale_x_continuous(trans = "pseudo_log", breaks = c(0, 1, 10, 100, 1000), expand = expansion(0, 0)) +
   scale_y_continuous(trans = "log10", labels = label_percent()) +
   scale_colour_manual(name = "Time period", values = colour_pal) +
+  scale_shape_manual(name = "Time period", values = c(16, 17, 15)) +
   plotting_theme +
   labs(x = "Reported daily contacts", y = str_wrap("Percentage of participants reporting at least X contacts (%)", 35))
 

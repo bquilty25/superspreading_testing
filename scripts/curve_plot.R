@@ -126,8 +126,8 @@ days_inf <- plot_dat %>%
   summarise.(n_inf = sum(infectious == T), .by = c(sim, heterogen_vl))
 
 days_inf %>%
-  count.(heterogen_vl,n_inf) %>%
-  mutate.(prop = n/sum(n), .by = heterogen_vl)
+  count.(heterogen_vl, n_inf) %>%
+  mutate.(prop = n / sum(n), .by = heterogen_vl)
 
 days_inf %>%
   summarise.(q = list(quibble2(n_inf, c(0.025, 0.5, 0.975))), .by = heterogen_vl) %>%
@@ -142,7 +142,7 @@ days_inf_plot <- days_inf %>%
       x = n_inf_days,
       y = after_stat(count) / sum(after_stat(count))
     ),
-    fill = bi_col_pal[2]
+    fill = bi_col_pal[1]
   ) +
   ylab("Probability") +
   scale_x_continuous(
@@ -166,7 +166,7 @@ culture_plot <- plot_dat1 %>%
       group = sim,
       # colour=culture_p
     ),
-    colour = bi_col_pal[2],
+    colour = bi_col_pal[1],
     # colour=zoo::rollmean(culture_p,4,fill=0)
     # ,
     alpha = 0.05
@@ -208,12 +208,14 @@ ggsave("results/days_inf_and_auc_plot.pdf", dpi = 600, width = 210, height = 100
 
 thresholds <- seq(0.5, 0.9, by = 0.1)
 plot_dat %>%
-  summarise.(vl = max(vl), 
-             culture_p = max(culture_p), 
-             .by = c(sim, heterogen_vl)) %>%
+  summarise.(
+    vl = max(vl),
+    culture_p = max(culture_p),
+    .by = c(sim, heterogen_vl)
+  ) %>%
   crossing.(threshold = thresholds) %>%
   filter.(heterogen_vl == T) %>%
-  summarise.(prop = sum(culture_p > threshold)/n(), .by = threshold)
+  summarise.(prop = sum(culture_p > threshold) / n(), .by = threshold)
 
 
 # jitter_plot <- plot_dat %>%
@@ -338,4 +340,3 @@ inf_plot <- prob_culture %>%
 
 ggsave("results/manuscript_figures/fig2_vl.png", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig2_vl.pdf", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
-

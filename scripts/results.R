@@ -140,8 +140,8 @@ boot_res_sum %>%
     scale_y_continuous(limits = c(0, NA))
   )) +
   geom_hline(aes(linetype = name, yintercept = 1), colour = quad_col_pal[1]) +
-  scale_colour_manual(values = rep(bi_col_pal, length.out = 5), guide = "none") +
-  scale_fill_manual(values = rep(bi_col_pal, length.out = 5), guide = "none") +
+  scale_colour_manual(values = rep(bi_col_pal[1], 5), guide = "none") +
+  scale_fill_manual(values = rep(bi_col_pal[1], 5), guide = "none") +
   scale_linetype_manual(values = c("dashed", NA, NA, NA, NA), guide = "none") +
   lims(y = c(0, NA)) +
   labs(
@@ -185,43 +185,81 @@ qsave(boot_res_heterogen, "results/R_and_k_bootstrap_ests_heterogen.qs")
 #                      "Adam et al. 2020", -Inf, Inf, 0.45, 0.72, 0.58,
 #                      "Laxminarayan et al. 2020", -Inf, Inf, 0.49, 0.52, 0.51)
 
+add_heterogen_labels <- function(df) {
+  df %>%
+    mutate.(
+      heterogen_label = case_when.(
+        heterogen_vl & heterogen_contacts ~ "Variable viral load, overdispersed contacts",
+        heterogen_vl & !heterogen_contacts ~ "Variable viral load, Poisson contacts",
+        !heterogen_vl & heterogen_contacts ~ "Equal viral load, overdispersed contacts"
+      ),
+      heterogen_label = fct_relevel(
+        heterogen_label,
+        "Variable viral load, overdispersed contacts",
+        "Variable viral load, Poisson contacts",
+        "Equal viral load, overdispersed contacts"
+      ),
+      heterogen_vl = ifelse(heterogen_vl, "Heterogeneous viral load", "Homogeneous viral load"),
+      heterogen_contacts = ifelse(heterogen_contacts, "Heterogeneous contacts", "Homogeneous contacts")
+    )
+}
+
 boot_res_heterogen_sum <- boot_res_heterogen %>%
   unnest.(dists) %>%
-  # pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>%
   mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) %>%
   filter.(
     variant == "wild",
     name %in% c("size"),
     !(heterogen_vl == FALSE & heterogen_contacts == FALSE)
   ) %>%
-  mutate.(
-    heterogen_label = case_when.(
-      heterogen_vl & heterogen_contacts ~ "Variable viral load, overdispersed contacts",
-      heterogen_vl & !heterogen_contacts ~ "Variable viral load, Poisson contacts",
-      !heterogen_vl & heterogen_contacts ~ "Equal viral load, overdispersed contacts"
-    ),
-    heterogen_label = fct_relevel(
-      heterogen_label,
-      "Variable viral load, overdispersed contacts",
-      "Variable viral load, Poisson contacts",
-      "Equal viral load, overdispersed contacts"
-    ),
-    heterogen_vl = ifelse(heterogen_vl, "Heterogeneous viral load", "Homogeneous viral load"),
-    heterogen_contacts = ifelse(heterogen_contacts, "Heterogeneous contacts", "Homogeneous contacts")
-  )
+  add_heterogen_labels()
+
+prop_dat_heterogen <- processed_infections_heterogen_on_off %>%
+  summarise.(
+    sum_inf = sum(total_infections),
+    .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test)
+  ) %>%
+  summarise.(
+    props = list({
+      x <- sum_inf
+      B <- 2000
+      boot_ss10 <- replicate(B, mean(sample(x, length(x), replace = TRUE) > 10) * 100)
+      boot_ss0  <- replicate(B, mean(sample(x, length(x), replace = TRUE) <= 0) * 100)
+      tidytable(
+        name    = c("prop_ss_10", "prop_ss_0"),
+        Median  = c(mean(x > 10) * 100, mean(x <= 0) * 100),
+        lo      = c(quantile(boot_ss10, 0.025), quantile(boot_ss0, 0.025)),
+        hi      = c(quantile(boot_ss10, 0.975), quantile(boot_ss0, 0.975))
+      )
+    }),
+    .by = c(all_of(key_grouping_var), sampling_freq, prop_self_iso_test, -sim)
+  ) %>%
+  unnest.(props) %>%
+  filter.(
+    variant == "wild",
+    !(heterogen_vl == FALSE & heterogen_contacts == FALSE)
+  ) %>%
+  add_heterogen_labels()
+
+boot_res_heterogen_sum <- bind_rows.(boot_res_heterogen_sum, prop_dat_heterogen) %>%
+  mutate.(name = fct_relevel(name, "size", "prop_ss_10", "prop_ss_0"))
+
 write.csv(boot_res_heterogen_sum, "results/R_and_k_bootstrap_ests_heterogen.csv")
 
 (heterogen_plot <- (boot_res_heterogen_sum %>% ggplot(aes(y = Median, ymin = lo, ymax = hi, x = period, colour = name)) +
   geom_line(aes(colour = heterogen_label, fill = heterogen_label, group = heterogen_label, linetype = heterogen_label)) +
-  geom_point(aes(colour = heterogen_label, fill = heterogen_label, group = heterogen_label, linetype = heterogen_label)) +
-  geom_lineribbon(aes(colour = heterogen_label, fill = heterogen_label, group = heterogen_label, linetype = heterogen_label),
+  geom_point(aes(colour = heterogen_label, fill = heterogen_label, group = heterogen_label, linetype = heterogen_label, shape = heterogen_label)) +
+  geom_lineribbon(
+    data = . %>% filter.(name == "size"),
+    aes(colour = heterogen_label, fill = heterogen_label, group = heterogen_label, linetype = heterogen_label),
     alpha = 0.4
   ) +
-  scale_colour_manual(values = quad_col_pal[1:3]) +
-  scale_fill_manual(values = quad_col_pal[1:3]) +
-  # scale_linetype_manual(values=c("solid","dashed","dashed"))+
+  scale_colour_manual(values = c(bi_col_pal[1], bi_col_pal[2], bi_col_pal[1])) +
+  scale_fill_manual(values = c(bi_col_pal[1], bi_col_pal[2], bi_col_pal[1])) +
+  scale_linetype_manual(values = c("solid", "solid", "dashed"), name = "") +
+  scale_shape_manual(values = c(16, 17, 1), name = "") +
   labs(
-    y = "", # "Mean parameter value",
+    y = "",
     x = "Time period",
     linetype = "",
     colour = "",
@@ -237,23 +275,15 @@ write.csv(boot_res_heterogen_sum, "results/R_and_k_bootstrap_ests_heterogen.csv"
       name = c(
         "mu" = "Mean R", "size" = "Overdispersion (k)",
         "prop_ss_0" = "Proportion infecting\n 0 others (%)",
-        "prop_ss_10" = "Proportion infecting\n over 10 others (%)"
-      ),
-      heterogen_vl = c(
-        "TRUE" = "Variable viral load trajectory",
-        "FALSE" = "Same viral load trajectory"
-      ),
-      heterogen_contacts = c(
-        "TRUE" = "Variable contacts",
-        "FALSE" = "Same contacts"
+        "prop_ss_10" = "Proportion infecting\n >10 others (%)"
       )
     )
   ) +
-  scale_y_log10() #|
-  # ggplot(other_est,aes(x=study, ymin=ymin, ymax=ymax, y = y, colour=study))+
-  # geom_pointrange(fatten=4, alpha=0.5)+
-  # scale_y_log10(limit=c(0.01,10))
-  +
+  ggh4x::facetted_pos_scales(y = list(
+    scale_y_log10(expand = expansion(mult = 0.15)),
+    scale_y_continuous(limits = c(0, NA)),
+    scale_y_continuous(limits = c(0, NA))
+  )) +
   plotting_theme +
   theme(
     axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
@@ -264,8 +294,58 @@ write.csv(boot_res_heterogen_sum, "results/R_and_k_bootstrap_ests_heterogen.csv"
 )
 
 
-ggsave(heterogen_plot, file = "results/manuscript_figures/fig4_heterogen.png", width = 200, height = 150, dpi = 600, units = "mm", bg = "white")
-ggsave(heterogen_plot, file = "results/manuscript_figures/fig4_heterogen.pdf", width = 200, height = 150, units = "mm", bg = "white")
+ggsave(heterogen_plot, file = "results/manuscript_figures/fig4_heterogen.png", width = 200, height = 220, dpi = 600, units = "mm", bg = "white")
+ggsave(heterogen_plot, file = "results/manuscript_figures/fig4_heterogen.pdf", width = 200, height = 220, units = "mm", bg = "white")
+
+#### Heterogeneity input distributions plot ----
+
+het_vl_curves <- processed_infections_heterogen_on_off %>%
+  filter.(period == "Pre-pandemic", heterogen_contacts == TRUE, sim <= 500) %>%
+  mutate.(
+    vl_label = ifelse(heterogen_vl, "Variable viral load", "Equal viral load (median trajectory)")
+  ) %>%
+  ggplot(aes(x = t, y = culture_p, group = interaction(sim, heterogen_vl))) +
+  geom_line(
+    data = . %>% filter.(heterogen_vl == TRUE),
+    colour = bi_col_pal[1], alpha = 0.05
+  ) +
+  geom_line(
+    data = . %>% filter.(heterogen_vl == FALSE, sim == 1),
+    colour = bi_col_pal[2], linewidth = 1.2
+  ) +
+  scale_x_continuous(name = "Days since infection", breaks = breaks_width(5)) +
+  scale_y_continuous(name = "Relative infectivity (culture probability)", limits = c(0, 1)) +
+  annotate("text", x = Inf, y = Inf, label = "Variable VL (individual curves)",
+    hjust = 1.1, vjust = 2, colour = bi_col_pal[1], size = 3.5) +
+  annotate("text", x = Inf, y = Inf, label = "Equal VL (median trajectory)",
+    hjust = 1.1, vjust = 3.8, colour = bi_col_pal[2], size = 3.5) +
+  plotting_theme
+
+het_contacts_dat <- processed_infections_heterogen_on_off %>%
+  filter.(period == "Pre-pandemic", heterogen_vl == TRUE) %>%
+  summarise.(daily_contacts = mean(total_contacts), .by = c(sim, heterogen_contacts)) %>%
+  mutate.(contacts_label = ifelse(heterogen_contacts, "Overdispersed contacts", "Poisson contacts (mean)"))
+
+het_contacts_plot <- het_contacts_dat %>%
+  ggplot(aes(x = daily_contacts, fill = contacts_label, colour = contacts_label)) +
+  geom_density(alpha = 0.4, adjust = 1.5) +
+  scale_x_continuous(name = "Mean daily contacts over infectious period", limits = c(0, NA)) +
+  scale_y_continuous(name = "Density") +
+  scale_fill_manual(values = c("Overdispersed contacts" = bi_col_pal[1],
+                               "Poisson contacts (mean)" = bi_col_pal[2])) +
+  scale_colour_manual(values = c("Overdispersed contacts" = bi_col_pal[1],
+                                 "Poisson contacts (mean)" = bi_col_pal[2])) +
+  labs(fill = "", colour = "") +
+  plotting_theme +
+  theme(legend.position = "bottom")
+
+het_inputs_plot <- het_vl_curves / het_contacts_plot +
+  plot_annotation(tag_levels = "A")
+
+ggsave(het_inputs_plot, file = "results/manuscript_figures/fig_heterogen_inputs.png",
+  width = 160, height = 200, dpi = 600, units = "mm", bg = "white")
+ggsave(het_inputs_plot, file = "results/manuscript_figures/fig_heterogen_inputs.pdf",
+  width = 160, height = 200, units = "mm", bg = "white")
 
 #### Sensitivity analysis ----
 
@@ -361,15 +441,13 @@ res_testing <- processed_infections_testing %>%
   unnest.(dist_means) %>%
   filter.(variant == "wild") %>%
   pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>%
-  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) 
-
-testing_plot <- res_testing %>%
-  ggplot(aes(y = value, x = prop_self_iso_test * 100, colour = factor(sampling_freq), group = sampling_freq)) +
+  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) %>%
+  ggplot(aes(y = value, x = prop_self_iso_test * 100, colour = factor(sampling_freq), group = sampling_freq, linetype = factor(sampling_freq))) +
   # geom_point()+
   geom_line() +
-  geom_hline(aes(linetype = name, yintercept = 1), colour = quad_col_pal[1]) +
+  geom_hline(data = ~ .x[.x$name == "mu", ], aes(yintercept = 1), colour = bi_col_pal[1], linetype = "dashed") +
   scale_colour_manual(values = tri_col_pal) +
-  scale_linetype_manual(values = c("dashed", NA, NA, NA), guide = "none") +
+  scale_linetype_manual(values = c("solid", "dashed", "dotted"), name = "Testing frequency (days between tests)") +
   facet_grid2(name ~ period,
     # scales="free",
     scales = "free_y",
@@ -422,15 +500,13 @@ res_events <- processed_infections_events %>%
   drop_na.(event_size) %>%
   filter.(variant == "wild") %>%
   pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>%
-  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) 
-
-events_plot <- res_events %>%
-  ggplot(aes(y = value, x = prop_self_iso_test * 100, colour = factor(event_size), group = event_size)) +
+  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) %>%
+  ggplot(aes(y = value, x = prop_self_iso_test * 100, colour = factor(event_size), group = event_size, linetype = factor(event_size))) +
   # geom_point()+
   geom_line() +
-  geom_hline(aes(linetype = name, yintercept = 1), colour = quad_col_pal[1]) +
+  geom_hline(data = ~ .x[.x$name == "mu", ], aes(yintercept = 1), colour = bi_col_pal[1], linetype = "dashed") +
   scale_colour_manual(values = tri_col_pal) +
-  scale_linetype_manual(values = c("dashed", NA, NA, NA), guide = "none") +
+  scale_linetype_manual(values = c("solid", "dashed", "dotted"), name = "Minimum event size\nto prompt testing") +
   facet_grid2(name ~ period,
     # scales="free",
     scales = "free_y",
@@ -516,11 +592,13 @@ vl_sens_plot <- boot_res_vl_sens %>%
     group = heterogen_label, linetype = heterogen_label
   )) +
   geom_line() +
-  geom_point() +
+  geom_point(aes(shape = heterogen_label)) +
   geom_lineribbon(alpha = 0.25) +
   facet_wrap(~vl_sd_multiplier, ncol = 2) +
-  scale_colour_manual(values = quad_col_pal[1:3]) +
-  scale_fill_manual(values = quad_col_pal[1:3]) +
+  scale_colour_manual(values = c(bi_col_pal[1], bi_col_pal[2], bi_col_pal[1])) +
+  scale_fill_manual(values = c(bi_col_pal[1], bi_col_pal[2], bi_col_pal[1])) +
+  scale_linetype_manual(values = c("solid", "solid", "dashed"), name = "") +
+  scale_shape_manual(values = c(16, 17, 1), name = "") +
   scale_y_log10() +
   labs(
     y = "Overdispersion (k)",

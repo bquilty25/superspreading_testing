@@ -74,9 +74,10 @@ plotting_theme <- theme_minimal(
     )
   )
 
-bi_col_pal <- c("#396EB0", "#FC997C")
-tri_col_pal <- c("#396EB0", "#DADDFC", "#FC997C")
-quad_col_pal <- c("#2E4C6D", "#396EB0", "#DADDFC", "#FC997C")
+# Okabe-Ito colourblind-safe palette
+bi_col_pal   <- c("#0072B2", "#D55E00")           # blue, vermillion
+tri_col_pal  <- c("#0072B2", "#E69F00", "#D55E00") # blue, orange, vermillion
+quad_col_pal <- c("#000000", "#0072B2", "#E69F00", "#D55E00") # black, blue, orange, vermillion
 
 capitalize <- function(string) {
   substr(string, 1, 1) <- toupper(substr(string, 1, 1))
@@ -261,10 +262,11 @@ dat_append <- data.frame(
       pull(e_home)
   )
 ) %>%
-  mutate(e_all = e_home + e_other, period = "Pre-pandemic", 
-         idx = 0,
-         id = NA,
-         idx_id = paste(idx, id, sep = "_")
+  mutate(
+    e_all = e_home + e_other, period = "Pre-pandemic",
+    idx = 0,
+    id = NA,
+    idx_id = paste(idx, id, sep = "_")
   )
 
 # append to data
@@ -573,8 +575,8 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
       #   rpois(n(), mean_filter(period[1], contact_dat, "e_other"))
       # },
       .by = c(period, heterogen_contacts)
-    ) #%>%
-    # select.(-.row_idx)
+    ) # %>%
+  # select.(-.row_idx)
 
   indiv_params_long <- indiv_params %>%
     left_join.(traj_processed)
@@ -642,7 +644,7 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
 
   mean_nhh_contacts <- contact_dat %>%
     summarise(mean_e_other = mean(e_other, na.rm = TRUE), .by = period)
-    
+
   indiv_expanded <- indiv_params_long %>%
     left_join.(mean_nhh_contacts, by = "period") %>%
     mutate.(idx = match(idx_id, names(lookup_nhh))) %>%
@@ -651,21 +653,23 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
         # within_person_re=FALSE: draw independently each day (old behaviour, no correlation)
         sample_filter(condition = period[1], df = contact_dat, col = "e_other", n = n())
       } else {
-        # within_person_re=TRUE: 
-        # if heterogeneous contacts, sample NHH contacts from individual who HH 
+        # within_person_re=TRUE:
+        # if heterogeneous contacts, sample NHH contacts from individual who HH
         # contacts were sampled from, to preserve the empirical HH/NHH joint
         # distribution
-        # otherwise sample from Poisson distribution with mean number of NHH 
+        # otherwise sample from Poisson distribution with mean number of NHH
         # contacts for given time period
         if (heterogen_contacts[1]) {
-          if (period[1] == "Pre-pandemic"){
+          if (period[1] == "Pre-pandemic") {
             contact_dat$e_other[.row_idx]
           } else {
             vapply(idx, function(iid) {
-              if (is.na(iid) || length(lookup_nhh[[iid]]) == 0) return(NA_real_)
+              if (is.na(iid) || length(lookup_nhh[[iid]]) == 0) {
+                return(NA_real_)
+              }
               vals <- lookup_nhh[[iid]]
               vals[sample.int(length(vals), 1)]
-            }, numeric(1))            
+            }, numeric(1))
           }
         } else {
           rpois(n(), mean_e_other)
