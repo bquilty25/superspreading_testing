@@ -52,10 +52,37 @@ traj_ <- traj %>%
   select.(-c(prolif, start, end))
 
 # Calibrate beta_inf so pre-pandemic mean R matches target
-message("Calibrating beta_inf ...")
+message("Calibrating beta_inf (heterogen_vl=T, heterogen_contacts=T) ...")
 beta_inf <- calibrate_beta(target_R0 = 2.5, n_calib = 10000)
 message(sprintf("Calibrated beta_inf = %.4f", beta_inf))
 qsave(beta_inf, "results/calibrated_beta.qs")
+
+# Calibrate betas for heterogeneity-off combinations so that R0=2.5 in each case,
+# isolating the effect of heterogeneity on k rather than on both k and R0.
+message("Calibrating beta_inf (heterogen_vl=T, heterogen_contacts=F) ...")
+beta_inf_vl_on_contacts_off <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = TRUE, heterogen_contacts_flag = FALSE)
+message(sprintf("Calibrated beta_inf (vl=T, contacts=F) = %.4f", beta_inf_vl_on_contacts_off))
+
+message("Calibrating beta_inf (heterogen_vl=F, heterogen_contacts=T) ...")
+beta_inf_vl_off_contacts_on <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = FALSE, heterogen_contacts_flag = TRUE)
+message(sprintf("Calibrated beta_inf (vl=F, contacts=T) = %.4f", beta_inf_vl_off_contacts_on))
+
+message("Calibrating beta_inf (heterogen_vl=F, heterogen_contacts=F) ...")
+beta_inf_both_off <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = FALSE, heterogen_contacts_flag = FALSE)
+message(sprintf("Calibrated beta_inf (vl=F, contacts=F) = %.4f", beta_inf_both_off))
+
+qsave(
+  list(
+    vl_on_contacts_on  = beta_inf,
+    vl_on_contacts_off = beta_inf_vl_on_contacts_off,
+    vl_off_contacts_on = beta_inf_vl_off_contacts_on,
+    vl_off_contacts_off = beta_inf_both_off
+  ),
+  "results/calibrated_betas.qs"
+)
 
 # baseline
 testing_scenarios <- traj %>%
@@ -88,32 +115,41 @@ qsave(processed_infections_baseline, "results/processed_infections_baseline.qs")
 rm(processed_infections_baseline)
 gc()
 
-# heterogen onoff
+# heterogen onoff — beta recalibrated per combination so R0=2.5 in all cases
 
-testing_scenarios <- traj %>%
-  select.(-m) %>%
-  crossing.(
-    prop_self_iso_test = c(0),
-    sampling_freq = NA,
-    event_size = NA
-  ) %>%
-  mutate.(
-    self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
-    begin_testing = rdunif(n(), 0, sampling_freq)
-  )
-
-time_periods_of_interest <-
-  crossing(time_periods) %>%
+time_periods_base_heterogen <- crossing(time_periods) %>%
   filter(date_end < as.Date("2021-01-01"), period != "POLYMOD") %>%
   # filter(period%in%c("Pre-pandemic","1st lockdown","School reopening")) %>%
   mutate(scenario_id = row_number()) %>%
-  select(-c(date_start, date_end)) %>%
-  crossing(heterogen_contacts = c(T, F))
+  select(-c(date_start, date_end))
 
-processed_infections_heterogen_on_off <- run_model(testing_scenarios = testing_scenarios, contact_dat = contact_data, scenarios = time_periods_of_interest, browsing = F)
+heterogen_combos <- list(
+  list(het_vl = TRUE,  het_contacts = TRUE,  beta = beta_inf),
+  list(het_vl = TRUE,  het_contacts = FALSE, beta = beta_inf_vl_on_contacts_off),
+  list(het_vl = FALSE, het_contacts = TRUE,  beta = beta_inf_vl_off_contacts_on),
+  list(het_vl = FALSE, het_contacts = FALSE, beta = beta_inf_both_off)
+)
 
-rm(testing_scenarios)
-rm(time_periods_of_interest)
+beta_inf_saved <- beta_inf
+processed_infections_heterogen_on_off <- map(heterogen_combos, function(combo) {
+  beta_inf <<- combo$beta
+  ts <- traj %>%
+    filter.(heterogen_vl == combo$het_vl) %>%
+    select.(-m) %>%
+    crossing.(prop_self_iso_test = c(0), sampling_freq = NA, event_size = NA) %>%
+    mutate.(
+      self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
+      begin_testing = rdunif(n(), 0, sampling_freq)
+    )
+  run_model(
+    testing_scenarios = ts,
+    contact_dat = contact_data,
+    scenarios = time_periods_base_heterogen %>% crossing(heterogen_contacts = combo$het_contacts),
+    browsing = F
+  )
+}) %>% bind_rows()
+beta_inf <- beta_inf_saved
+rm(beta_inf_saved, time_periods_base_heterogen, heterogen_combos)
 
 print("heterogen on/off done")
 qsave(processed_infections_heterogen_on_off, "results/processed_infections_heterogen_on_off.qs")
@@ -269,35 +305,74 @@ traj_amplified_ <- traj_amplified %>%
   replace_na.(list(test = FALSE, infectious = FALSE)) %>%
   select.(-c(prolif, start, end))
 
-testing_scenarios <- traj_amplified %>%
-  select.(-m) %>%
-  crossing.(
-    prop_self_iso_test = c(0),
-    sampling_freq = NA,
-    event_size = NA
-  ) %>%
-  mutate.(
-    self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
-    begin_testing = rdunif(n(), 0, sampling_freq)
-  )
 
-time_periods_of_interest <- crossing(time_periods) %>%
-  filter(date_end < as.Date("2021-01-01"), period != "POLYMOD") %>%
-  mutate(scenario_id = row_number()) %>%
-  select(-c(date_start, date_end)) %>%
-  crossing(heterogen_contacts = c(T, F))
+# Calibrate betas for amplified VL analysis — one per heterogeneity combination
+# so R0=2.5 in each case, isolating heterogeneity effects on k.
+message("Calibrating beta_inf for amplified VL (het_vl=T, het_contacts=T) ...")
+beta_inf_amp_vl_on_contacts_on <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = TRUE, heterogen_contacts_flag = TRUE, traj_data = traj_amplified)
+message(sprintf("Calibrated beta_inf (amp, vl=T, contacts=T) = %.4f", beta_inf_amp_vl_on_contacts_on))
 
-processed_infections_vl_sens <- run_model(
-  testing_scenarios = testing_scenarios,
-  contact_dat       = contact_data,
-  scenarios         = time_periods_of_interest,
-  traj_full         = traj_amplified,
-  traj_processed    = traj_amplified_,
-  browsing          = F
+message("Calibrating beta_inf for amplified VL (het_vl=T, het_contacts=F) ...")
+beta_inf_amp_vl_on_contacts_off <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = TRUE, heterogen_contacts_flag = FALSE, traj_data = traj_amplified)
+message(sprintf("Calibrated beta_inf (amp, vl=T, contacts=F) = %.4f", beta_inf_amp_vl_on_contacts_off))
+
+message("Calibrating beta_inf for amplified VL (het_vl=F, het_contacts=T) ...")
+beta_inf_amp_vl_off_contacts_on <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = FALSE, heterogen_contacts_flag = TRUE, traj_data = traj_amplified)
+message(sprintf("Calibrated beta_inf (amp, vl=F, contacts=T) = %.4f", beta_inf_amp_vl_off_contacts_on))
+
+message("Calibrating beta_inf for amplified VL (het_vl=F, het_contacts=F) ...")
+beta_inf_amp_vl_off_contacts_off <- calibrate_beta(target_R0 = 2.5, n_calib = 10000,
+  heterogen_vl_flag = FALSE, heterogen_contacts_flag = FALSE, traj_data = traj_amplified)
+message(sprintf("Calibrated beta_inf (amp, vl=F, contacts=F) = %.4f", beta_inf_amp_vl_off_contacts_off))
+
+qsave(
+  list(
+    vl_on_contacts_on  = beta_inf_amp_vl_on_contacts_on,
+    vl_on_contacts_off = beta_inf_amp_vl_on_contacts_off,
+    vl_off_contacts_on = beta_inf_amp_vl_off_contacts_on,
+    vl_off_contacts_off = beta_inf_amp_vl_off_contacts_off
+  ),
+  "results/calibrated_betas_amplified.qs"
 )
 
-rm(testing_scenarios)
-rm(time_periods_of_interest)
+time_periods_base_amp <- crossing(time_periods) %>%
+  filter(date_end < as.Date("2021-01-01"), period != "POLYMOD") %>%
+  mutate(scenario_id = row_number()) %>%
+  select(-c(date_start, date_end))
+
+heterogen_combos_amp <- list(
+  list(het_vl = TRUE,  het_contacts = TRUE,  beta = beta_inf_amp_vl_on_contacts_on),
+  list(het_vl = TRUE,  het_contacts = FALSE, beta = beta_inf_amp_vl_on_contacts_off),
+  list(het_vl = FALSE, het_contacts = TRUE,  beta = beta_inf_amp_vl_off_contacts_on),
+  list(het_vl = FALSE, het_contacts = FALSE, beta = beta_inf_amp_vl_off_contacts_off)
+)
+
+beta_inf_saved <- beta_inf
+processed_infections_vl_sens <- map(heterogen_combos_amp, function(combo) {
+  beta_inf <<- combo$beta
+  ts <- traj_amplified %>%
+    filter.(heterogen_vl == combo$het_vl) %>%
+    select.(-m) %>%
+    crossing.(prop_self_iso_test = c(0), sampling_freq = NA, event_size = NA) %>%
+    mutate.(
+      self_iso_test = rbernoulli(n = n(), prop_self_iso_test),
+      begin_testing = rdunif(n(), 0, sampling_freq)
+    )
+  run_model(
+    testing_scenarios = ts,
+    contact_dat       = contact_data,
+    scenarios         = time_periods_base_amp %>% crossing(heterogen_contacts = combo$het_contacts),
+    traj_full         = traj_amplified,
+    traj_processed    = traj_amplified_,
+    browsing          = F
+  )
+}) %>% bind_rows()
+beta_inf <- beta_inf_saved
+rm(beta_inf_saved, time_periods_base_amp, heterogen_combos_amp)
+
 rm(traj_amplified, traj_amplified_, vl_params_amplified)
 
 print("sens 2 done")
@@ -309,7 +384,12 @@ gc()
 # Addresses reviewer request to show whether testing has a differential
 # impact in a model with versus without contact heterogeneity.
 
-testing_scenarios <- traj %>%
+time_periods_base_testing <- crossing(time_periods) %>%
+  filter(period %in% c("Pre-pandemic", "1st lockdown", "School reopening")) %>%
+  mutate(scenario_id = row_number()) %>%
+  select(-c(date_start, date_end))
+
+ts_testing_by_heterogen <- traj %>%
   filter.(heterogen_vl == T) %>%
   select.(-m) %>%
   crossing.(
@@ -322,21 +402,25 @@ testing_scenarios <- traj %>%
     begin_testing = rdunif(n(), 0, sampling_freq)
   )
 
-time_periods_of_interest <- crossing(time_periods) %>%
-  filter(period %in% c("Pre-pandemic", "1st lockdown", "School reopening")) %>%
-  mutate(scenario_id = row_number()) %>%
-  select(-c(date_start, date_end)) %>%
-  crossing(heterogen_contacts = c(T, F))
-
-processed_infections_testing_by_heterogen <- run_model(
-  testing_scenarios = testing_scenarios,
-  contact_dat       = contact_data,
-  scenarios         = time_periods_of_interest,
-  browsing          = F
-)
-
-rm(testing_scenarios)
-rm(time_periods_of_interest)
+# Run separately for heterogen_contacts = T and F so each uses R0=2.5-calibrated beta
+beta_inf_saved <- beta_inf
+processed_infections_testing_by_heterogen <- map(
+  list(
+    list(het_contacts = TRUE,  beta = beta_inf),
+    list(het_contacts = FALSE, beta = beta_inf_vl_on_contacts_off)
+  ),
+  function(combo) {
+    beta_inf <<- combo$beta
+    run_model(
+      testing_scenarios = ts_testing_by_heterogen,
+      contact_dat       = contact_data,
+      scenarios         = time_periods_base_testing %>% crossing(heterogen_contacts = combo$het_contacts),
+      browsing          = F
+    )
+  }
+) %>% bind_rows()
+beta_inf <- beta_inf_saved
+rm(beta_inf_saved, time_periods_base_testing, ts_testing_by_heterogen)
 
 print("testing by heterogen done")
 qsave(processed_infections_testing_by_heterogen, "results/processed_infections_testing_by_heterogen.qs")

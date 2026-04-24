@@ -739,15 +739,22 @@ run_model <- function(testing_scenarios, scenarios, contact_dat = contact_data,
 # Calibrate beta_inf so that mean pre-pandemic secondary cases equals target_R0.
 # Uses a reduced number of simulations (n_calib) for speed during optimisation;
 # the calibrated value is then saved and re-used by all downstream scripts.
-calibrate_beta <- function(target_R0 = 2.5, n_calib = 2000, lower = 0.01, upper = 100) {
+calibrate_beta <- function(target_R0 = 2.5, n_calib = 2000, lower = 0.01, upper = 100,
+                           heterogen_vl_flag = TRUE, heterogen_contacts_flag = TRUE,
+                           traj_data = NULL) {
+  if (is.null(traj_data)) traj_data <- traj
+  # Save and restore global beta_inf so multiple calibration calls do not clobber each other
+  beta_inf_saved_calib <- beta_inf
+  on.exit(beta_inf <<- beta_inf_saved_calib)
+
   calib_scenarios <- crossing(time_periods) %>%
     filter(period == "Pre-pandemic") %>%
     mutate(scenario_id = row_number()) %>%
     select(-c(date_start, date_end)) %>%
-    crossing(heterogen_contacts = TRUE)
+    crossing(heterogen_contacts = heterogen_contacts_flag)
 
-  traj_full_calib <- traj %>%
-    filter.(heterogen_vl == TRUE, sim <= n_calib)
+  traj_full_calib <- traj_data %>%
+    filter.(heterogen_vl == heterogen_vl_flag, sim <= n_calib)
 
   # Build traj_processed internally — culture_p doesn't depend on beta_inf
   traj_calib_processed <- traj_full_calib %>%
@@ -802,7 +809,7 @@ calibrate_beta <- function(target_R0 = 2.5, n_calib = 2000, lower = 0.01, upper 
     mean_R - target_R0
   }
 
-  uniroot(obj_fn, interval = c(lower, upper), tol = 0.001)$root
+  uniroot(obj_fn, interval = c(lower, upper), tol = 0.01)$root
 }
 
 # function to calculate the proportion above or below a defined threshold
