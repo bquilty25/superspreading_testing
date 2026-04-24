@@ -4,8 +4,7 @@
 .RData
 .Ruserdata
 *.fst
-*.qs
-!results/calibrated_beta.qs
+processed*.qs
 processing/
 data/comix/comix_shared/
 data/contacts.qs
