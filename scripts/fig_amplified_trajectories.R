@@ -97,14 +97,15 @@ plot_dat1 <- traj %>%
 
 sd_colours <- c("Normal SD" = tri_col_pal[1], "Amplified SD" = bi_col_pal[2])
 
-# Precompute median trajectories for panels A and C
+# Reference (median) trajectories: heterogen_vl = FALSE (deterministic median params)
 log_median <- plot_dat1 %>%
-    filter.(heterogen_vl == TRUE) %>%
-    summarise.(median_vl = 10^median(vl), .by = c(t, sd_type))
+    filter.(heterogen_vl == FALSE) %>%
+    mutate.(vl = 10^vl) %>%
+    summarise.(median_vl = mean(vl), .by = c(t, sd_type))
 
 culture_median <- plot_dat1 %>%
-    filter.(heterogen_vl == TRUE) %>%
-    summarise.(median_culture_p = median(culture_p), .by = c(t, sd_type))
+    filter.(heterogen_vl == FALSE) %>%
+    summarise.(median_culture_p = mean(culture_p), .by = c(t, sd_type))
 
 # --- log_plot: spaghetti of VL trajectories -----------------------------------
 log_plot <- plot_dat1 %>%

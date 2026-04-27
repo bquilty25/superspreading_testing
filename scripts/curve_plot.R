@@ -79,14 +79,15 @@ plot_dat1 <- traj %>%
   )) %>%
   select.(-c(prolif, start, end))
 
-# Precompute median trajectories for panels A and C
+# Reference (median) trajectories: heterogen_vl = FALSE (deterministic median params)
 log_median <- plot_dat1 %>%
-  filter.(heterogen_vl == TRUE) %>%
-  summarise.(median_vl = 10^median(vl), .by = t)
+  filter.(heterogen_vl == FALSE) %>%
+  mutate.(vl = 10^vl) %>%
+  summarise.(median_vl = mean(vl), .by = t)
 
 culture_median <- plot_dat1 %>%
-  filter.(heterogen_vl == TRUE) %>%
-  summarise.(median_culture_p = median(culture_p), .by = t)
+  filter.(heterogen_vl == FALSE) %>%
+  summarise.(median_culture_p = mean(culture_p), .by = t)
 
 log_plot <- plot_dat1 %>%
   filter.(sim <= 1000, heterogen_vl == TRUE) %>%
