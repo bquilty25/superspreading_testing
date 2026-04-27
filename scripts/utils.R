@@ -75,8 +75,8 @@ plotting_theme <- theme_minimal(
   )
 
 # Okabe-Ito colourblind-safe palette
-bi_col_pal   <- c("#0072B2", "#D55E00")           # blue, vermillion
-tri_col_pal  <- c("#0072B2", "#E69F00", "#D55E00") # blue, orange, vermillion
+bi_col_pal <- c("#0072B2", "#D55E00") # blue, vermillion
+tri_col_pal <- c("#0072B2", "#E69F00", "#D55E00") # blue, orange, vermillion
 quad_col_pal <- c("#000000", "#0072B2", "#E69F00", "#D55E00") # black, blue, orange, vermillion
 
 capitalize <- function(string) {

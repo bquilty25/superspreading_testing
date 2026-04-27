@@ -224,7 +224,7 @@ prop_dat_heterogen <- processed_infections_heterogen_on_off %>%
       x <- sum_inf
       B <- 2000
       boot_ss10 <- replicate(B, mean(sample(x, length(x), replace = TRUE) > 10) * 100)
-      boot_ss0  <- replicate(B, mean(sample(x, length(x), replace = TRUE) <= 0) * 100)
+      boot_ss0 <- replicate(B, mean(sample(x, length(x), replace = TRUE) <= 0) * 100)
       tidytable(
         name    = c("prop_ss_10", "prop_ss_0"),
         Median  = c(mean(x > 10) * 100, mean(x <= 0) * 100),
@@ -315,10 +315,14 @@ het_vl_curves <- processed_infections_heterogen_on_off %>%
   ) +
   scale_x_continuous(name = "Days since infection", breaks = breaks_width(5)) +
   scale_y_continuous(name = "Relative infectivity (culture probability)", limits = c(0, 1)) +
-  annotate("text", x = Inf, y = Inf, label = "Variable VL (individual curves)",
-    hjust = 1.1, vjust = 2, colour = bi_col_pal[1], size = 3.5) +
-  annotate("text", x = Inf, y = Inf, label = "Equal VL (median trajectory)",
-    hjust = 1.1, vjust = 3.8, colour = bi_col_pal[2], size = 3.5) +
+  annotate("text",
+    x = Inf, y = Inf, label = "Variable VL (individual curves)",
+    hjust = 1.1, vjust = 2, colour = bi_col_pal[1], size = 3.5
+  ) +
+  annotate("text",
+    x = Inf, y = Inf, label = "Equal VL (median trajectory)",
+    hjust = 1.1, vjust = 3.8, colour = bi_col_pal[2], size = 3.5
+  ) +
   plotting_theme
 
 het_contacts_dat <- processed_infections_heterogen_on_off %>%
@@ -331,10 +335,14 @@ het_contacts_plot <- het_contacts_dat %>%
   geom_density(alpha = 0.4, adjust = 1.5) +
   scale_x_continuous(name = "Mean daily contacts over infectious period", limits = c(0, NA)) +
   scale_y_continuous(name = "Density") +
-  scale_fill_manual(values = c("Overdispersed contacts" = bi_col_pal[1],
-                               "Poisson contacts (mean)" = bi_col_pal[2])) +
-  scale_colour_manual(values = c("Overdispersed contacts" = bi_col_pal[1],
-                                 "Poisson contacts (mean)" = bi_col_pal[2])) +
+  scale_fill_manual(values = c(
+    "Overdispersed contacts" = bi_col_pal[1],
+    "Poisson contacts (mean)" = bi_col_pal[2]
+  )) +
+  scale_colour_manual(values = c(
+    "Overdispersed contacts" = bi_col_pal[1],
+    "Poisson contacts (mean)" = bi_col_pal[2]
+  )) +
   labs(fill = "", colour = "") +
   plotting_theme +
   theme(legend.position = "bottom")
@@ -342,10 +350,14 @@ het_contacts_plot <- het_contacts_dat %>%
 het_inputs_plot <- het_vl_curves / het_contacts_plot +
   plot_annotation(tag_levels = "A")
 
-ggsave(het_inputs_plot, file = "results/manuscript_figures/fig_heterogen_inputs.png",
-  width = 160, height = 200, dpi = 600, units = "mm", bg = "white")
-ggsave(het_inputs_plot, file = "results/manuscript_figures/fig_heterogen_inputs.pdf",
-  width = 160, height = 200, units = "mm", bg = "white")
+ggsave(het_inputs_plot,
+  file = "results/manuscript_figures/fig_heterogen_inputs.png",
+  width = 160, height = 200, dpi = 600, units = "mm", bg = "white"
+)
+ggsave(het_inputs_plot,
+  file = "results/manuscript_figures/fig_heterogen_inputs.pdf",
+  width = 160, height = 200, units = "mm", bg = "white"
+)
 
 #### Sensitivity analysis ----
 
