@@ -209,6 +209,7 @@ nbinom_plot <- contact_data %>%
 line_plot / dot_plot / nbinom_plot + plot_annotation(tag_levels = "A") + plot_layout(heights = c(1.5, 1, 1.5))
 ggsave("results/manuscript_figures/fig1_contacts.png", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig1_contacts.pdf", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig1_contacts.eps", width = 210, height = 320, units = "mm", device = cairo_ps)
 
 # for supplement
 dot_plot_all <- contact_data %>%

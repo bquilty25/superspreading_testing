@@ -153,6 +153,7 @@ boot_res_sum %>%
 
 ggsave("results/manuscript_figures/fig3_rk.png", width = 150, height = 100, dpi = 600, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig3_rk.pdf", width = 150, height = 100, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig3_rk.eps", width = 150, height = 100, units = "mm", device = cairo_ps)
 
 # heterogen_on_off
 tic()
@@ -296,6 +297,7 @@ write.csv(boot_res_heterogen_sum, "results/R_and_k_bootstrap_ests_heterogen.csv"
 
 ggsave(heterogen_plot, file = "results/manuscript_figures/fig4_heterogen.png", width = 200, height = 220, dpi = 600, units = "mm", bg = "white")
 ggsave(heterogen_plot, file = "results/manuscript_figures/fig4_heterogen.pdf", width = 200, height = 220, units = "mm", bg = "white")
+ggsave(heterogen_plot, file = "results/manuscript_figures/fig4_heterogen.eps", width = 200, height = 220, units = "mm", device = cairo_ps)
 
 #### Heterogeneity input distributions plot ----
 
@@ -390,7 +392,7 @@ res_sens <- processed_infections_baseline %>%
     name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0"),
     contacts = fct_relevel(contacts, "Unadjusted")
   ) %>%
-  filter.(variant == "wild") 
+  filter.(variant == "wild")
 
 res_sens %>%
   ggplot(aes(y = value, x = contacts, colour = name, group = name, shape = contacts)) +
@@ -420,6 +422,7 @@ res_sens %>%
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
 ggsave("results/manuscript_figures/fig_sensitivity.png", width = 200, height = 100, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_sensitivity.eps", width = 200, height = 100, units = "mm", device = cairo_ps)
 
 processed_infections_baseline %>%
   # filter.(prop_self_iso_test==0,sampling_freq==3) %>%
@@ -551,9 +554,10 @@ ggsave("results/lft_impact_events.png", width = 210, height = 150, dpi = 600, un
 ggsave("results/lft_impact_events.pdf", width = 210, height = 150, units = "mm", bg = "white")
 
 
-testing_plot / events_plot + plot_annotation(tag_levels = "A")
+res_testing / res_events + plot_annotation(tag_levels = "A")
 ggsave("results/manuscript_figures/fig5_testing.png", dpi = 600, width = 210, height = 325, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig5_testing.pdf", width = 210, height = 300, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig5_testing.eps", width = 210, height = 300, units = "mm", device = cairo_ps)
 
 #### Sensitivity analysis: amplified VL heterogeneity ----
 

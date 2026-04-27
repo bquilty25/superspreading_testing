@@ -4,11 +4,11 @@ contacts <- qread("data/contacts.qs")
 
 dates_of_time_periods_of_interest <-
   crossing(time_periods) %>%
-  filter(period!="POLYMOD")
+  filter(period != "POLYMOD")
 #   filter(date_end<as.Date("2021-01-01"),period!="POLYMOD")
 
 contacts_duration <- contacts[
-  country=="uk" & 
+  country == "uk" &
     date >= min(dates_of_time_periods_of_interest$date_start) &
     date <= max(dates_of_time_periods_of_interest$date_end),
   .(part_id = gsub("uk_", "", part_wave_uid), date, cnt_minutes_max, cnt_household, cnt_total_time)
@@ -26,25 +26,25 @@ contacts_polymod1 <- merge(contacts_polymod1, parts_polymod, by = "part_id")
 contacts_duration_polymod <- contacts_polymod1[
   country == "GB",
   .(part_id,
-     date,
-     cnt_household = as.numeric(cnt_home),
-     cnt_total_time = fcase(
-       duration_multi == 1, "<5m",
-       duration_multi == 2, "5m-14m",
-       duration_multi == 3, "15m-59m",
-       duration_multi == 4, "60m-4h",
-       duration_multi == 5, "4h+"
-     )
+    date,
+    cnt_household = as.numeric(cnt_home),
+    cnt_total_time = fcase(
+      duration_multi == 1, "<5m",
+      duration_multi == 2, "5m-14m",
+      duration_multi == 3, "15m-59m",
+      duration_multi == 4, "60m-4h",
+      duration_multi == 5, "4h+"
+    )
   )
 ]
 
 contacts_duration_polymod[, date := nafill(date, type = "locf")]
-  
+
 contacts_duration <- rbind(contacts_duration_polymod, contacts_duration, fill = T)
 
 # ggplot(contacts_duration[!is.na(cnt_total_time)]) + geom_boxplot(aes(x=cnt_total_time,y=cnt_minutes_max))
 
-# Impute missing exact contact durations for contacts with only range for 
+# Impute missing exact contact durations for contacts with only range for
 # duration from observed data
 set.seed(1)
 
@@ -62,8 +62,8 @@ contacts_duration[,
 
 contacts_duration <- contacts_duration %>%
   fuzzyjoin::fuzzy_left_join(time_periods,
-                              by = c("date" = "date_start", "date" = "date_end"),
-                              match_fun = list(`>=`, `<=`)
+    by = c("date" = "date_start", "date" = "date_end"),
+    match_fun = list(`>=`, `<=`)
   )
 
 setDT(contacts_duration)

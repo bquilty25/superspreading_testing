@@ -285,7 +285,7 @@ traj_amplified <- vl_params_amplified %>%
   map.(~ make_trajectories(
     n_sims = N_sims, asymp_parms = asymp_fraction,
     variant_info = .x,
-    max_prolif = 28, max_clear = 60, max_peakvl = 80,
+    max_prolif = 28, max_clear = 60, max_peakvl = 40,
     browsing = F
   )) %>%
   bind_rows.()

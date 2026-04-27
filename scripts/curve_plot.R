@@ -79,42 +79,31 @@ plot_dat1 <- traj %>%
   )) %>%
   select.(-c(prolif, start, end))
 
+# Precompute median trajectories for panels A and C
+log_median <- plot_dat1 %>%
+  filter.(heterogen_vl == TRUE) %>%
+  summarise.(median_vl = 10^median(vl), .by = t)
+
+culture_median <- plot_dat1 %>%
+  filter.(heterogen_vl == TRUE) %>%
+  summarise.(median_culture_p = median(culture_p), .by = t)
+
 log_plot <- plot_dat1 %>%
-  filter.(sim <= 1000) %>%
+  filter.(sim <= 1000, heterogen_vl == TRUE) %>%
   mutate.(vl = 10^(vl)) %>%
   ggplot() +
   geom_line(
-    data = . %>% filter.(heterogen_vl == T),
-    aes(
-      x = t,
-      y = vl,
-      group = sim,
-      # colour=culture_p
-    ),
-    colour = tri_col_pal[1],
-    # colour=zoo::rollmean(culture_p,4,fill=0)
-    # ,
-    alpha = 0.05
+    aes(x = t, y = vl, group = sim),
+    colour = tri_col_pal[1], alpha = 0.05
   ) +
-  # geom_line(data=. %>% filter.(heterogen_vl==F) %>% filter.(sim==1),
-  #           aes(x=t,
-  #               y=vl,
-  #               group=sim,
-  #               #colour=culture_p
-  #               ),
-  #               colour=tri_col_pal[1],
-  #               #colour=zoo::rollmean(culture_p,4,fill=0)
-  #
-  #           #alpha=0.1,
-  #           size=1
-  # )+
-  geom_hline(yintercept = 1.6e7, linetype = "dashed", hjust = 1) +
-  # scale_colour_gradient(high=bi_col_pal[2],low=bi_col_pal[1])+
-  # scale_colour_viridis_c(name="Probability of infectivity",option="inferno",begin = 0.2,end=0.8,limits=c(0,1),
-  #                        guide=guide_colorsteps(barwidth=unit(3,"cm"),barheight=unit(0.5,"cm"),show.limits = T))+
+  geom_line(
+    data = log_median,
+    aes(x = t, y = median_vl),
+    colour = tri_col_pal[1], linewidth = 1.2
+  ) +
+  geom_hline(yintercept = 1.6e7, linetype = "dashed", colour = "grey40") +
   scale_x_continuous(name = "Days since first detectable by PCR (Ct<40)", breaks = breaks_width(5)) +
   scale_y_log10(name = "RNA copies/ml", labels = label_log()) +
-  coord_cartesian(xlim = c(NA, 20), ylim = c(10^3.5, NA)) +
   plotting_theme +
   guides(colour = "none") +
   labs(caption = "Kissler et al. 2021")
@@ -136,6 +125,7 @@ days_inf %>%
 days_inf_plot <- days_inf %>%
   filter.(heterogen_vl == T) %>%
   mutate.(n_inf_days = floor(n_inf)) %>%
+  filter.(n_inf_days >= 0) %>%
   ggplot() +
   geom_bar(
     aes(
@@ -148,38 +138,29 @@ days_inf_plot <- days_inf %>%
   scale_x_continuous(
     name = "Days infectious",
     breaks = breaks_width(1),
-    expand = c(0.04, 0.04)
+    limits = c(-0.5, NA),
+    expand = expansion(add = c(0, 0.5))
   ) +
   plotting_theme +
   guides(colour = "none")
 
 
 culture_plot <- plot_dat1 %>%
-  filter.(sim <= 1000) %>%
-  filter.(heterogen_vl == T) %>%
+  filter.(sim <= 1000, heterogen_vl == T) %>%
   ggplot() +
   geom_line(
-    data = . %>% filter.(heterogen_vl == T),
-    aes(
-      x = t,
-      y = culture_p,
-      group = sim,
-      # colour=culture_p
-    ),
-    colour = bi_col_pal[1],
-    # colour=zoo::rollmean(culture_p,4,fill=0)
-    # ,
-    alpha = 0.05
+    aes(x = t, y = culture_p, group = sim),
+    colour = bi_col_pal[1], alpha = 0.05
+  ) +
+  geom_line(
+    data = culture_median,
+    aes(x = t, y = median_culture_p),
+    colour = bi_col_pal[1], linewidth = 1.2
   ) +
   ylab("Relative infectivity") +
-  scale_colour_gradient(high = bi_col_pal[2], low = bi_col_pal[1], guide = "none") +
   scale_x_continuous(name = "Days since first detectable by PCR (Ct<40)", breaks = breaks_width(5)) +
-  # scale_y_log10(name="RNA copies/ml",labels=label_log())+
-  # coord_cartesian(xlim=c(NA,20),ylim=c(10^3.5,NA))+
   plotting_theme +
-  guides(colour = "none") #+
-# labs(title="Inferred infectivity curves"
-# ,subtitle = "Duration of P(infectivity)>0.5:\n1.9 days (95% CI: 0, 5.8)")
+  guides(colour = "none")
 
 
 auc_dat <- plot_dat %>%
@@ -340,3 +321,4 @@ inf_plot <- prob_culture %>%
 
 ggsave("results/manuscript_figures/fig2_vl.png", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig2_vl.pdf", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig2_vl.eps", width = 300, height = 150, units = "mm", device = cairo_ps)
