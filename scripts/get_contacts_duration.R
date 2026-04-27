@@ -42,7 +42,7 @@ contacts_duration_polymod[, date := nafill(date, type = "locf")]
   
 contacts_duration <- rbind(contacts_duration_polymod, contacts_duration, fill = T)
 
-ggplot(contacts_duration[!is.na(cnt_total_time)]) + geom_boxplot(aes(x=cnt_total_time,y=cnt_minutes_max))
+# ggplot(contacts_duration[!is.na(cnt_total_time)]) + geom_boxplot(aes(x=cnt_total_time,y=cnt_minutes_max))
 
 # Impute missing exact contact durations for contacts with only range for 
 # duration from observed data
@@ -68,7 +68,7 @@ contacts_duration <- contacts_duration %>%
 
 setDT(contacts_duration)
 
-ggplot(contacts_duration[!is.na(period)]) + geom_boxplot(aes(x = period, y = cnt_minutes_max))
+# ggplot(contacts_duration[!is.na(period)]) + geom_boxplot(aes(x = period, y = cnt_minutes_max))
 
 qsave(contacts_duration, "data/contacts_duration.qs")
 
