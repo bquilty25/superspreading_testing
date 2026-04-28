@@ -1,34 +1,28 @@
 # Sensitivity analysis: Zero-Inflated Negative Binomial vs Negative Binomial
-# Fits NB and ZINB to the per-individual offspring distribution (secondary
-# infections) from the baseline model across 3 time periods.
+# Fits NB and ZINB to the per-individual total daily contact distribution
+# across 3 time periods.
 
 source("scripts/utils.R")
 
 dir.create("results/manuscript_figures", recursive = TRUE, showWarnings = FALSE)
+dir.create("results/manuscript_tables", recursive = TRUE, showWarnings = FALSE)
 
 colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown=blue, school=green
 
 periods_keep <- c("Pre-pandemic", "1st lockdown", "School reopening")
 
-# ---- Load baseline simulation output ---------------------------------------
-processed_infections_baseline <- qread("results/processed_infections_baseline.qs")
-
-# ---- Derive per-individual offspring counts --------------------------------
-# Each row in processed_infections_baseline is one infectious individual on one
-# day; sum total_infections across days to get the full offspring count per
-# individual. Use the no-testing baseline scenario only
-# (sampling_freq=Inf, prop_self_iso_test=0).
-offspring <- processed_infections_baseline %>%
+# ---- Load contact data -----------------------------------------------------
+contacts <- contact_data %>%
     filter.(period %in% periods_keep) %>%
-    summarise.(
-        offspring = sum(total_infections),
-        .by = c(sim, idx_id, period)
+    mutate.(
+        contacts = as.integer(round(e_all)),
+        period = factor(period, levels = periods_keep)
     ) %>%
-    mutate.(period = factor(period, levels = periods_keep))
+    select.(period, contacts)
 
-cat("\nOffspring counts per period:\n")
-offspring %>%
-    summarise.(n = n(), mean_off = mean(offspring), zero_frac = mean(offspring == 0), .by = period) %>%
+cat("\nContact counts per period:\n")
+contacts %>%
+    summarise.(n = n(), mean_c = mean(contacts), zero_frac = mean(contacts == 0), .by = period) %>%
     as.data.frame() %>%
     print()
 
@@ -112,9 +106,9 @@ fit_both <- function(x) {
 }
 
 # ---- Run fits per period ---------------------------------------------------
-fit_results <- offspring %>%
+fit_results <- contacts %>%
     summarise.(
-        fits = list(fit_both(offspring)),
+        fits = list(fit_both(contacts)),
         .by = period
     ) %>%
     filter.(!sapply(fits, is.null)) %>%
@@ -129,7 +123,7 @@ fit_results <- offspring %>%
     )
 
 # ---- Print summary table ---------------------------------------------------
-cat("\n=== ZINB vs NB: secondary infections per individual ===\n\n")
+cat("\n=== ZINB vs NB: daily contacts per individual ===\n\n")
 fit_results %>%
     select.(
         period, n, obs_zero_frac,
@@ -140,117 +134,19 @@ fit_results %>%
     as.data.frame() %>%
     print()
 
-# ---- Figure A: ΔAIC --------------------------------------------------------
-p_delta_aic <- fit_results %>%
-    ggplot(aes(x = period, y = delta_aic, fill = period)) +
-    geom_col(width = 0.5, colour = "grey30") +
-    geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
-    geom_hline(yintercept = -2, linetype = "dotted", colour = "grey60") +
-    geom_text(
-        aes(
-            label = sig,
-            y = delta_aic + sign(delta_aic) * abs(delta_aic) * 0.05 + sign(delta_aic) * 0.3
-        ),
-        size = 3.5
-    ) +
-    scale_fill_manual(values = colour_pal, guide = "none") +
-    scale_x_discrete(limits = periods_keep) +
-    labs(
-        x = "",
-        y = "\u0394AIC (ZINB \u2212 NB)"
-    ) +
-    plotting_theme +
-    theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1))
-
-# ---- Figure B: Observed vs predicted zero fraction -------------------------
-zero_df <- fit_results %>%
-    select.(period, obs_zero_frac, nb_pred_zero, zinb_pred_zero) %>%
-    pivot_longer.(
-        cols = c(obs_zero_frac, nb_pred_zero, zinb_pred_zero),
-        names_to = "model", values_to = "zero_frac"
+# ---- Save results table ----------------------------------------------------
+table_zinb <- fit_results %>%
+    select.(
+        period, n,
+        nb_mu, nb_k,
+        zinb_mu, zinb_k, zinb_pi,
+        delta_aic, lrt_p
     ) %>%
-    mutate.(
-        model = factor(model,
-            levels = c("obs_zero_frac", "nb_pred_zero", "zinb_pred_zero"),
-            labels = c("Observed", "NB predicted", "ZINB predicted")
-        ),
-        period = factor(period, levels = periods_keep)
-    )
+    mutate.(across.(where(is.numeric), \(x) round(x, 3)))
 
-p_zeros <- zero_df %>%
-    ggplot(aes(
-        x = period, y = zero_frac * 100,
-        colour = model, shape = model, linetype = model, group = model
-    )) +
-    geom_line(linewidth = 0.6) +
-    geom_point(size = 3) +
-    scale_colour_manual(
-        name = "",
-        values = c("Observed" = "#333333", "NB predicted" = "#0072B2", "ZINB predicted" = "#D55E00")
-    ) +
-    scale_shape_manual(
-        name = "",
-        values = c("Observed" = 16, "NB predicted" = 17, "ZINB predicted" = 15)
-    ) +
-    scale_linetype_manual(
-        name = "",
-        values = c("Observed" = "solid", "NB predicted" = "dashed", "ZINB predicted" = "dotted")
-    ) +
-    scale_y_continuous(labels = label_percent(scale = 1)) +
-    scale_x_discrete(limits = periods_keep) +
-    labs(x = "", y = "Individuals causing zero\nsecondary infections (%)") +
-    plotting_theme +
-    theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1))
+table_zinb %>%
+    as.data.frame() %>%
+    print()
 
-# ---- Figure C: NB k and mu by period --------------------------------------
-params_df <- fit_results %>%
-    select.(period, nb_mu, nb_k, zinb_mu, zinb_k) %>%
-    pivot_longer.(cols = -period) %>%
-    mutate.(
-        model = if_else(grepl("^nb", name), "NB", "ZINB"),
-        param = if_else(grepl("mu", name), "mu (mean)", "k (dispersion)"),
-        period = factor(period, levels = periods_keep)
-    )
-
-p_params <- params_df %>%
-    ggplot(aes(x = period, y = value, colour = model, shape = model, linetype = model, group = model)) +
-    geom_line(linewidth = 0.6) +
-    geom_point(size = 3) +
-    facet_wrap2(~param, scales = "free_y", axes = "all") +
-    scale_colour_manual(name = "Model", values = c("NB" = "#0072B2", "ZINB" = "#D55E00")) +
-    scale_shape_manual(name = "Model", values = c("NB" = 16, "ZINB" = 17)) +
-    scale_linetype_manual(name = "Model", values = c("NB" = "solid", "ZINB" = "dashed")) +
-    scale_y_continuous(limits = c(0, NA)) +
-    labs(x = "", y = "") +
-    plotting_theme +
-    theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1))
-
-# ---- Combine and save ------------------------------------------------------
-fig_zinb <- (p_delta_aic | p_zeros) / p_params +
-    plot_annotation(
-        tag_levels = "A",
-        caption = "Negative \u0394AIC => ZINB preferred; dotted line = \u22122\n* p<0.05  ** p<0.01  *** p<0.001 (LRT, df=1)"
-    ) +
-    plot_layout(heights = c(1, 1))
-
-ggsave(
-    "results/manuscript_figures/fig_zinb_sensitivity.png",
-    fig_zinb,
-    dpi = 600, width = 220, height = 210, units = "mm", bg = "white"
-)
-ggsave(
-    "results/manuscript_figures/fig_zinb_sensitivity.pdf",
-    fig_zinb,
-    width = 220, height = 210, units = "mm", bg = "white"
-)
-ggsave(
-    "results/manuscript_figures/fig_zinb_sensitivity.eps",
-    fig_zinb,
-    width = 220, height = 210, units = "mm", device = cairo_ps
-)
-
-fit_results %>%
-    mutate.(across.(where(is.numeric), \(x) round(x, 4))) %>%
-    write.csv("results/zinb_sensitivity_results.csv", row.names = FALSE)
-
-message("Saved fig_zinb_sensitivity.{png,pdf,eps} and zinb_sensitivity_results.csv")
+write.csv(table_zinb, "results/manuscript_tables/table_s2_zinb_sensitivity.csv", row.names = FALSE)
+message("Saved table_s2_zinb_sensitivity.csv")

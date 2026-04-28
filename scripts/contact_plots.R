@@ -14,7 +14,7 @@ colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown
   ) %>%
   summarise.(
     n = n(),
-    # zero = sum(e_all==0),
+    zero = sum(e_all == 0),
     over_5 = sum(e_all > 5),
     over_10 = sum(e_all > 10),
     over_20 = sum(e_all > 20),
@@ -23,9 +23,10 @@ colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown
     over_200 = sum(e_all > 200),
     .by = c(period)
   ) %>%
-  pivot_longer.(c(over_5:over_200)) %>%
+  pivot_longer.(c(zero, over_5:over_200)) %>%
   mutate.(name = fct_relevel(
     name,
+    "zero",
     "over_5",
     "over_10",
     "over_20",
@@ -33,7 +34,11 @@ colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown
     "over_100",
     "over_200"
   )) %>%
-  mutate.(hi_lo = if_else(extract_numeric(name) >= 50, "hi", "lo")) %>%
+  mutate.(hi_lo = case_when(
+    name == "zero" ~ "lo",
+    extract_numeric(name) >= 50 ~ "hi",
+    TRUE ~ "lo"
+  )) %>%
   rowwise() %>%
   mutate(tst = list(broom::tidy(prop.test(value, n, conf.level = 0.95)))) %>%
   tidyr::unnest(tst) %>%
@@ -43,7 +48,7 @@ colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown
       x = period,
       group = name,
       y = estimate * 100,
-      colour = fct_relevel(name, "over_5")
+      colour = fct_relevel(name, "zero")
     )
   ) +
   geom_point(
@@ -51,8 +56,8 @@ colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown
       x = period,
       group = name,
       y = estimate * 100,
-      colour = fct_relevel(name, "over_5"),
-      shape = fct_relevel(name, "over_5")
+      colour = fct_relevel(name, "zero"),
+      shape = fct_relevel(name, "zero")
     ),
     size = 2
   ) +
@@ -62,20 +67,24 @@ colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown
       group = name,
       ymin = conf.low * 100,
       ymax = conf.high * 100,
-      colour = fct_relevel(name, "over_5"),
-      fill = fct_relevel(name, "over_5")
+      colour = fct_relevel(name, "zero"),
+      fill = fct_relevel(name, "zero")
     ),
     show.legend = F
   ) +
   facet_grid2(fct_rev(hi_lo) ~ ., scales = "free_y", axes = "all", remove_labels = "x") +
   scale_y_continuous("Percentage of participants (%)") +
   scale_x_discrete(expand = expansion(0, c(0.5, 0.5))) +
-  guides(colour = guide_legend(nrow = 1)) +
+  guides(
+    colour = guide_legend(nrow = 2, reverse = TRUE),
+    fill   = guide_legend(nrow = 2, reverse = TRUE),
+    shape  = guide_legend(nrow = 2, reverse = TRUE)
+  ) +
   scale_colour_viridis_d(
     name = "Reported daily contacts",
     direction = -1,
     labels = c(
-      "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
+      "zero" = "Zero", "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
       "over_50" = "Over 50", "over_100" = "Over 100", "over_200" = "Over 200"
     )
   ) +
@@ -83,15 +92,15 @@ colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown
     name = "Reported daily contacts",
     direction = -1,
     labels = c(
-      "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
+      "zero" = "Zero", "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
       "over_50" = "Over 50", "over_100" = "Over 100", "over_200" = "Over 200"
     )
   ) +
   scale_shape_manual(
     name = "Reported daily contacts",
-    values = c(16, 17, 15, 3, 4, 8),
+    values = c(0, 16, 17, 15, 3, 4, 8),
     labels = c(
-      "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
+      "zero" = "Zero", "over_5" = "Over 5", "over_10" = "Over 10", "over_20" = "Over 20",
       "over_50" = "Over 50", "over_100" = "Over 100", "over_200" = "Over 200"
     )
   ) +
@@ -112,6 +121,41 @@ colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown
 )
 
 ggsave("results/high_n_contacts4.png", width = 210, height = 150, dpi = 600, units = "mm", bg = "white")
+
+band_labels <- c("0", "1–5", "6–10", "11–20", "21–50", "51–100", "101–200", ">200")
+
+stacked_plot <- contact_data %>%
+  filter.(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
+  mutate.(
+    band = cut(
+      e_all,
+      breaks = c(-Inf, 0, 5, 10, 20, 50, 100, 200, Inf),
+      labels = band_labels,
+      right = TRUE
+    )
+  ) %>%
+  count.(period, band) %>%
+  mutate.(prop = n / sum(n), .by = period) %>%
+  ggplot(aes(x = period, y = prop, fill = fct_rev(band))) +
+  geom_col(position = "fill", width = 0.8) +
+  scale_y_continuous("Proportion of participants (%)", labels = label_percent(), expand = expansion(0, 0)) +
+  scale_x_discrete(expand = expansion(0, c(0.5, 0.5))) +
+  scale_fill_viridis_d(
+    name = "Reported daily contacts",
+    direction = 1,
+    labels = rev(band_labels)
+  ) +
+  guides(fill = guide_legend(nrow = 1, reverse = TRUE)) +
+  plotting_theme +
+  labs(x = "") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+ggsave("results/manuscript_figures/contacts_stacked.png", stacked_plot,
+  width = 210, height = 100, dpi = 600, units = "mm", bg = "white"
+)
+ggsave("results/manuscript_figures/contacts_stacked.pdf", stacked_plot,
+  width = 210, height = 100, dpi = 600, units = "mm", bg = "white"
+)
 
 dot_plot <- contact_data %>%
   filter.(period %in% c("Pre-pandemic", "1st lockdown", "School reopening")) %>%

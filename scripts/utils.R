@@ -232,34 +232,59 @@ contact_data <- contacts_bbc %>%
 #### impute out of HH values > 250 for Pre-pandemic by fitting distribution to values from non-lockdown periods ----
 
 # Calculate proportion over 250 by time period
-contact_data %>%
+prop_over_250 <- contact_data %>%
   filter(period %in% c("Relaxed restrictions", "School reopening", "Step 2 + schools")) %>%
   summarise.(n = n(), over_250 = sum(e_other >= 250)) %>%
-  mutate.(prop = over_250 / n)
+  mutate.(prop = over_250 / n) %>%
+  pull(prop)
 
-# 0.00160 or 0.16% over 250
+# ~0.16% over 250 — computed from non-lockdown CoMix periods
 
-# assume distribution of high contacts is exponential and fit distribution
-dist_over_250 <- contact_data %>%
+# Fit Generalised Pareto Distribution (GPD) to excess over threshold u=250.
+# AIC favours GPD over exponential (dAIC=-14),
+# and the fitted xi=0.51 confirms a heavy Pareto-like tail consistent with the data.
+# GPD also connects more smoothly to the empirical density just below the threshold
+# (density ratio 0.77 vs 0.42 for exponential).
+gpd_tail_u <- 250
+gpd_excess <- contact_data %>%
   filter(period %in% c("Relaxed restrictions", "School reopening", "Step 2 + schools")) %>%
-  filter(e_other >= 250) %>%
-  pull(e_other) %>%
-  fitdistr(., "exponential")
+  filter(e_other >= gpd_tail_u) %>%
+  pull(e_other) - gpd_tail_u
+
+# Fit GPD by MLE using Nelder-Mead (optim). L-BFGS-B / fitdist fails to
+# converge on this data — parameters stay at starting values. Nelder-Mead
+# gives xi ≈ 0.511, sigma ≈ 191.5 (validated).
+gpd_nll <- function(par, x) {
+  xi <- par[1]; sig <- par[2]
+  if (sig <= 0 || any(1 + xi * x / sig <= 0)) return(1e9)
+  if (abs(xi) < 1e-8) return(length(x) * log(sig) + sum(x) / sig)
+  length(x) * log(sig) + (1 / xi + 1) * sum(log(1 + xi * x / sig))
+}
+sigma_init <- mean(gpd_excess)
+gpd_fit <- optim(
+  par     = c(0.5, sigma_init),
+  fn      = gpd_nll,
+  x       = gpd_excess,
+  method  = "Nelder-Mead",
+  control = list(maxit = 10000)
+)
+gpd_xi  <- gpd_fit$par[1]
+gpd_sig <- gpd_fit$par[2]
 
 # simulate individuals with high numbers of contacts for Pre-pandemic
+n_pp_prepandemic <- nrow(contact_data %>% filter(period == "Pre-pandemic"))
+# p/(1-p) * n_below gives the count needed so that p% of the full sample exceeds the threshold
+n_imp_tail <- round(prop_over_250 / (1 - prop_over_250) * n_pp_prepandemic)
+
+set.seed(seed)
 dat_append <- data.frame(
-  e_other = round(rexptr(
-    n = 0.0016 * 1.0016 * nrow(contact_data %>%
-      filter(period == "Pre-pandemic")),
-    lambda = dist_over_250$estimate[1],
-    range = c(250, Inf)
+  e_other = as.integer(round(
+    gpd_tail_u + rgpd(n_imp_tail, mu = 0, sigma = gpd_sig, xi = gpd_xi)
   )),
   e_home = sample(
-    size = 0.0016 * 1.0016 * nrow(contact_data %>%
-      filter(period == "Pre-pandemic")),
-    x = contact_data %>%
-      filter(period == "Pre-pandemic") %>%
-      pull(e_home)
+    size = n_imp_tail,
+    x = contact_data %>% filter(period == "Pre-pandemic") %>% pull(e_home),
+    replace = TRUE
   )
 ) %>%
   mutate(

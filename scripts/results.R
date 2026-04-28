@@ -2,6 +2,7 @@
 source("scripts/utils.R")
 
 dir.create("results/manuscript_figures", recursive = TRUE, showWarnings = FALSE)
+dir.create("results/manuscript_tables", recursive = TRUE, showWarnings = FALSE)
 
 # Safe fitdist wrapper: returns NA estimates instead of crashing on degenerate data
 safe_nb_est <- function(x) {
@@ -423,6 +424,46 @@ res_sens %>%
 
 ggsave("results/manuscript_figures/fig_sensitivity.png", width = 200, height = 100, dpi = 600, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig_sensitivity.eps", width = 200, height = 100, units = "mm", device = cairo_ps)
+
+# Table S1: GPD tail sensitivity ----
+boot_sens <- processed_infections_baseline %>%
+  filter.(period == "Pre-pandemic") %>%
+  mutate.(contacts = "Baseline (BBC Pandemic, unmodified)") %>%
+  bind_rows.(processed_infections_sens %>%
+    mutate.(contacts = "Sensitivity (GPD upper tail imputed)")) %>%
+  filter.(
+    variant == "wild", prop_self_iso_test == 0, sampling_freq == 7,
+    heterogen_vl == TRUE, heterogen_contacts == TRUE
+  ) %>%
+  summarise.(
+    sum_inf = sum(total_infections),
+    .by = c(contacts, sim)
+  ) %>%
+  summarise.(
+    dists = list(bootdist(fitdist(sum_inf, "nbinom"),
+      bootmethod = "nonparam",
+      parallel = "multicore",
+      ncpus = 8
+    )$CI %>%
+      as.data.frame() %>%
+      rownames_to_column(var = "name") %>%
+      rename("lo" = `2.5%`, "hi" = `97.5%`)),
+    .by = contacts
+  ) %>%
+  unnest.(dists)
+
+table_s1 <- boot_sens %>%
+  filter.(name %in% c("mu", "size")) %>%
+  pivot_wider.(names_from = name, values_from = c(Median, lo, hi)) %>%
+  rename.(
+    Scenario = contacts,
+    R = Median_mu, `R lower 95% CI` = lo_mu, `R upper 95% CI` = hi_mu,
+    k = Median_size, `k lower 95% CI` = lo_size, `k upper 95% CI` = hi_size
+  ) %>%
+  mutate.(across.(where(is.numeric), \(x) round(x, 3)))
+
+write.csv(table_s1, "results/manuscript_tables/table_s1_gpd_sensitivity.csv", row.names = FALSE)
+message("Saved table_s1_gpd_sensitivity.csv")
 
 processed_infections_baseline %>%
   # filter.(prop_self_iso_test==0,sampling_freq==3) %>%
