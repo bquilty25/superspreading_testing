@@ -248,7 +248,7 @@ nbinom_plot <- contact_data %>%
   plotting_theme +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
   facet_grid2(name ~ ., switch = "y", scales = "free_y", labeller = labeller(name = c("mu" = "Mean\nreported daily contacts", "size" = "Overdispersion (k) of\nreported daily contacts")), axes = "all", remove_labels = "x") +
-  ggh4x::facetted_pos_scales(y = list(scale_y_continuous(limits = c(0, NA), expand = expansion(c(0, 0.1))), scale_y_log10(limits = c(0.25, 3))))
+  ggh4x::facetted_pos_scales(y = list(scale_y_continuous(limits = c(0, NA), expand = expansion(c(0, 0.1))), scale_y_log10(breaks = c(0.3, 0.5, 0.7, 1, 1.5, 2))))
 
 line_plot / dot_plot / nbinom_plot + plot_annotation(tag_levels = "A") + plot_layout(heights = c(1.5, 1, 1.5))
 ggsave("results/manuscript_figures/fig1_contacts.png", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
