@@ -76,9 +76,9 @@ colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown
   scale_y_continuous("Percentage of participants (%)") +
   scale_x_discrete(expand = expansion(0, c(0.5, 0.5))) +
   guides(
-    colour = guide_legend(nrow = 2, reverse = TRUE),
-    fill   = guide_legend(nrow = 2, reverse = TRUE),
-    shape  = guide_legend(nrow = 2, reverse = TRUE)
+    colour = guide_legend(nrow = 2, byrow = TRUE),
+    fill   = guide_legend(nrow = 2, byrow = TRUE),
+    shape  = guide_legend(nrow = 2, byrow = TRUE)
   ) +
   scale_colour_viridis_d(
     name = "Reported daily contacts",
