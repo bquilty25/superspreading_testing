@@ -14,6 +14,24 @@ contacts_duration <- contacts[
   .(part_id = gsub("uk_", "", part_wave_uid), date, cnt_minutes_max, cnt_household, cnt_total_time)
 ]
 
+contact_number_and_mean_duration <- contacts_duration[
+  !is.na(cnt_minutes_max), 
+  .(contacts = .N, 
+    mean_duration = min(mean(cnt_minutes_max)/60, 24)), 
+  by = c("part_id", "date")
+]
+
+ggplot(contact_number_and_mean_duration) +
+  geom_boxplot(aes(x = factor(contacts), y = mean_duration)) + 
+  coord_cartesian(xlim = c(0, 20)) + 
+  xlab("Number of daily contacts") + 
+  ylab("Mean contact duration (hours)") + 
+  plotting_theme
+
+ggsave("results/manuscript_figures/fig_contact_number_vs_duration.png", width = 200, height = 150, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contact_number_vs_duration.pdf", width = 200, height = 150, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contact_number_vs_duration.eps", width = 200, height = 150, units = "mm", device = cairo_ps)
+
 contacts_polymod1 <- fread("data/POLYMOD/2008_Mossong_POLYMOD_contact_common.csv")
 survey_dates <- fread("data/POLYMOD/2008_Mossong_POLYMOD_sday.csv")
 survey_dates[, date := as.Date(as.character(sday_id), "%Y%m%d")]
