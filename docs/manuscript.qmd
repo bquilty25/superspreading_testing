@@ -82,9 +82,22 @@ suppressPackageStartupMessages({
 	library(readr)
 	library(here)
 	library(knitr)
+  library(qs)
+  library(tidyr)
+  library(purrr)
+})
+
+select <- dplyr::select
+project_root <- here::here()
+local({
+  old_wd <- setwd(project_root)
+  on.exit(setwd(old_wd), add = TRUE)
+  source(file.path(project_root, "scripts", "utils.R"))
 })
 
 boot <- read_csv(here::here("results", "R_and_k_bootstrap_ests.csv"), show_col_types = FALSE)
+heterogen_boot <- read_csv(here::here("results", "R_and_k_bootstrap_ests_heterogen.csv"), show_col_types = FALSE)
+vl_sens_boot <- read_csv(here::here("results", "k_bootstrap_ests_vl_sens.csv"), show_col_types = FALSE)
 tbl_s1 <- read_csv(
 	here::here("results", "manuscript_tables", "table_s1_gpd_sensitivity.csv"),
 	show_col_types = FALSE
@@ -93,6 +106,9 @@ tbl_s2 <- read_csv(
 	here::here("results", "manuscript_tables", "table_s2_zinb_sensitivity.csv"),
 	show_col_types = FALSE
 )
+contacts_duration <- qread(here::here("data", "contacts_duration.qs"))
+processed_infections_testing <- qread(here::here("results", "processed_infections_testing.qs"))
+processed_infections_events <- qread(here::here("results", "processed_infections_events.qs"))
 
 names(tbl_s2) <- c(
   "Time period",
@@ -113,63 +129,304 @@ get_est <- function(period, metric, column) {
 		round(2)
 }
 
+safe_nb_est <- function(x) {
+  tryCatch(
+    fitdistrplus::fitdist(x, "nbinom")$estimate,
+    error = function(e) c(mu = NA_real_, size = NA_real_)
+  )
+}
+
+contact_summary <- contact_data |>
+  filter(period != "POLYMOD") |>
+  group_by(period, date_start, date_end) |>
+  summarise(
+    N = n(),
+    over_5 = mean(e_all > 5) * 100,
+    over_10 = mean(e_all > 10) * 100,
+    over_20 = mean(e_all > 20) * 100,
+    over_50 = mean(e_all > 50) * 100,
+    over_100 = mean(e_all > 100) * 100,
+    over_200 = mean(e_all > 200) * 100,
+    mu = fitdistrplus::fitdist(e_all, "nbinom")$estimate[["mu"]],
+    k = fitdistrplus::fitdist(e_all, "nbinom")$estimate[["size"]],
+    .groups = "drop"
+  ) |>
+  arrange(period)
+
+contact_value <- function(period_name, column) {
+  contact_summary |>
+    filter(as.character(period) == period_name) |>
+    pull({{ column }})
+}
+
+contact_table <- contact_summary |>
+  transmute(
+    `Time period` = as.character(period),
+    From = format(date_start, "%d/%m/%Y"),
+    To = format(date_end, "%d/%m/%Y"),
+    N = as.integer(N),
+    `Over 5 (%)` = round(over_5, 1),
+    `Over 10 (%)` = round(over_10, 1),
+    `Over 20 (%)` = round(over_20, 1),
+    `Over 50 (%)` = round(over_50, 1),
+    `Over 100 (%)` = round(over_100, 1),
+    `Over 200 (%)` = round(over_200, 1)
+  )
+
+contact_duration_summary <- contacts_duration |>
+  filter(!is.na(cnt_minutes_max), !is.na(cnt_household)) |>
+  group_by(cnt_household) |>
+  summarise(
+    q25 = quantile(cnt_minutes_max, 0.25),
+    q50 = quantile(cnt_minutes_max, 0.50),
+    q75 = quantile(cnt_minutes_max, 0.75),
+    .groups = "drop"
+  )
+
 contact_stats <- list(
-  pre_pandemic_mu = 11.54,
-  pandemic_mu_mean = 4.86,
-  pandemic_mu_min = 2.60,
-  pandemic_mu_max = 6.93,
-  pre_pandemic_k = 1.47,
-  first_lockdown_k = 1.58,
-  pandemic_k_mean = 0.74,
-  post_first_lockdown_k_min = 0.48,
-  post_first_lockdown_k_max = 0.68,
-  nhh_duration_median_minutes = 30,
-  nhh_duration_q25_minutes = 5,
-  nhh_duration_q75_minutes = 180,
-  hh_duration_median_minutes = 480,
-  hh_duration_q25_minutes = 180,
-  hh_duration_q75_minutes = 1080
+  pre_pandemic_mu = contact_value("Pre-pandemic", mu),
+  pandemic_mu_mean = contact_summary |>
+    filter(period != "Pre-pandemic") |>
+    summarise(value = mean(mu)) |>
+    pull(value),
+  pandemic_mu_min = contact_summary |>
+    filter(period != "Pre-pandemic") |>
+    summarise(value = min(mu)) |>
+    pull(value),
+  pandemic_mu_max = contact_summary |>
+    filter(period != "Pre-pandemic") |>
+    summarise(value = max(mu)) |>
+    pull(value),
+  pre_pandemic_k = contact_value("Pre-pandemic", k),
+  first_lockdown_k = contact_value("1st lockdown", k),
+  pandemic_k_mean = contact_summary |>
+    filter(period != "Pre-pandemic") |>
+    summarise(value = mean(k)) |>
+    pull(value),
+  post_first_lockdown_k_min = contact_summary |>
+    filter(period %in% c("1st lockdown easing", "Relaxed restrictions", "School reopening", "2nd lockdown", "2nd lockdown easing")) |>
+    summarise(value = min(k)) |>
+    pull(value),
+  post_first_lockdown_k_max = contact_summary |>
+    filter(period %in% c("1st lockdown easing", "Relaxed restrictions", "School reopening", "2nd lockdown", "2nd lockdown easing")) |>
+    summarise(value = max(k)) |>
+    pull(value),
+  nhh_duration_median_minutes = contact_duration_summary |>
+    filter(cnt_household == 0) |>
+    pull(q50),
+  nhh_duration_q25_minutes = contact_duration_summary |>
+    filter(cnt_household == 0) |>
+    pull(q25),
+  nhh_duration_q75_minutes = contact_duration_summary |>
+    filter(cnt_household == 0) |>
+    pull(q75),
+  hh_duration_median_minutes = contact_duration_summary |>
+    filter(cnt_household == 1) |>
+    pull(q50),
+  hh_duration_q25_minutes = contact_duration_summary |>
+    filter(cnt_household == 1) |>
+    pull(q25),
+  hh_duration_q75_minutes = contact_duration_summary |>
+    filter(cnt_household == 1) |>
+    pull(q75)
 )
 
+figure3_n_sims <- 5000
+figure3_traj <- vl_params |>
+  filter(variant == "wild") |>
+  mutate(variant = forcats::fct_drop(variant)) |>
+  tidyr::crossing(heterogen_vl = c(TRUE, FALSE)) |>
+  group_split(variant, heterogen_vl) |>
+  purrr::map(~ make_trajectories(
+    n_sims = figure3_n_sims,
+    asymp_parms = asymp_fraction,
+    variant_info = .x,
+    browsing = FALSE
+  )) |>
+  bind_rows()
+
+figure3_infectiousness_params <- generate_params(culture_mod, figure3_n_sims) |>
+  as_tidytable() |>
+  rename(beta0 = "(Intercept)", beta1 = vl) |>
+  mutate(sim = row_number())
+
+figure3_plot_data <- figure3_traj |>
+  left_join(figure3_infectiousness_params, by = "sim") |>
+  mutate(infectivity = pmap(inf_curve_func, .l = list(m = m, start = start, end = end))) |>
+  unnest(infectivity) |>
+  tidyr::crossing(lower_inf_thresh = FALSE) |>
+  mutate(
+    culture_p = culture_prob(vl, beta0, beta1),
+    infectious = stats::rbinom(dplyr::n(), 1, culture_p) == 1,
+    .by = lower_inf_thresh
+  ) |>
+  tidyr::replace_na(list(infectious = FALSE)) |>
+  select(-c(prolif, start, end))
+
+figure3_auc <- figure3_plot_data |>
+  filter(heterogen_vl) |>
+  summarise(sum_inf = sum(culture_p), .by = sim)
+
+figure3_auc_quantiles <- quantile(figure3_auc$sum_inf, c(0.025, 0.975))
+
+figure3_days_infectious <- figure3_plot_data |>
+  summarise(n_inf = sum(infectious), .by = c(sim, heterogen_vl))
+
+figure3_peak_culture <- figure3_plot_data |>
+  summarise(culture_p = max(culture_p), .by = c(sim, heterogen_vl)) |>
+  filter(heterogen_vl) |>
+  tidyr::crossing(threshold = seq(0.5, 0.9, by = 0.1)) |>
+  summarise(prop = sum(culture_p > threshold) / n(), .by = threshold)
+
 figure3_stats <- list(
-  auc_q025 = 0.07859145,
-  auc_q975 = 5.74348969,
-  auc_fold = 5.74348969 / 0.07859145,
-  gamma_shape = 1.4205197,
-  zero_days_prop = 0.191,
-  infectious_days_median = 2,
-  infectious_days_q025 = 0,
-  infectious_days_q975 = 6,
-  peak_culture_gt_06_prop = 0.6836,
-  peak_culture_gt_08_prop = 0.5348
+  auc_q025 = unname(figure3_auc_quantiles[[1]]),
+  auc_q975 = unname(figure3_auc_quantiles[[2]]),
+  auc_fold = unname(figure3_auc_quantiles[[2]] / figure3_auc_quantiles[[1]]),
+  gamma_shape = fitdistrplus::fitdist(figure3_auc$sum_inf, "gamma")$estimate[["shape"]],
+  zero_days_prop = figure3_days_infectious |>
+    filter(heterogen_vl) |>
+    summarise(value = mean(n_inf == 0)) |>
+    pull(value),
+  infectious_days_median = figure3_days_infectious |>
+    filter(heterogen_vl) |>
+    summarise(value = quantile(n_inf, 0.5)) |>
+    pull(value),
+  infectious_days_q025 = figure3_days_infectious |>
+    filter(heterogen_vl) |>
+    summarise(value = quantile(n_inf, 0.025)) |>
+    pull(value),
+  infectious_days_q975 = figure3_days_infectious |>
+    filter(heterogen_vl) |>
+    summarise(value = quantile(n_inf, 0.975)) |>
+    pull(value),
+  peak_culture_gt_06_prop = figure3_peak_culture |>
+    filter(threshold == 0.6) |>
+    pull(prop),
+  peak_culture_gt_08_prop = figure3_peak_culture |>
+    filter(threshold == 0.8) |>
+    pull(prop)
 )
 
 rk_stats <- list(
-  post_first_lockdown_k_min = 0.12,
-  post_first_lockdown_k_max = 0.17
+  post_first_lockdown_k_min = boot |>
+    filter(
+      variant == "wild",
+      name == "size",
+      period %in% c("1st lockdown easing", "Relaxed restrictions", "School reopening", "2nd lockdown", "2nd lockdown easing")
+    ) |>
+    summarise(value = min(Median)) |>
+    pull(value),
+  post_first_lockdown_k_max = boot |>
+    filter(
+      variant == "wild",
+      name == "size",
+      period %in% c("1st lockdown easing", "Relaxed restrictions", "School reopening", "2nd lockdown", "2nd lockdown easing")
+    ) |>
+    summarise(value = max(Median)) |>
+    pull(value)
 )
+
+heterogen_range <- function(data, label, vl_sd_multiplier = NULL) {
+  filtered <- data |>
+    filter(variant == "wild", name == "size", heterogen_label == label)
+
+  if (!is.null(vl_sd_multiplier)) {
+    filtered <- filtered |>
+      filter(vl_sd_multiplier == !!vl_sd_multiplier)
+  }
+
+  c(
+    min = min(filtered$Median),
+    max = max(filtered$Median)
+  )
+}
+
+poisson_vl_range <- heterogen_range(heterogen_boot, "Variable viral load, Poisson contacts")
+equal_vl_range <- heterogen_range(heterogen_boot, "Equal viral load, overdispersed contacts")
+variable_vl_range <- heterogen_range(heterogen_boot, "Variable viral load, overdispersed contacts")
+amplified_poisson_vl_range <- heterogen_range(vl_sens_boot, "Variable VL, Poisson contacts", "Amplified (2× SD)")
+amplified_variable_vl_range <- heterogen_range(vl_sens_boot, "Variable VL, overdispersed contacts", "Amplified (2× SD)")
 
 heterogen_stats <- list(
-  poisson_vl_k_min = 1.46,
-  poisson_vl_k_max = 1.88,
-  overdispersed_equal_vl_k_min = 0.11,
-  overdispersed_equal_vl_k_max = 0.74,
-  overdispersed_variable_vl_k_min = 0.11,
-  overdispersed_variable_vl_k_max = 0.51,
-  pre_pandemic_equal_vl_k = 0.74,
-  pre_pandemic_variable_vl_k = 0.51,
-  amplified_poisson_vl_k_min = 0.76,
-  amplified_poisson_vl_k_max = 0.92,
-  amplified_overdispersed_variable_vl_k_min = 0.08,
-  amplified_overdispersed_variable_vl_k_max = 0.33
+  poisson_vl_k_min = unname(poisson_vl_range[["min"]]),
+  poisson_vl_k_max = unname(poisson_vl_range[["max"]]),
+  overdispersed_equal_vl_k_min = unname(equal_vl_range[["min"]]),
+  overdispersed_equal_vl_k_max = unname(equal_vl_range[["max"]]),
+  overdispersed_variable_vl_k_min = unname(variable_vl_range[["min"]]),
+  overdispersed_variable_vl_k_max = unname(variable_vl_range[["max"]]),
+  pre_pandemic_equal_vl_k = heterogen_boot |>
+    filter(
+      variant == "wild",
+      name == "size",
+      period == "Pre-pandemic",
+      heterogen_label == "Equal viral load, overdispersed contacts"
+    ) |>
+    pull(Median),
+  pre_pandemic_variable_vl_k = heterogen_boot |>
+    filter(
+      variant == "wild",
+      name == "size",
+      period == "Pre-pandemic",
+      heterogen_label == "Variable viral load, overdispersed contacts"
+    ) |>
+    pull(Median),
+  amplified_poisson_vl_k_min = unname(amplified_poisson_vl_range[["min"]]),
+  amplified_poisson_vl_k_max = unname(amplified_poisson_vl_range[["max"]]),
+  amplified_overdispersed_variable_vl_k_min = unname(amplified_variable_vl_range[["min"]]),
+  amplified_overdispersed_variable_vl_k_max = unname(amplified_variable_vl_range[["max"]])
 )
 
+testing_summary_regular <- processed_infections_testing |>
+  summarise(
+    sum_inf = sum(total_infections),
+    .by = c(sim, variant, period, lower_inf_thresh, heterogen_vl, heterogen_contacts, sampling_freq, prop_self_iso_test, event_size)
+  ) |>
+  summarise(
+    dist_means = list(as.data.frame(as.list(safe_nb_est(sum_inf)))),
+    .by = c(variant, period, lower_inf_thresh, heterogen_vl, heterogen_contacts, sampling_freq, prop_self_iso_test, event_size)
+  ) |>
+  unnest(dist_means) |>
+  filter(variant == "wild")
+
+testing_summary_events <- processed_infections_events |>
+  summarise(
+    sum_inf = sum(total_infections),
+    .by = c(sim, variant, period, lower_inf_thresh, heterogen_vl, heterogen_contacts, sampling_freq, prop_self_iso_test, event_size)
+  ) |>
+  summarise(
+    dist_means = list(as.data.frame(as.list(safe_nb_est(sum_inf)))),
+    .by = c(variant, period, lower_inf_thresh, heterogen_vl, heterogen_contacts, sampling_freq, prop_self_iso_test, event_size)
+  ) |>
+  unnest(dist_means) |>
+  filter(variant == "wild", !is.na(event_size))
+
+testing_cutoff <- function(data, period_name, sampling_freq_value = NULL, event_size_value = NULL) {
+  filtered <- data |>
+    filter(period == period_name)
+
+  if (!is.null(sampling_freq_value)) {
+    filtered <- filtered |>
+      filter(sampling_freq == sampling_freq_value)
+  }
+
+  if (!is.null(event_size_value)) {
+    filtered <- filtered |>
+      filter(event_size == event_size_value)
+  }
+
+  filtered |>
+    arrange(prop_self_iso_test) |>
+    filter(mu < 1) |>
+    slice_head(n = 1) |>
+    pull(prop_self_iso_test) * 100
+}
+
 testing_stats <- list(
-  pre_pandemic_daily_cutoff = 60,
-  pre_pandemic_every3_cutoff = 70,
-  school_reopen_every3_cutoff = 60,
-  pre_pandemic_pre_event_10_cutoff = 80,
-  school_reopen_pre_event_20_cutoff = 60
+  pre_pandemic_daily_cutoff = testing_cutoff(testing_summary_regular, "Pre-pandemic", sampling_freq_value = 1),
+  pre_pandemic_every3_cutoff = testing_cutoff(testing_summary_regular, "Pre-pandemic", sampling_freq_value = 3),
+  school_reopen_every3_cutoff = testing_cutoff(testing_summary_regular, "School reopening", sampling_freq_value = 3),
+  pre_pandemic_pre_event_10_cutoff = testing_cutoff(testing_summary_events, "Pre-pandemic", event_size_value = 10),
+  school_reopen_pre_event_20_cutoff = testing_cutoff(testing_summary_events, "School reopening", event_size_value = 20)
 )
 ```
 
@@ -324,7 +581,7 @@ The code and data for this study can be found at https://github.com/bquilty25/su
 
 ### Changes in the distribution of social contacts with changes in the intensity of restrictions
 
-Figure 2A and Table 1 show the proportions of survey participants in the UK reporting more than a certain number of contacts (5, 10, 20, 50, 100 and 200) in the previous day over time, both pre-pandemic (BBC Pandemic survey) and from the CoMix survey for the nine time periods during the survey with different levels of restrictions. The percentage of individuals reporting more than 20 contacts in a day was substantially lower during the pandemic compared to the pre-pandemic period (when it was 13.7%), varying from a low of 0.4% during the first lockdown from March to June 2020 to a peak of 6.1% in September 2020, when restrictions were most relaxed and schools reopened. The percentage of individuals reporting over 100 and 200 contacts was lower in the pre-pandemic BBC Pandemic contact survey compared to periods of relaxed restrictions due to differences in the reporting of high contact events. Overall, people reporting more than 50, 100, or 200 contacts made up less than 3% of the total CoMix survey sample.
+Figure 2A and Table 1 show the proportions of survey participants in the UK reporting more than a certain number of contacts (5, 10, 20, 50, 100 and 200) in the previous day over time, both pre-pandemic (BBC Pandemic survey) and from the CoMix survey for the nine time periods during the survey with different levels of restrictions. The percentage of individuals reporting more than 20 contacts in a day was substantially lower during the pandemic compared to the pre-pandemic period (when it was `r round(contact_value("Pre-pandemic", over_20), 1)`%), varying from a low of `r round(contact_value("1st lockdown", over_20), 1)`% during the first lockdown from March to June 2020 to a peak of `r round(contact_value("School reopening", over_20), 1)`% in September 2020, when restrictions were most relaxed and schools reopened. The percentage of individuals reporting over 100 and 200 contacts was lower in the pre-pandemic BBC Pandemic contact survey compared to periods of relaxed restrictions due to differences in the reporting of high contact events. Overall, people reporting more than 50, 100, or 200 contacts made up less than 3% of the total CoMix survey sample.
 
 ```{r}
 #| label: fig-contacts
@@ -336,20 +593,6 @@ knitr::include_graphics(here::here("results", "manuscript_figures", "fig2_contac
 ```{r}
 #| label: tbl-contacts
 #| tbl-cap: "Percentage of participants in the CoMix and BBC Pandemic surveys with more than a certain number of contacts in different time periods in the UK from March 2020 to May 2021, and pre-pandemic in 2017-2018."
-contact_table <- tibble::tribble(
-  ~`Time period`, ~From, ~To, ~N, ~`Over 5 (%)`, ~`Over 10 (%)`, ~`Over 20 (%)`, ~`Over 50 (%)`, ~`Over 100 (%)`, ~`Over 200 (%)`,
-  "Pre-pandemic (BBC Pandemic)", "01/09/2017", "01/12/2018", 40162, 65.8, 38.9, 13.7, 1.6, 0.2, 0.0,
-  "Lockdown 1", "23/03/2020", "03/06/2020", 15906, 6.6, 1.5, 0.5, 0.1, 0.1, 0.0,
-  "Lockdown 1 easing", "04/06/2020", "29/07/2020", 10651, 8.6, 3.3, 1.7, 0.6, 0.3, 0.1,
-  "Relaxed restrictions", "30/07/2020", "03/09/2020", 15415, 17.6, 6.4, 3.2, 1.3, 0.5, 0.2,
-  "School reopening", "04/09/2020", "24/10/2020", 20759, 16.7, 9.0, 6.2, 2.1, 0.8, 0.3,
-  "Lockdown 2", "05/11/2020", "02/12/2020", 10008, 11.9, 6.9, 4.9, 1.3, 0.5, 0.2,
-  "Lockdown 2 easing", "03/12/2020", "19/12/2020", 5898, 16.1, 8.1, 5.4, 1.8, 0.8, 0.2,
-  "Lockdown 3", "05/01/2021", "07/03/2021", 21542, 5.6, 2.2, 1.2, 0.4, 0.2, 0.1,
-  "Lockdown 3 + schools", "08/03/2021", "31/03/2021", 8452, 10.8, 5.9, 3.7, 1.2, 0.5, 0.2,
-  "Step 2 + schools", "16/04/2021", "16/05/2021", 1771, 16.6, 8.0, 5.0, 1.9, 0.7, 0.3
-)
-
 knitr::kable(contact_table)
 ```
 
