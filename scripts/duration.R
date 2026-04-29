@@ -43,5 +43,5 @@ contacts_duration %>%
   plotting_theme +
   theme(legend.position = "none")
 
-ggsave("results/duration_hist.png", width = 210, height = 100, dpi = 600, units = "mm", bg = "white")
-ggsave("results/duration_hist.pdf", width = 210, height = 100, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_duration_hist.png", width = 210, height = 100, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_duration_hist.pdf", width = 210, height = 100, dpi = 600, units = "mm", bg = "white")

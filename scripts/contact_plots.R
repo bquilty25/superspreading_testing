@@ -301,5 +301,5 @@ dot_plot_all <- contact_data %>%
   plotting_theme +
   labs(x = "Number of reported daily contacts", y = str_wrap("Percentage of participants reporting at least X contacts (%)", 35))
 
-ggsave("results/contacts_ecdf_all1.png", width = 210, height = 350, dpi = 600, units = "mm", bg = "white")
-ggsave("results/contacts_ecdf_all1.pdf", width = 210, height = 350, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contacts_ecdf_all.png", width = 210, height = 350, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contacts_ecdf_all.pdf", width = 210, height = 350, dpi = 600, units = "mm", bg = "white")
