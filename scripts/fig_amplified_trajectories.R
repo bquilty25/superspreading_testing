@@ -1,4 +1,4 @@
-## Amplified VL heterogeneity: trajectory plots (Fig 2 style)
+## Amplified VL heterogeneity: trajectory plots (Fig 3 style)
 ## Mirrors curve_plot.R but uses vl_params_amplified (doubled SDs, max_peakvl=40)
 
 source("scripts/utils.R")
@@ -227,16 +227,16 @@ auc_plot <- auc_dat %>%
     theme(legend.position = "bottom")
 
 ggsave(
-    "results/manuscript_figures/fig2_vl_amplified.png",
+    "results/manuscript_figures/fig3_vl_amplified.png",
     dpi = 600, width = 300, height = 150, units = "mm", bg = "white"
 )
 ggsave(
-    "results/manuscript_figures/fig2_vl_amplified.pdf",
+    "results/manuscript_figures/fig3_vl_amplified.pdf",
     dpi = 600, width = 300, height = 150, units = "mm", bg = "white"
 )
 ggsave(
-    "results/manuscript_figures/fig2_vl_amplified.eps",
+    "results/manuscript_figures/fig3_vl_amplified.eps",
     width = 300, height = 150, units = "mm", device = cairo_ps
 )
 
-message("Saved fig2_vl_amplified.{png,pdf,eps} to results/manuscript_figures/")
+message("Saved fig3_vl_amplified.{png,pdf,eps} to results/manuscript_figures/")

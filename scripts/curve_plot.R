@@ -320,6 +320,6 @@ inf_plot <- prob_culture %>%
 
 # ((log_plot|inf_plot)/(violin_plot|auc_plot))+plot_annotation(tag_levels = "A")
 
-ggsave("results/manuscript_figures/fig2_vl.png", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
-ggsave("results/manuscript_figures/fig2_vl.pdf", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
-ggsave("results/manuscript_figures/fig2_vl.eps", width = 300, height = 150, units = "mm", device = cairo_ps)
+ggsave("results/manuscript_figures/fig3_vl.png", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig3_vl.pdf", dpi = 600, width = 300, height = 150, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig3_vl.eps", width = 300, height = 150, units = "mm", device = cairo_ps)

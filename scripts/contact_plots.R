@@ -251,9 +251,9 @@ nbinom_plot <- contact_data %>%
   ggh4x::facetted_pos_scales(y = list(scale_y_continuous(limits = c(0, NA), expand = expansion(c(0, 0.1))), scale_y_log10(breaks = c(0.3, 0.5, 0.7, 1, 1.5, 2))))
 
 line_plot / dot_plot / nbinom_plot + plot_annotation(tag_levels = "A") + plot_layout(heights = c(1.5, 1, 1.5))
-ggsave("results/manuscript_figures/fig1_contacts.png", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
-ggsave("results/manuscript_figures/fig1_contacts.pdf", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
-ggsave("results/manuscript_figures/fig1_contacts.eps", width = 210, height = 320, units = "mm", device = cairo_ps)
+ggsave("results/manuscript_figures/fig2_contacts.png", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig2_contacts.pdf", width = 210, height = 320, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig2_contacts.eps", width = 210, height = 320, units = "mm", device = cairo_ps)
 
 # for supplement
 dot_plot_all <- contact_data %>%
