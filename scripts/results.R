@@ -497,7 +497,9 @@ res_testing <- processed_infections_testing %>%
   unnest.(dist_means) %>%
   filter.(variant == "wild") %>%
   pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>%
-  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) %>%
+  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) 
+
+testing_plot <- res_testing %>%
   ggplot(aes(y = value, x = prop_self_iso_test * 100, colour = factor(sampling_freq), group = sampling_freq, linetype = factor(sampling_freq))) +
   # geom_point()+
   geom_line() +
@@ -556,7 +558,9 @@ res_events <- processed_infections_events %>%
   drop_na.(event_size) %>%
   filter.(variant == "wild") %>%
   pivot_longer.(c(prop_ss_10, prop_ss_0, size, mu)) %>%
-  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) %>%
+  mutate.(name = fct_relevel(name, "mu", "size", "prop_ss_10", "prop_ss_0")) 
+
+events_plot <- res_events %>%
   ggplot(aes(y = value, x = prop_self_iso_test * 100, colour = factor(event_size), group = event_size, linetype = factor(event_size))) +
   # geom_point()+
   geom_line() +
@@ -595,7 +599,7 @@ ggsave("results/lft_impact_events.png", width = 210, height = 150, dpi = 600, un
 ggsave("results/lft_impact_events.pdf", width = 210, height = 150, units = "mm", bg = "white")
 
 
-res_testing / res_events + plot_annotation(tag_levels = "A")
+testing_plot / events_plot + plot_annotation(tag_levels = "A")
 ggsave("results/manuscript_figures/fig5_testing.png", dpi = 600, width = 210, height = 325, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig5_testing.pdf", width = 210, height = 300, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig5_testing.eps", width = 210, height = 300, units = "mm", device = cairo_ps)
