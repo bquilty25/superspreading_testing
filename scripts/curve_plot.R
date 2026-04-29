@@ -184,6 +184,7 @@ auc_plot <- auc_dat %>%
 (days_inf_plot / auc_plot) + plot_annotation(tag_levels = "A")
 ggsave("results/days_inf_and_auc_plot.png", dpi = 600, width = 210, height = 100, units = "mm", bg = "white")
 ggsave("results/days_inf_and_auc_plot.pdf", dpi = 600, width = 210, height = 100, units = "mm", bg = "white")
+ggsave("results/days_inf_and_auc_plot.eps", width = 210, height = 100, units = "mm", device = cairo_ps)
 
 # log_plot/(auc_plot+cv_plot)+plot_annotation(tag_levels = "A")
 # ggsave("results/log_and_cv_plot.png",dpi=600,width=210,height=150,units="mm",bg="white")

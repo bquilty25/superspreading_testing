@@ -156,6 +156,9 @@ ggsave("results/manuscript_figures/contacts_stacked.png", stacked_plot,
 ggsave("results/manuscript_figures/contacts_stacked.pdf", stacked_plot,
   width = 210, height = 100, dpi = 600, units = "mm", bg = "white"
 )
+ggsave("results/manuscript_figures/contacts_stacked.eps", stacked_plot,
+  width = 210, height = 100, units = "mm", device = cairo_ps
+)
 
 dot_plot <- contact_data %>%
   filter.(period %in% c("Pre-pandemic", "1st lockdown", "School reopening")) %>%
@@ -303,3 +306,4 @@ dot_plot_all <- contact_data %>%
 
 ggsave("results/manuscript_figures/fig_contacts_ecdf_all.png", width = 210, height = 350, dpi = 600, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig_contacts_ecdf_all.pdf", width = 210, height = 350, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contacts_ecdf_all.eps", width = 210, height = 350, units = "mm", device = cairo_ps)

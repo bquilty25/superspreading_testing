@@ -45,7 +45,7 @@ seed <- 1000
 set.seed(seed)
 
 # Transmission scaling factor: calibrated in main.R so pre-pandemic mean R = target_R0
-beta_inf <- 1
+beta_inf <- qread("results/calibrated_beta.qs")
 
 # plotting options
 covid_pal <- c("#e66101", "#5e3c99", "#0571b0")
@@ -419,7 +419,7 @@ rt_by_time_period <- rt %>%
   group_by(across(-c(date, lower, upper))) %>%
   summarise(lo = mean(lower), hi = mean(upper)) %>%
   ungroup() %>%
-  filter(period != "Lockdown 1") # very minimal overlap with lockdown 1 period (Rt starts 29/5/2020)
+  filter(period != "1st lockdown") # very minimal overlap with lockdown 1 period (Rt starts 29/5/2020)
 
 # Create viral load trajectories for a given number of sims
 make_trajectories <- function(

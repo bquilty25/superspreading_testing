@@ -1,3 +1,5 @@
+source("scripts/utils.r")
+
 contacts_duration <- qs::qread(file = "data/contacts_duration.qs")
 
 contacts_hh_duration <- contacts_duration %>%
@@ -45,3 +47,4 @@ contacts_duration %>%
 
 ggsave("results/manuscript_figures/fig_duration_hist.png", width = 210, height = 100, dpi = 600, units = "mm", bg = "white")
 ggsave("results/manuscript_figures/fig_duration_hist.pdf", width = 210, height = 100, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_duration_hist.eps", width = 210, height = 100, units = "mm", device = cairo_ps)

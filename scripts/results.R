@@ -107,18 +107,20 @@ write.csv(boot_res_sum, "results/R_and_k_bootstrap_ests.csv")
 #   mutate(name = fct_relevel(name, "mu", "size", "inv_k", "prop_ss_10", "prop_ss_0"))
 
 boot_res_sum %>%
+  mutate(period = factor(period, levels = levels(time_periods$period))) %>%
   ggplot(aes(y = Median, ymin = lo, ymax = hi, x = period, colour = name, fill = name, group = name)) +
   geom_line() +
   geom_point() +
-  geom_ribbon(alpha = 0.4, colour = NA) +
+  geom_ribbon(alpha = 0.2, colour = NA) +
   geom_segment(
-    data = rt_by_time_period %>% mutate(name = "mu"),
+    data = rt_by_time_period %>% mutate(name = "mu", period = factor(period, levels = levels(time_periods$period))),
     aes(
       x = period,
       xend = period,
       y = lo,
       yend = hi
     ),
+    colour = "grey60",
     alpha = 0.25,
     size = 10
   ) +
@@ -141,8 +143,8 @@ boot_res_sum %>%
     scale_y_continuous(limits = c(0, NA))
   )) +
   geom_hline(aes(linetype = name, yintercept = 1), colour = quad_col_pal[1]) +
-  scale_colour_manual(values = rep(bi_col_pal[1], 5), guide = "none") +
-  scale_fill_manual(values = rep(bi_col_pal[1], 5), guide = "none") +
+  scale_colour_manual(values = c(bi_col_pal[1], bi_col_pal[2], bi_col_pal[1], bi_col_pal[1]), guide = "none") +
+  scale_fill_manual(values = c(bi_col_pal[1], bi_col_pal[2], bi_col_pal[1], bi_col_pal[1]), guide = "none") +
   scale_linetype_manual(values = c("dashed", NA, NA, NA, NA), guide = "none") +
   lims(y = c(0, NA)) +
   labs(
@@ -361,6 +363,10 @@ ggsave(het_inputs_plot,
   file = "results/manuscript_figures/fig_heterogen_inputs.pdf",
   width = 160, height = 200, units = "mm", bg = "white"
 )
+ggsave(het_inputs_plot,
+  file = "results/manuscript_figures/fig_heterogen_inputs.eps",
+  width = 160, height = 200, units = "mm", device = cairo_ps
+)
 
 #### Sensitivity analysis ----
 
@@ -536,6 +542,7 @@ testing_plot <- res_testing %>%
 
 ggsave("results/lft_impact_testing.png", width = 210, height = 150, dpi = 600, units = "mm", bg = "white")
 ggsave("results/lft_impact_testing.pdf", width = 210, height = 150, dpi = 600, units = "mm", bg = "white")
+ggsave("results/lft_impact_testing.eps", width = 210, height = 150, units = "mm", device = cairo_ps)
 
 ## events ----
 
@@ -597,6 +604,7 @@ events_plot <- res_events %>%
 
 ggsave("results/lft_impact_events.png", width = 210, height = 150, dpi = 600, units = "mm", bg = "white")
 ggsave("results/lft_impact_events.pdf", width = 210, height = 150, units = "mm", bg = "white")
+ggsave("results/lft_impact_events.eps", width = 210, height = 150, units = "mm", device = cairo_ps)
 
 
 testing_plot / events_plot + plot_annotation(tag_levels = "A")
@@ -681,6 +689,10 @@ ggsave(vl_sens_plot,
   file = "results/manuscript_figures/fig_heterogen_vl_sens.pdf",
   width = 280, height = 150, units = "mm", bg = "white"
 )
+ggsave(vl_sens_plot,
+  file = "results/manuscript_figures/fig_heterogen_vl_sens.eps",
+  width = 280, height = 150, units = "mm", device = cairo_ps
+)
 #
 #### Additional figure: testing effectiveness by contact heterogeneity ----
 
@@ -750,4 +762,8 @@ ggsave(testing_heterogen_plot,
 ggsave(testing_heterogen_plot,
   file = "results/manuscript_figures/fig_testing_heterogen.pdf",
   width = 280, height = 200, units = "mm", bg = "white"
+)
+ggsave(testing_heterogen_plot,
+  file = "results/manuscript_figures/fig_testing_heterogen.eps",
+  width = 280, height = 200, units = "mm", device = cairo_ps
 )
