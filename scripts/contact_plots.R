@@ -7,7 +7,7 @@ dir.create("results/manuscript_figures", recursive = TRUE, showWarnings = FALSE)
 colour_pal <- c("#E69F00", "#0072B2", "#009E73") # pre-pandemic=orange, lockdown=blue, school=green
 
 (line_plot <- contact_data %>%
-  filter.(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
+  filter.(period %!in% c("POLYMOD")) %>%
   mutate.(
     date_yw = yearweek(date),
     date_y = year(date)
@@ -125,7 +125,7 @@ ggsave("results/high_n_contacts4.png", width = 210, height = 150, dpi = 600, uni
 band_labels <- c("0", "1–5", "6–10", "11–20", "21–50", "51–100", "101–200", ">200")
 
 stacked_plot <- contact_data %>%
-  filter.(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
+  filter.(period %!in% c("POLYMOD")) %>%
   mutate.(
     band = cut(
       e_all,
@@ -229,7 +229,7 @@ dot_plot_adjusted <- contact_data_adjusted %>%
 ggsave("results/contacts_adjusted_ecdf.png", width = 210, height = 120, dpi = 600, units = "mm", bg = "white")
 
 nbinom_plot <- contact_data %>%
-  filter(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
+  filter(period %!in% c("POLYMOD")) %>%
   pivot_longer.(c(e_all, e_home, e_other), names_to = "contact_type") %>%
   drop_na.(value) %>%
   summarise.(dist_means = list(fitdist(value, "nbinom")$estimate %>% enframe()), .by = c(period, contact_type)) %>%
@@ -260,7 +260,7 @@ ggsave("results/manuscript_figures/fig2_contacts.eps", width = 210, height = 320
 
 # for supplement
 dot_plot_all <- contact_data %>%
-  filter(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
+  filter(period %!in% c("POLYMOD")) %>%
   pivot_longer(cols = c(e_home, e_other)) %>%
   summarise(
     n = n(),
@@ -285,7 +285,7 @@ dot_plot_all <- contact_data %>%
 
 
 dot_plot_all <- contact_data %>%
-  filter.(date_end < as.Date("2021-01-01"), period %!in% c("POLYMOD")) %>%
+  filter.(period %!in% c("POLYMOD")) %>%
   pivot_longer.(cols = c(e_home, e_other)) %>%
   mutate.(ecdf_x = ecdf(value)(value), .by = c(name, period)) %>%
   ggplot() +
@@ -304,6 +304,7 @@ dot_plot_all <- contact_data %>%
   plotting_theme +
   labs(x = "Number of reported daily contacts", y = str_wrap("Percentage of participants reporting at least X contacts (%)", 35))
 
-ggsave("results/manuscript_figures/fig_contacts_ecdf_all.png", width = 210, height = 350, dpi = 600, units = "mm", bg = "white")
-ggsave("results/manuscript_figures/fig_contacts_ecdf_all.pdf", width = 210, height = 350, dpi = 600, units = "mm", bg = "white")
-ggsave("results/manuscript_figures/fig_contacts_ecdf_all.eps", width = 210, height = 350, units = "mm", device = cairo_ps)
+ggsave("results/manuscript_figures/fig_contacts_ecdf_all.png", width = 210, height = 420, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contacts_ecdf_all.pdf", width = 210, height = 420, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contacts_ecdf_all.eps", width = 210, height = 420, units = "mm", device = cairo_ps)
+
