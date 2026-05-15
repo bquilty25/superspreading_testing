@@ -3,8 +3,11 @@
 .Rhistory
 .RData
 .Ruserdata
+Rplots.pdf
 *.fst
+processed*.qs
 processing/
 data/comix/comix_shared/
 data/contacts.qs
 presentations/
+docs/
