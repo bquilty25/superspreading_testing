@@ -24,6 +24,9 @@ infctsnss_params <- generate_params(culture_mod, N_sims) %>%
 
 traj <- traj %>% left_join.(infctsnss_params, by = "sim")
 
+seed1 <- .Random.seed
+saveRDS(seed1, "seed.RDS")
+
 ### Sensitivity analysis: amplified VL heterogeneity (max_peakvl = 40) --------
 vl_params_amplified <- vl_params %>%
     mutate(

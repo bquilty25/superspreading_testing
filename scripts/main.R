@@ -270,6 +270,9 @@ gc()
 # inflating unmeasured between-person infectiousness heterogeneity can
 # reverse the conclusion that contacts dominate overdispersion.
 
+seed1 <- readRDS("seed.RDS")
+.Random.seed <- seed1
+
 vl_params_amplified <- vl_params %>%
   mutate(
     sd_peakvl = sd_peakvl * 2,
