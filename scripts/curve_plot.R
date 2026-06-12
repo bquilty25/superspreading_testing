@@ -175,7 +175,7 @@ auc_gamma_params <- fitdist(auc_dat[, sum_inf], "gamma")$estimate
 
 auc_plot <- auc_dat %>%
   ggplot(aes(x = sum_inf)) +
-  geom_density(fill = bi_col_pal[1], colour = bi_col_pal[1], alpha = 0.25, adjust = 2) +
+  geom_density(colour = bi_col_pal[1], adjust = 2) +
   # geom_text(aes(x=Inf,y=Inf),label=paste("CV = ",round(auc_plot_lab,digits = 2)),size=6,hjust=1.1,vjust=1.5,colour="#2E4C6D")+
   lims(y = c(0, NA)) +
   labs(x = "Area under infectivity curve (AU)", y = "Probability density") +
