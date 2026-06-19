@@ -226,7 +226,9 @@ dot_plot_adjusted <- contact_data_adjusted %>%
   plotting_theme +
   labs(x = "Reported daily contacts", y = str_wrap("Percentage of participants reporting at least X contacts (%)", 35))
 
-ggsave("results/contacts_adjusted_ecdf.png", width = 210, height = 120, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contacts_adjusted_ecdf.png", width = 210, height = 120, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contacts_adjusted_ecdf.pdf", width = 210, height = 120, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contacts_adjusted_ecdf.eps", width = 210, height = 120, units = "mm", device = cairo_ps)
 
 nbinom_plot <- contact_data %>%
   filter(period %!in% c("POLYMOD")) %>%
@@ -259,31 +261,6 @@ ggsave("results/manuscript_figures/fig2_contacts.pdf", width = 210, height = 320
 ggsave("results/manuscript_figures/fig2_contacts.eps", width = 210, height = 320, units = "mm", device = cairo_ps)
 
 # for supplement
-dot_plot_all <- contact_data %>%
-  filter(period %!in% c("POLYMOD")) %>%
-  pivot_longer(cols = c(e_home, e_other)) %>%
-  summarise(
-    n = n(),
-    .by = c(value, name, period)
-  ) %>%
-  mutate(prop = n / sum(n), .by = name, period) %>%
-  ggplot() +
-  geom_point(aes(x = value, y = prop * 100), alpha = 0.3) +
-  facet_grid2(period ~ name,
-    labeller = labeller(name = c(
-      "e_all" = "All contacts",
-      "e_home" = "Household contacts",
-      "e_other" = "Out-of-household contacts"
-    )),
-    axes = "all"
-  ) +
-  scale_x_continuous(trans = "pseudo_log", breaks = c(0, 1, 10, 100, 1000), expand = expansion(0, 0)) +
-  scale_y_continuous(trans = "log10", labels = label_number(accuracy = 0.01)) +
-  scale_colour_manual(name = "Time period", values = colour_pal) +
-  plotting_theme +
-  labs(x = "Number of daily reported contacts", y = "Percentage of participants (%)")
-
-
 dot_plot_all <- contact_data %>%
   filter.(period %!in% c("POLYMOD")) %>%
   pivot_longer.(cols = c(e_home, e_other)) %>%
