@@ -762,7 +762,9 @@ negative binomial distribution fitted to contacts during the different
 time periods. The heavier tail in the contact distribution for the
 School reopening period in panel B compared with the Pre-pandemic period
 is likely due to mass contacts not being recorded in the BBC Pandemic
-contact survey, which may have truncated the contact distribution.}
+contact survey, which may have truncated the contact distribution. See
+Figure S4 for the BBC Pandemic contact distribution with an imputed
+heavier tail, which is used to perform a sensitivity analysis.}
 
 \end{figure}%
 
@@ -863,13 +865,13 @@ with \(k\) between 0.48 and 0.68 in the remaining 2020 periods
 out-of-household revealed contact rates within the household remained
 stable throughout, with changing non-household contact rates driving
 much of the variation in the mean and \(k\) of daily contacts over the
-course of the pandemic (Figure S4). Both the mean and \(k\) of
+course of the pandemic (Figure S5). Both the mean and \(k\) of
 out-of-household daily contacts remained lower than pre-pandemic contact
 rates. Contact durations in CoMix differed significantly between
 household and non-household contacts, with a median duration of 30
 minutes (IQR: 5, 180 minutes) for out-of-household contacts compared to
 480 minutes (8 hours) (IQR: 180, 1080 minutes) for household contacts
-(Figure S1). Figure S5, in which contacts are stratified by age as well
+(Figure S1). Figure S6, in which contacts are stratified by age as well
 household/out-of-household, shows that both household and
 out-of-household contacts in children (\textless18 years) remained
 higher than those in adults throughout 2020 and early 2021, with
@@ -931,7 +933,7 @@ represents the RNA copies per ml required for a 50\% probability of
 culturing virus or infectiousness. The shaded band in B represents the
 uncertainty in the probability of culturing virus given a certain viral
 load from the fitted logistic regression model from Pickering et
-al.~Figure S6 shows the difference in viral load trajectories and
+al.~Figure S7 shows the difference in viral load trajectories and
 infectivity for the sensitivity analysis with double the standard
 deviation in the viral load trajectory parameters.}
 
@@ -1016,7 +1018,7 @@ with double the standard deviation in the viral load trajectory
 parameters, the \(k\) estimates for the scenario with Poisson contacts
 (0.76 to 0.92) and variable viral loads were closer to those for
 overdispersed contacts and variable viral loads (0.08 to 0.33), but
-still higher (Figure S7). The finding that contact heterogeneity plays a
+still higher (Figure S8). The finding that contact heterogeneity plays a
 greater role in overdispersion in secondary infections than viral load
 heterogeneity therefore appears to be robust to much greater variation
 in peak viral load and duration of viral shedding than found in the
@@ -1042,7 +1044,7 @@ variation. Values of \(k\) for equal viral load and equal contacts are
 not shown because they are very large, meaning the numbers of secondary
 infections are approximately Poisson distributed. Shaded bands show 95\%
 bootstrap confidence intervals. The sensitivity analysis with greater
-variation in viral loads is shown in Figure S7.}
+variation in viral loads is shown in Figure S8.}
 
 \end{figure}%
 
@@ -1068,7 +1070,7 @@ also an increase in the proportion of individuals that infect no one. In
 some cases, this results in a decrease in \(k\) (greater overdispersion
 in the secondary infection distribution) (Figure 6). From the
 sensitivity analysis comparing the impact of regular testing with and
-without overdispersion in contacts (Figure S8), we can see that ignoring
+without overdispersion in contacts (Figure S9), we can see that ignoring
 overdispersion in contacts reduces the estimated impact of testing in
 terms of reducing \(R\) and decreasing the proportion of superspreading
 events. This demonstrates the importance of accounting for contact
@@ -1300,7 +1302,7 @@ relative to our estimates. We partially address this by drawing the
 logistic regression coefficients linking viral load to infectiousness
 for each individual from the estimated covariance distribution, and by
 examining robustness in a sensitivity analysis with twice the standard
-deviation in viral load trajectory parameters (Figure S7); however,
+deviation in viral load trajectory parameters (Figure S8); however,
 these measures do not capture variation in transmission efficiency that
 is entirely independent of viral load. We also do not account for
 correlation of the timing of peak viral load and infectiousness with
@@ -1405,11 +1407,6 @@ of these data was approved by the London School of Hygiene and Tropical
 Medicine Observational Research Ethics Committee (ref 14400 and ref
 21795).
 
-\subsection{References}\label{references}
-
-\renewcommand{\bibsection}{}
-\bibliography{references.bib}
-
 \subsection{Supporting Information}\label{supporting-information}
 
 \begin{figure}
@@ -1450,8 +1447,26 @@ contact duration for CoMix survey participants from March 2020 to May
 
 \caption{\label{fig-s3}Age distribution of participants in the BBC
 Pandemic (Pre-pandemic) contact survey and each of the nine time periods
-from the CoMix contact survey relative to the mid-2020 UK age
-distribution \citep{ons2022}.}
+from the CoMix contact survey from March 2020 to May 2021 relative to
+the mid-2020 UK age distribution \citep{ons2022}.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\includegraphics[width=1\linewidth,height=\textheight,keepaspectratio]{../results/manuscript_figures/fig_contacts_adjusted_ecdf.png}
+
+}
+
+\caption{\label{fig-s4}Contact distributions for three indicative
+timepoints before and during the pandemic in the UK with an imputed
+heavier tail in the Pre-pandemic (BBC Pandemic) contact distribution
+(cf.~Figure 2B). The heavier tail was imputed from the tails of contact
+distributions during periods of relaxed restrictions in the CoMix
+survey. We conducted a sensitivity analysis with this distribution to
+determine the effect of the heavier tail on \(R_0\) and \(k\).}
 
 \end{figure}%
 
@@ -1463,7 +1478,7 @@ distribution \citep{ons2022}.}
 
 }
 
-\caption{\label{fig-s4}Distribution of the number of reported daily
+\caption{\label{fig-s5}Distribution of the number of reported daily
 contacts for all time periods before (BBC Pandemic contact survey) and
 during (CoMix contact survey) the pandemic in the UK between March 2020
 and May 2021.}
@@ -1478,7 +1493,7 @@ and May 2021.}
 
 }
 
-\caption{\label{fig-s5}Contact distributions by age and gender across
+\caption{\label{fig-s6}Contact distributions by age and gender across
 the nine time periods from the CoMix contact survey.}
 
 \end{figure}%
@@ -1491,7 +1506,7 @@ the nine time periods from the CoMix contact survey.}
 
 }
 
-\caption{\label{fig-s6}Comparison of viral load trajectories and
+\caption{\label{fig-s7}Comparison of viral load trajectories and
 infectivity for the sensitivity analysis with double the standard
 deviation in viral load trajectory parameters and those used in the main
 analysis. A. Individual-level viral load trajectories. B. Logistic model
@@ -1515,7 +1530,7 @@ load from the fitted logistic regression model from Pickering et al.}
 
 }
 
-\caption{\label{fig-s7}Sensitivity of estimates of dispersion of the
+\caption{\label{fig-s8}Sensitivity of estimates of dispersion of the
 secondary infection distribution in different time periods to the degree
 of variation in viral load trajectories. Left: standard deviation in
 distributions for viral load trajectory parameters from Kissler et
@@ -1531,7 +1546,7 @@ al.~Right: standard deviation of viral load parameters doubled.}
 
 }
 
-\caption{\label{fig-s8}Comparison of the impact of regular lateral flow
+\caption{\label{fig-s9}Comparison of the impact of regular lateral flow
 testing on \(R\), \(k\), and the proportion infecting over 10 or 0
 others with Poisson-distributed contacts and overdispersed contacts, for
 varying levels of uptake or adherence and background contact rates.}
@@ -1638,6 +1653,11 @@ School reopening & 21031 & 6.934 & 0.477 & 6.932 & 0.477 & 0 & 2.000 &
 \end{longtable}
 
 }
+
+\subsection{References}\label{references}
+
+\renewcommand{\bibsection}{}
+\bibliography{references.bib}
 
 
 \nolinenumbers
