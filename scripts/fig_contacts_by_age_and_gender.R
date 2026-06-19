@@ -114,7 +114,7 @@ cnt_by_gender <- contact_data %>%
                      expand = expansion(0, 0)) + 
   plotting_theme + 
   theme(axis.title.y = element_blank(), strip.text.x = element_blank()) + 
-  scale_fill_discrete(name = "Period") +
+  scale_fill_discrete(name = "Time period") +
   labs(x = "Gender")
 
 (cnt_by_age + theme(legend.position = "none")) /

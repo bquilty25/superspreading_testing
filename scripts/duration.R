@@ -41,7 +41,7 @@ contacts_duration %>%
   scale_x_continuous("Per-contact time (hours)", breaks = scales::breaks_width(2)) +
   scale_y_continuous("Density") +
   MetBrewer::scale_fill_met_d(name = "Signac", override.order = FALSE, direction = -1, guide = F) +
-  facet_wrap(~cnt_household, labeller = labeller(cnt_household = c(`1` = "Household", `0` = "Out of household"))) +
+  facet_wrap(~cnt_household, labeller = labeller(cnt_household = c(`1` = "Household", `0` = "Out-of-household"))) +
   plotting_theme +
   theme(legend.position = "none")
 

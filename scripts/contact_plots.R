@@ -170,7 +170,7 @@ dot_plot <- contact_data %>%
     labeller = labeller(name = c(
       "e_all" = "All contacts",
       "e_home" = "Household contacts",
-      "e_other" = "Out of household contacts"
+      "e_other" = "Out-of-household contacts"
     )),
     axes = "all"
   ) +
@@ -191,7 +191,7 @@ dot_plot <- contact_data %>%
 #   geom_point(aes(x=value,y=prop*100,colour=period),alpha=0.3)+
 #   facet_grid2(~name,labeller = labeller(name=c("e_all"="All contacts",
 #                                                "e_home"="Household contacts",
-#                                                "e_other"="Out of household contacts")),
+#                                                "e_other"="Out-of-household contacts")),
 #               axes="all")+
 #   scale_x_continuous(trans="pseudo_log",breaks = c(0,1,10,100,1000),expand = expansion(0,0))+
 #   scale_y_continuous(trans="log10",labels=label_number(accuracy = 0.01))+
@@ -215,7 +215,7 @@ dot_plot_adjusted <- contact_data_adjusted %>%
     labeller = labeller(name = c(
       "e_all" = "All contacts",
       "e_home" = "Household contacts",
-      "e_other" = "Out of household contacts"
+      "e_other" = "Out-of-household contacts"
     )),
     axes = "all"
   ) +
@@ -273,7 +273,7 @@ dot_plot_all <- contact_data %>%
     labeller = labeller(name = c(
       "e_all" = "All contacts",
       "e_home" = "Household contacts",
-      "e_other" = "Out of household contacts"
+      "e_other" = "Out-of-household contacts"
     )),
     axes = "all"
   ) +
@@ -294,7 +294,7 @@ dot_plot_all <- contact_data %>%
     labeller = labeller(name = c(
       "e_all" = "All contacts",
       "e_home" = "Household contacts",
-      "e_other" = "Out of household contacts"
+      "e_other" = "Out-of-household contacts"
     )),
     axes = "all"
   ) +
