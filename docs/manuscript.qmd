@@ -633,7 +633,7 @@ knitr::include_graphics(here::here("results", "manuscript_figures", "fig3_vl.png
 ### Predicting transmission dynamics from heterogeneity in contact rates and viral load progression
 
 <!-- numbers only changed here: R and k estimates, plus the heavier-tail sensitivity values, now read from saved bootstrap and table outputs rather than fixed prose numbers -->
-Simulating secondary infections using the stochastic model described above, we estimated the overdispersion, $k$, in the initial secondary infection distribution as `r get_est("Pre-pandemic", "size", lo)` to `r get_est("Pre-pandemic", "size", hi)` around a median of `r get_est("Pre-pandemic", "size", Median)`, in line with other estimates [@lau2020; @kremer2021]. During the first national lockdown, $R$ was estimated at `r get_est("1st lockdown", "mu", Median)` (95% CI `r get_est("1st lockdown", "mu", lo)` to `r get_est("1st lockdown", "mu", hi)`) and $k$ at `r get_est("1st lockdown", "size", Median)` (95% CI `r get_est("1st lockdown", "size", lo)` to `r get_est("1st lockdown", "size", hi)`). $R$ rose as lockdown eased ($R$ = `r get_est("1st lockdown easing", "mu", Median)`, 95% CI `r get_est("1st lockdown easing", "mu", lo)` to `r get_est("1st lockdown easing", "mu", hi)`) and restrictions were relaxed in the summer of 2020 ($R$ = `r get_est("Relaxed restrictions", "mu", Median)`, 95% CI `r get_est("Relaxed restrictions", "mu", lo)` to `r get_est("Relaxed restrictions", "mu", hi)`) and again as schools reopened in the autumn ($R$ = `r get_est("School reopening", "mu", Median)`, 95% CI `r get_est("School reopening", "mu", lo)` to `r get_est("School reopening", "mu", hi)`). $R$ then decreased again during the second lockdown to `r get_est("2nd lockdown", "mu", Median)` (95% CI `r get_est("2nd lockdown", "mu", lo)` to `r get_est("2nd lockdown", "mu", hi)`). As with contacts, $k$ reduced as the pandemic began, indicating more variability in the secondary infection distribution, and varied between `r sprintf("%.2f", rk_stats$post_first_lockdown_k_min)` and `r sprintf("%.2f", rk_stats$post_first_lockdown_k_max)` after the first lockdown up to the end of 2020 (@fig-rk). A sensitivity analysis imputing a heavier tail for the BBC Pandemic contact distribution based on the tails of contact distributions from relaxed restriction periods during the CoMix survey led to a small increase in $R_0$ from 2.5 (95% CI 2.47 to 2.53) to `r round(tbl_s1$R[2], 2)` (95% CI `r round(tbl_s1[["R lower 95% CI"]][2], 2)` to `r round(tbl_s1[["R upper 95% CI"]][2], 2)`) and a small reduction in $k$ from `r round(tbl_s1$k[1], 2)` (95% CI `r round(tbl_s1[["k lower 95% CI"]][1], 2)` to `r round(tbl_s1[["k upper 95% CI"]][1], 2)`) to `r round(tbl_s1$k[2], 2)` (95% CI `r round(tbl_s1[["k lower 95% CI"]][2], 2)` to `r round(tbl_s1[["k upper 95% CI"]][2], 2)`) (Table S1).
+Simulating secondary infections using the stochastic model described above, we estimated the overdispersion, $k$, in the initial secondary infection distribution as `r get_est("Pre-pandemic", "size", lo)` to `r get_est("Pre-pandemic", "size", hi)` around a median of `r get_est("Pre-pandemic", "size", Median)`, in line with other estimates [@lau2020; @kremer2021]. During the first national lockdown, $R$ was estimated at `r get_est("1st lockdown", "mu", Median)` (95% CI `r get_est("1st lockdown", "mu", lo)` to `r get_est("1st lockdown", "mu", hi)`) and $k$ at `r get_est("1st lockdown", "size", Median)` (95% CI `r get_est("1st lockdown", "size", lo)` to `r get_est("1st lockdown", "size", hi)`). $R$ rose as lockdown eased ($R$ = `r get_est("1st lockdown easing", "mu", Median)`, 95% CI `r get_est("1st lockdown easing", "mu", lo)` to `r get_est("1st lockdown easing", "mu", hi)`) and restrictions were relaxed in the summer of 2020 ($R$ = `r get_est("Relaxed restrictions", "mu", Median)`, 95% CI `r get_est("Relaxed restrictions", "mu", lo)` to `r get_est("Relaxed restrictions", "mu", hi)`) and again as schools reopened in the autumn ($R$ = `r get_est("School reopening", "mu", Median)`, 95% CI `r get_est("School reopening", "mu", lo)` to `r get_est("School reopening", "mu", hi)`). $R$ then decreased again during the second lockdown to `r get_est("2nd lockdown", "mu", Median)` (95% CI `r get_est("2nd lockdown", "mu", lo)` to `r get_est("2nd lockdown", "mu", hi)`). As with contacts, $k$ reduced as the pandemic began, indicating more variability in the secondary infection distribution, and varied between `r sprintf("%.2f", rk_stats$post_first_lockdown_k_min)` and `r sprintf("%.2f", rk_stats$post_first_lockdown_k_max)` after the first lockdown up to the end of 2020 (@fig-rk). A sensitivity analysis imputing a heavier tail for the BBC Pandemic contact distribution based on the tails of contact distributions from relaxed restriction periods during the CoMix survey led to a small increase in $R_0$ from `r round(tbl_s1$R[1], 1)` (95% CI `r round(tbl_s1[["R lower 95% CI"]][1], 1)` to `r round(tbl_s1[["R upper 95% CI"]][1], 1)`) to `r round(tbl_s1$R[2], 1)` (95% CI `r round(tbl_s1[["R lower 95% CI"]][2], 1)` to `r round(tbl_s1[["R upper 95% CI"]][2], 1)`) and a small reduction in $k$ from `r round(tbl_s1$k[1], 2)` (95% CI `r round(tbl_s1[["k lower 95% CI"]][1], 2)` to `r round(tbl_s1[["k upper 95% CI"]][1], 2)`) to `r round(tbl_s1$k[2], 2)` (95% CI `r round(tbl_s1[["k lower 95% CI"]][2], 2)` to `r round(tbl_s1[["k upper 95% CI"]][2], 2)`) (Table S1).
 
 ```{r}
 #| label: fig-rk
@@ -706,80 +706,66 @@ This study only involved secondary analysis of publicly available contact survey
 
 ## Supporting Information
 
-```{r}
-#| label: fig-s1
-#| fig-cap: "Distribution of the duration of contact for household and out-of-household contacts from the CoMix contact survey in the UK."
-#| out-width: "100%"
-knitr::include_graphics(here::here("results", "manuscript_figures", "fig_duration_hist.png"))
-```
+::: {.supp}
+## Figure S1 {#fig-s1}
+Distribution of the duration of contact for household and out-of-household contacts from the CoMix contact survey in the UK.
+:::
 
-```{r}
-#| label: fig-s2
-#| fig-cap: "Correlation between number of contacts and mean contact duration for CoMix survey participants from March 2020 to May 2021."
-#| out-width: "100%"
-knitr::include_graphics(here::here("results", "manuscript_figures", "fig_contact_number_vs_duration.png"))
-```
+::: {.supp}
+## Figure S2 {#fig-s2}
+Correlation between number of contacts and mean contact duration for CoMix survey participants from March 2020 to May 2021.
+:::
 
-```{r}
-#| label: fig-s3
-#| fig-cap: "Age distribution of participants in the BBC Pandemic (Pre-pandemic) contact survey and each of the nine time periods from the CoMix contact survey from March 2020 to May 2021 relative to the mid-2020 UK age distribution [@ons2022]."
-#| out-width: "100%"
-knitr::include_graphics(here::here("results", "manuscript_figures", "fig_age_distribution.png"))
-```
+::: {.supp}
+## Figure S3 {#fig-s3}
+Age distribution of participants in the BBC Pandemic (Pre-pandemic) contact survey and each of the nine time periods from the CoMix contact survey from March 2020 to May 2021 relative to the mid-2020 UK age distribution [@ons2022].
+:::
 
-```{r}
-#| label: fig-s4
-#| fig-cap: "Contact distributions for three indicative timepoints before and during the pandemic in the UK with an imputed heavier tail in the Pre-pandemic (BBC Pandemic) contact distribution (cf. Figure 2B). The heavier tail was imputed from the tails of contact distributions during periods of relaxed restrictions in the CoMix survey. We conducted a sensitivity analysis with this distribution to determine the effect of the heavier tail on $R_0$ and $k$."
-#| out-width: "100%"
-knitr::include_graphics(here::here("results", "manuscript_figures", "fig_contacts_adjusted_ecdf.png"))
-```
+::: {.supp}
+## Figure S4 {#fig-s4}
+Contact distributions for three indicative timepoints before and during the pandemic in the UK with an imputed heavier tail in the Pre-pandemic (BBC Pandemic) contact distribution (cf. Figure 2B). 
 
-```{r}
-#| label: fig-s5
-#| fig-cap: "Distribution of the number of reported daily contacts for all time periods before (BBC Pandemic contact survey) and during (CoMix contact survey) the pandemic in the UK between March 2020 and May 2021."
-#| out-width: "100%"
-knitr::include_graphics(here::here("results", "manuscript_figures", "fig_contacts_ecdf_all.png"))
-```
+The heavier tail was imputed from the tails of contact distributions during periods of relaxed restrictions in the CoMix survey. We conducted a sensitivity analysis with this distribution to determine the effect of the heavier tail on $R_0$ and $k$.
+:::
 
-```{r}
-#| label: fig-s6
-#| fig-cap: "Contact distributions by age and gender across the nine time periods from the CoMix contact survey."
-#| out-width: "100%"
-knitr::include_graphics(here::here("results", "manuscript_figures", "fig_contacts_by_age_and_gender.png"))
-```
+::: {.supp}
+## Figure S5 {#fig-s5}
+Distribution of the number of reported daily contacts for all time periods before (BBC Pandemic contact survey) and during (CoMix contact survey) the pandemic in the UK between March 2020 and May 2021.
+:::
 
-```{r}
-#| label: fig-s7
-#| fig-cap: "Comparison of viral load trajectories and infectivity for the sensitivity analysis with double the standard deviation in viral load trajectory parameters and those used in the main analysis. A. Individual-level viral load trajectories. B. Logistic model for probability of culturing virus given a certain viral load. C. Relative infectivity over time. D. Area under the infectivity curve, in arbitrary units. E. Distribution of the number of days for which individuals were infectious. Solid lines in A and C represent median viral load and infectivity trajectories. The dashed line in A and B represents the RNA copies per ml required for a 50% probability of culturing virus or infectiousness. The shaded band in B represents the uncertainty in the probability of culturing virus given a certain viral load from the fitted logistic regression model from Pickering et al."
-#| out-width: "100%"
-knitr::include_graphics(here::here("results", "manuscript_figures", "fig3_vl_amplified.png"))
-```
+::: {.supp}
+## Figure S6 {#fig-s6}
+Contact distributions by age and gender across the nine time periods from the CoMix contact survey from March 2020 to May 2021.
+:::
 
-```{r}
-#| label: fig-s8
-#| fig-cap: "Sensitivity of estimates of dispersion of the secondary infection distribution in different time periods to the degree of variation in viral load trajectories. Left: standard deviation in distributions for viral load trajectory parameters from Kissler et al. Right: standard deviation of viral load parameters doubled."
-#| out-width: "100%"
-knitr::include_graphics(here::here("results", "manuscript_figures", "fig_heterogen_vl_sens.png"))
-```
+::: {.supp}
+## Figure S7 {#fig-s7}
+Comparison of viral load trajectories and infectivity for the sensitivity analysis with double the standard deviation in viral load trajectory parameters and those used in the main analysis. 
 
-```{r}
-#| label: fig-s9
-#| fig-cap: "Comparison of the impact of regular lateral flow testing on $R$, $k$, and the proportion infecting over 10 or 0 others with Poisson-distributed contacts and overdispersed contacts, for varying levels of uptake or adherence and background contact rates."
-#| out-width: "100%"
-knitr::include_graphics(here::here("results", "manuscript_figures", "fig_testing_heterogen.png"))
-```
+A. Individual-level viral load trajectories. B. Logistic model for probability of culturing virus given a certain viral load. C. Relative infectivity over time. D. Area under the infectivity curve, in arbitrary units. E. Distribution of the number of days for which individuals were infectious. Solid lines in A and C represent median viral load and infectivity trajectories. The dashed line in A and B represents the RNA copies per ml required for a 50% probability of culturing virus or infectiousness. The shaded band in B represents the uncertainty in the probability of culturing virus given a certain viral load from the fitted logistic regression model from Pickering et al.
+:::
 
-```{r}
-#| label: tbl-s1
-#| tbl-cap: "Sensitivity analysis of the effect on $R$ and $k$ when imputing a heavier tail of the contact distribution for the pre-pandemic BBC Pandemic contact survey, which lacked the ability to record raw counts of high numbers of contacts."
-knitr::kable(tbl_s1)
-```
+::: {.supp}
+## Figure S8 {#fig-s8}
+Sensitivity of estimates of dispersion of the secondary infection distribution in different time periods to the degree of variation in viral load trajectories. 
 
-```{r}
-#| label: tbl-s2
-#| tbl-cap: "Sensitivity analysis of the effect on the mean and dispersion in contact rates comparing a negative binomial distribution to a zero-inflated negative binomial distribution."
-knitr::kable(tbl_s2)
-```
+Left: standard deviation in distributions for viral load trajectory parameters from Kissler et al. Right: standard deviation of viral load parameters doubled.
+:::
+
+::: {.supp}
+## Figure S9 {#fig-s9}
+Comparison of the impact of regular lateral flow testing on $R$, $k$, and the proportion infecting over 10 or 0 others with Poisson-distributed contacts and overdispersed contacts, for varying levels of uptake or adherence and background contact rates.
+:::
+
+::: {.supp}
+## Table S1 {#tbl-s1}
+Sensitivity analysis of the effect on $R$ and $k$ when imputing a heavier tail of the contact distribution for the pre-pandemic BBC Pandemic contact survey, which lacked the ability to record raw counts of high numbers of contacts.
+:::
+
+::: {.supp}
+## Table S2 {#tbl-s2}
+Sensitivity analysis of the effect on the mean and dispersion in contact rates comparing a negative binomial distribution to a zero-inflated negative binomial distribution.
+:::
 
 ## References
 
