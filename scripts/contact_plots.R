@@ -226,9 +226,9 @@ dot_plot_adjusted <- contact_data_adjusted %>%
   plotting_theme +
   labs(x = "Reported daily contacts", y = str_wrap("Percentage of participants reporting at least X contacts (%)", 35))
 
-ggsave("results/manuscript_figures/fig_contacts_adjusted_ecdf.png", width = 210, height = 120, dpi = 600, units = "mm", bg = "white")
-ggsave("results/manuscript_figures/fig_contacts_adjusted_ecdf.pdf", width = 210, height = 120, dpi = 600, units = "mm", bg = "white")
-ggsave("results/manuscript_figures/fig_contacts_adjusted_ecdf.eps", width = 210, height = 120, units = "mm", device = cairo_ps)
+ggsave("results/manuscript_figures/fig_contacts_adjusted_ecdf.png", width = 210, height = 80, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contacts_adjusted_ecdf.pdf", width = 210, height = 80, dpi = 600, units = "mm", bg = "white")
+ggsave("results/manuscript_figures/fig_contacts_adjusted_ecdf.eps", width = 210, height = 80, units = "mm", device = cairo_ps)
 
 nbinom_plot <- contact_data %>%
   filter(period %!in% c("POLYMOD")) %>%
@@ -266,7 +266,7 @@ dot_plot_all <- contact_data %>%
   pivot_longer.(cols = c(e_home, e_other)) %>%
   mutate.(ecdf_x = ecdf(value)(value), .by = c(name, period)) %>%
   ggplot() +
-  geom_point(aes(x = value, y = 1 - ecdf_x, group = period), alpha = 0.5) +
+  geom_point(aes(x = value, y = 1 - ecdf_x, group = period), alpha = 0.3) +
   ggh4x::facet_grid2(period ~ name,
     labeller = labeller(name = c(
       "e_all" = "All contacts",
