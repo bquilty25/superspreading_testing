@@ -41,10 +41,14 @@ contacts_mult <- comix$contacts %>%
   pivot_wider(values_from = n, names_from = name) %>%
   replace_na(list(e_home = 0, e_other = 0))
 
+contacts_mult <- contacts_mult %>%
+  left_join(comix$participants) %>%
+  select(part_id, part_age, part_gender, day, month, year, e_home, e_other)
+
 #Zero contacts
 contacts_zero <- comix$participants %>%
   anti_join(comix$contacts) %>%
-  select(part_id, day, month, year) %>%
+  select(part_id, part_age, part_gender, day, month, year) %>%
   mutate(e_home = 0,
          e_other = 0)
 
