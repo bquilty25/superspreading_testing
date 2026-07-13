@@ -258,8 +258,8 @@ write.csv(boot_res_heterogen_sum, "results/R_and_k_bootstrap_ests_heterogen.csv"
     aes(colour = heterogen_label, fill = heterogen_label, group = heterogen_label, linetype = heterogen_label),
     alpha = 0.4
   ) +
-  scale_colour_manual(values = c(bi_col_pal[1], bi_col_pal[2], bi_col_pal[1])) +
-  scale_fill_manual(values = c(bi_col_pal[1], bi_col_pal[2], bi_col_pal[1])) +
+  scale_colour_manual(values = c(tri_col_pal[1], tri_col_pal[2], tri_col_pal[3])) +
+  scale_fill_manual(values = c(tri_col_pal[1], tri_col_pal[2], tri_col_pal[3])) +
   scale_linetype_manual(values = c("solid", "solid", "dashed"), name = "") +
   scale_shape_manual(values = c(16, 17, 1), name = "") +
   labs(
