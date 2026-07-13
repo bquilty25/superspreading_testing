@@ -142,7 +142,8 @@ table_zinb <- fit_results %>%
         zinb_mu, zinb_k, zinb_pi,
         delta_aic, lrt_p
     ) %>%
-    mutate.(across.(where(is.numeric), \(x) round(x, 3)))
+    mutate.(across.(where(is.numeric) & !all_of("zinb_pi"), \(x) round(x, 3)),
+            zinb_pi = formatC(zinb_pi, format = "e", digits = 0))
 
 table_zinb %>%
     as.data.frame() %>%
