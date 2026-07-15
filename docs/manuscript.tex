@@ -611,9 +611,11 @@ modelled infection events for household members on each day of the index
 case's infection, we only counted the first infection that occurred for
 each household member. In other words, household members could only be
 infected once. We assumed uniform susceptibility of individuals in the
-model, which does not vary by, for example, age. The number of secondary
-infections for index case \(i\) (i.e.~their individual-level
-reproduction number), \(R_i\), was therefore given by: \[
+model, which does not vary by, for example, age.
+
+The number of secondary infections for index case \(i\) (i.e.~their
+individual-level reproduction number), \(R_i\), was therefore given by:
+\[
 R_i = \sum_{t=1}^{T_i} \left(\sum_{j=1}^{N_{\mathrm{HH},i}} \mathrm{inf}_{\mathrm{HH},i,j,t} + \sum_{j=1}^{N_{\mathrm{NHH},i,t}} \mathrm{inf}_{\mathrm{NHH},i,j,t}\right)
 \] where \(T_i\) is index case \(i\)'s duration of infection (defined as
 having infection detectable by PCR). We then estimated the mean, \(R\),
