@@ -1,3 +1,3 @@
 "Scenario","R","k","R lower 95% CI","k lower 95% CI","R upper 95% CI","k upper 95% CI"
-"Baseline (BBC Pandemic, unmodified)",2.54,0.484,2.448,0.464,2.633,0.509
-"Sensitivity (GPD upper tail imputed)",2.731,0.455,2.568,0.419,2.929,0.501
+"Baseline (BBC Pandemic, unmodified)",2.54,0.485,2.446,0.463,2.634,0.508
+"Sensitivity (GPD upper tail imputed)",2.779,0.444,2.583,0.402,3.019,0.488
