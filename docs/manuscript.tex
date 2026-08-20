@@ -192,9 +192,9 @@
   \newcommand\listtablename{List of Tables}
 \fi
 \ifdefined\figurename
-  \renewcommand*\figurename{Figure}
+  \renewcommand*\figurename{Fig}
 \else
-  \newcommand\figurename{Figure}
+  \newcommand\figurename{Fig}
 \fi
 \ifdefined\tablename
   \renewcommand*\tablename{Table}
@@ -386,7 +386,7 @@ increasing \(k\).
 
 \subsection{Methods}\label{methods}
 
-\subsubsection{Ethics}\label{ethics}
+\subsubsection{Ethics Statement}\label{ethics-statement}
 
 This study only involved secondary analysis of publicly available
 contact survey data and SARS-CoV-2 viral load data. Secondary analysis
@@ -433,9 +433,9 @@ conducted a sensitivity analysis of the effect on \(R\) and \(k\) of
 imputing a heavier tail for the BBC Pandemic contact distribution. We
 did this by fitting a generalised Pareto distribution to the number of
 individuals reporting over 250 contacts in relaxed restrictions time
-periods (``Relaxed restrictions'' and ``School reopening'' in Table 1)
-from the CoMix data and sampling proportionally from this distribution
-for the BBC Pandemic contacts.
+periods (``Relaxed restrictions'' and ``School reopening'' in
+Table~\ref{tbl-contacts}) from the CoMix data and sampling
+proportionally from this distribution for the BBC Pandemic contacts.
 
 \subsubsection{Analysis of social contact
 data}\label{analysis-of-social-contact-data}
@@ -450,19 +450,20 @@ in the 24-hour period prior to filling in the survey for the BBC
 Pandemic survey (here referred to as Pre-pandemic) and nine indicative
 time periods between March 2020 and May 2021 from the CoMix survey
 representing different levels of restrictions, as defined in previous
-work \citep{jarvis2020, gimma2022} (Table 1). We fitted negative
-binomial distributions to numbers of daily contacts in the different
-time periods to estimate the mean and dispersion of the contact
-distributions. To assess whether the negative binomial adequately
-captured the contact distribution, or whether an excess of zero-contact
-individuals required a zero-inflated extension, we additionally fitted a
-zero-inflated negative binomial (ZINB) distribution to the
-per-individual daily contact counts for three indicative time periods
-(Pre-pandemic, 1st lockdown, School reopening) and compared models using
-the Akaike information criterion (AIC) and a likelihood ratio test
-(LRT). The negative binomial was found to be sufficient in all periods
-(zero-inflation parameter \(\pi < 6\times 10^{-8}\), \(\Delta\)AIC =
-+2.0, LRT \(p > 0.97\); Table S2).
+work \citep{jarvis2020, gimma2022} (Table~\ref{tbl-contacts}). We fitted
+negative binomial distributions to numbers of daily contacts in the
+different time periods to estimate the mean and dispersion of the
+contact distributions. To assess whether the negative binomial
+adequately captured the contact distribution, or whether an excess of
+zero-contact individuals required a zero-inflated extension, we
+additionally fitted a zero-inflated negative binomial (ZINB)
+distribution to the per-individual daily contact counts for three
+indicative time periods (Pre-pandemic, 1st lockdown, School reopening)
+and compared models using the Akaike information criterion (AIC) and a
+likelihood ratio test (LRT). The negative binomial was found to be
+sufficient in all periods (zero-inflation parameter
+\(\pi < 6\times 10^{-8}\), \(\Delta\)AIC = +2.0, LRT \(p > 0.97\); S2
+Table).
 
 \subsubsection{Reconstruction of secondary infection
 distribution}\label{reconstruction-of-secondary-infection-distribution}
@@ -483,7 +484,7 @@ function of their Ct values defined by a proliferation phase (days from
 exposure to peak, \(d_p\)), a clearance phase (days from peak to
 cessation, \(d_r\)) and a peak Ct value, \(\mathrm{Ct}_p\). The three
 parameters were drawn from distributions given in Kissler et al.
-\citep{kissler2021} (Figure~\ref{fig-diagram}): \[
+\citep{kissler2021} (Fig~\ref{fig-diagram}): \[
 \begin{aligned}
 d_p &\sim N_{[1,14]}(2.0, 13.4), \\
 \mathrm{Ct}_p &\sim N_{[0,40]}(20.2, 19.5), \\
@@ -507,7 +508,7 @@ standard curve.
 The probability of infectiousness for a given viral load (in Ct) was
 estimated by fitting a logistic regression model to the probability of
 culturing virus at that viral load \citep{pickering2021}
-(Figure~\ref{fig-vl}B), \(p_{\mathrm{culture}}\): \[
+(Fig~\ref{fig-vl}B), \(p_{\mathrm{culture}}\): \[
 \begin{aligned}
 \mathrm{culture} &\sim \operatorname{Bernoulli}(p_{\mathrm{culture}}) \\
 \operatorname{logit}(p_{\mathrm{culture}}) &= \beta_0 + \beta_1\,\mathrm{vl}
@@ -516,7 +517,7 @@ culturing virus at that viral load \citep{pickering2021}
 cultured. The probability of infectiousness over the course of each
 individual's viral load trajectory was then calculated using the
 estimated regression coefficients \(\beta_0\) and \(\beta_1\) to produce
-infectiousness trajectories (Figure~\ref{fig-vl}C). Uncertainty in
+infectiousness trajectories (Fig~\ref{fig-vl}C). Uncertainty in
 \(\beta_0\) and \(\beta_1\) was accounted for by drawing values for each
 individual from a bivariate normal distribution centred at the maximum
 likelihood estimate
@@ -535,9 +536,9 @@ measurements \citep{drain2023}. It also allows us to make use of
 empirical relationships linking viral load, viral culture positivity,
 and test detection: (i) viral load determines the probability of
 culturing viable virus, with the logistic relationship fitted directly
-from data in Pickering et al. \citep{pickering2021}
-(Figure~\ref{fig-vl}B); and (ii) LFT positivity closely tracks viable
-virus in controlled human challenge studies \citep{killingley2022}.
+from data in Pickering et al. \citep{pickering2021} (Fig~\ref{fig-vl}B);
+and (ii) LFT positivity closely tracks viable virus in controlled human
+challenge studies \citep{killingley2022}.
 
 \begin{figure}
 
@@ -547,12 +548,12 @@ virus in controlled human challenge studies \citep{killingley2022}.
 
 }
 
-\caption{\label{fig-diagram}Schematic of the model. The viral load and
-number of daily contacts (circles) varies from person to person and over
-time, influencing the number of secondary infections (stratified by
-household (outlined) and non-household (no outline)) they generate. The
-viral load at time of testing also determines the likelihood they will
-test positive and subsequently isolate.}
+\caption{\label{fig-diagram}\textbf{Schematic of the model.} The viral
+load and number of daily contacts (circles) varies from person to person
+and over time, influencing the number of secondary infections
+(stratified by household (outlined) and non-household (no outline)) they
+generate. The viral load at time of testing also determines the
+likelihood they will test positive and subsequently isolate.}
 
 \end{figure}%
 
@@ -576,17 +577,16 @@ individual-level numbers of non-household contacts over time. Each
 household and non-household contact had a duration,
 \(\mathrm{dur}_{\mathrm{HH},i,j,t}\) and
 \(\mathrm{dur}_{\mathrm{NHH},i,j,t}\), defined as the proportion of a
-24-hour period that the contact lasted (Figure S1). For the pandemic
-time periods the duration was sampled from the contact durations for the
-same survey participant as the contact numbers, where these were
-available. This ensured that correlation between number of contacts and
-contact duration was maintained (Figure S2). For the pre-pandemic time
-period, the duration was sampled from the contact durations in the
-POLYMOD survey, as contact duration data is not publicly available for
-the BBC Pandemic survey. Where the contact duration was missing, it was
-randomly sampled from the pre-pandemic or pandemic contact duration
-distribution according to whether it was a pre-pandemic or pandemic
-contact.
+24-hour period that the contact lasted (S1 Fig). For the pandemic time
+periods the duration was sampled from the contact durations for the same
+survey participant as the contact numbers, where these were available.
+This ensured that correlation between number of contacts and contact
+duration was maintained (S2 Fig). For the pre-pandemic time period, the
+duration was sampled from the contact durations in the POLYMOD survey,
+as contact duration data is not publicly available for the BBC Pandemic
+survey. Where the contact duration was missing, it was randomly sampled
+from the pre-pandemic or pandemic contact duration distribution
+according to whether it was a pre-pandemic or pandemic contact.
 
 \paragraph{Infections}\label{infections}
 
@@ -707,7 +707,7 @@ restrictions}\label{changes-in-the-distribution-of-social-contacts-with-changes-
 
 The age distribution of all participants in the BBC Pandemic survey and
 of the participants in each of the nine periods of the CoMix survey is
-shown in Figure S3. Relative to the mid-2020 age distribution of the UK
+shown in S3 Fig. Relative to the mid-2020 age distribution of the UK
 population, children and older adults (70+ years) are under-represented
 in the BBC Pandemic data. The age distribution of CoMix participants is
 representative of the general population (with slight
@@ -715,18 +715,18 @@ under-representation of children \(\le\) 4 years and over-representation
 of adults aged 50-69 years) and remains fairly stable across the
 different time periods.
 
-Figure~\ref{fig-contacts}A and Table 1 show the proportions of survey
-participants in the UK reporting more than a certain number of contacts
-(5, 10, 20, 50, 100 and 200) in the previous day over time, both
-pre-pandemic (BBC Pandemic survey) and from the CoMix survey for the
-nine time periods during the survey with different levels of
-restrictions. The percentage of individuals reporting more than 20
-contacts in a day was substantially lower during the pandemic compared
-to the pre-pandemic period (when it was 13.7\%), varying from a low of
-0.4\% during the first lockdown from March to June 2020 to a peak of
-6.1\% in September 2020, when restrictions were most relaxed and schools
-reopened. The percentage of individuals reporting over 100 and 200
-contacts was lower in the pre-pandemic BBC Pandemic contact survey
+Fig~\ref{fig-contacts}A and Table~\ref{tbl-contacts} show the
+proportions of survey participants in the UK reporting more than a
+certain number of contacts (5, 10, 20, 50, 100 and 200) in the previous
+day over time, both pre-pandemic (BBC Pandemic survey) and from the
+CoMix survey for the nine time periods during the survey with different
+levels of restrictions. The percentage of individuals reporting more
+than 20 contacts in a day was substantially lower during the pandemic
+compared to the pre-pandemic period (when it was 13.7\%), varying from a
+low of 0.4\% during the first lockdown from March to June 2020 to a peak
+of 6.1\% in September 2020, when restrictions were most relaxed and
+schools reopened. The percentage of individuals reporting over 100 and
+200 contacts was lower in the pre-pandemic BBC Pandemic contact survey
 compared to periods of relaxed restrictions due to differences in the
 reporting of high contact events. Overall, people reporting more than
 50, 100, or 200 contacts made up less than 3\% of the total CoMix survey
@@ -740,9 +740,9 @@ sample.
 
 }
 
-\caption{\label{fig-contacts}Changes in the distribution of social
-contacts in the UK from pre-pandemic to May 2021. A. Percentage of
-participants in the BBC Pandemic and CoMix contact surveys reporting
+\caption{\label{fig-contacts}\textbf{Changes in the distribution of
+social contacts in the UK from pre-pandemic to May 2021.} A. Percentage
+of participants in the BBC Pandemic and CoMix contact surveys reporting
 zero, over 5, 10, 20, 50, 100, and 200 daily contacts in 2018
 (pre-pandemic) and nine time periods during the pandemic in the UK
 between March 2020 and May 2021. Median and 95\% binomial confidence
@@ -754,8 +754,8 @@ time periods. The heavier tail in the contact distribution for the
 School reopening period in panel B compared with the Pre-pandemic period
 is likely due to mass contacts not being recorded in the BBC Pandemic
 contact survey, which may have truncated the contact distribution. See
-Figure S4 for the BBC Pandemic contact distribution with an imputed
-heavier tail, which is used to perform a sensitivity analysis.}
+S4 Fig for the BBC Pandemic contact distribution with an imputed heavier
+tail, which is used to perform a sensitivity analysis.}
 
 \end{figure}%
 
@@ -847,23 +847,23 @@ pattern to the proportion of participants with high numbers of contacts,
 with the mean number of daily contacts ranging from 2.6 during the first
 lockdown to 6.9 when schools reopened in September 2020, with a similar
 drop during the third lockdown, but less of a drop during the second
-lockdown when schools remained open (Figure~\ref{fig-contacts}C). The
+lockdown when schools remained open (Fig~\ref{fig-contacts}C). The
 overdispersion in contacts, \(k\), was similar pre-pandemic and during
 the first lockdown (1.5 and 1.6 respectively) then became lower,
 indicating more variability, following the easing of the first lockdown,
 with \(k\) between 0.5 and 0.7 in the remaining 2020 periods
-(Figure~\ref{fig-contacts}C). Stratifying contacts by household and
+(Fig~\ref{fig-contacts}C). Stratifying contacts by household and
 out-of-household revealed contact rates within the household remained
 stable throughout, with changing non-household contact rates driving
 much of the variation in the mean and \(k\) of daily contacts over the
-course of the pandemic (Figure S5). Both the mean and \(k\) of
+course of the pandemic (S5 Fig). Both the mean and \(k\) of
 out-of-household daily contacts remained lower than pre-pandemic contact
 rates. Contact durations in CoMix differed significantly between
 household and non-household contacts, with a median duration of 30
 minutes (IQR: 5 -- 180 minutes) for out-of-household contacts compared
 to 480 minutes (8 hours) (IQR: 180 -- 1080 minutes) for household
-contacts (Figure S1). Figure S6, in which contacts are stratified by age
-as well household/out-of-household, shows that both household and
+contacts (S1 Fig). S6 Fig, in which contacts are stratified by age as
+well household/out-of-household, shows that both household and
 out-of-household contacts in children (\textless18 years) remained
 higher than those in adults throughout 2020 and early 2021, with
 significant increases in out-of-household contacts of children during
@@ -878,12 +878,12 @@ Analysis by Kissler et al. \citep{kissler2021} of densely sampled viral
 load trajectories in individuals infected with SARS-CoV-2 suggested
 substantial variation between individuals in the duration of
 proliferation and clearance phases of infection, and lowest Ct value,
-inversely correlated with peak viral load (Figure~\ref{fig-vl}A).
-Mapping viral load to infectivity via a logistic function based on viral
-load and culture from Pickering et al. \citep{pickering2021}
-(Figure~\ref{fig-vl}B), calculating the probability of infectivity by
-day (Figure~\ref{fig-vl}C), then integrating under the infectivity curve
-to calculate total infectious virus shed, reproduces substantial
+inversely correlated with peak viral load (Fig~\ref{fig-vl}A). Mapping
+viral load to infectivity via a logistic function based on viral load
+and culture from Pickering et al. \citep{pickering2021}
+(Fig~\ref{fig-vl}B), calculating the probability of infectivity by day
+(Fig~\ref{fig-vl}C), then integrating under the infectivity curve to
+calculate total infectious virus shed, reproduces substantial
 heterogeneity in individual infectiousness as reported by Ke et al.
 \citep{ke2022}. We found an 73-fold difference in individual-level
 infectivity between the 2.5\% and 97.5\% percentiles of the distribution
@@ -892,7 +892,7 @@ respectively). Fitting a Gamma distribution to this distribution gave a
 shape parameter of 1.42 (1.6 for Ke et al.). A substantial proportion
 (19.4\%) of individuals were estimated to be infectious for zero days,
 but the remainder were infectious for at least one day
-(Figure~\ref{fig-vl}). Across all individuals, the median duration of
+(Fig~\ref{fig-vl}). Across all individuals, the median duration of
 infectiousness around peak viral load, that is, having high enough viral
 load to cause infections through culturable virus, was 2 days (95\%
 prediction interval: 0, 6 days). The majority of individuals passed
@@ -914,8 +914,8 @@ high number of infections to occur.
 
 }
 
-\caption{\label{fig-vl}Variation in viral load progression and
-infectivity. A. Individual-level viral load trajectories. B. Logistic
+\caption{\label{fig-vl}\textbf{Variation in viral load progression and
+infectivity.} A. Individual-level viral load trajectories. B. Logistic
 model for probability of culturing virus given a certain viral load. C.
 Relative infectivity over time. D. Area under the infectivity curve (in
 arbitrary units, AU). E. Distribution of the number of days for which
@@ -924,10 +924,10 @@ viral load and infectivity trajectories. The dashed line in A and B
 represents the RNA copies per ml required for a 50\% probability of
 culturing virus or infectiousness. The shaded band in B represents the
 uncertainty in the probability of culturing virus given a certain viral
-load from the fitted logistic regression model from Pickering et
-al.~Figure S7 shows the difference in viral load trajectories and
-infectivity for the sensitivity analysis with double the standard
-deviation in the viral load trajectory parameters.}
+load from the fitted logistic regression model from Pickering et al.
+\citep{pickering2021}. S7 Fig shows the difference in viral load
+trajectories and infectivity for the sensitivity analysis with double
+the standard deviation in the viral load trajectory parameters.}
 
 \end{figure}%
 
@@ -938,7 +938,7 @@ progression}\label{predicting-transmission-dynamics-from-heterogeneity-in-contac
 Simulating secondary infections using the stochastic model described
 above, we estimated the overdispersion, \(k\), in the initial secondary
 infection distribution as 0.48 (95\% CI 0.47 -- 0.51)
-(Figure~\ref{fig-rk}), in line with other estimates
+(Fig~\ref{fig-rk}), in line with other estimates
 \citep{lau2020, kremer2021}. During the first national lockdown, \(R\)
 was estimated at 0.37 (95\% CI 0.35 -- 0.41) and \(k\) at 0.25 (95\% CI
 0.21 -- 0.29). \(R\) rose as lockdown eased (\(R\) = 0.66, 95\% CI 0.56
@@ -953,8 +953,8 @@ heavier tail for the BBC Pandemic contact distribution based on the
 tails of contact distributions from relaxed restriction periods during
 the CoMix survey led to a small increase in \(R_0\) from 2.5 (95\% CI
 2.4 -- 2.6) to 2.8 (95\% CI 2.6 -- 3) and a small reduction in \(k\)
-from 0.48 (95\% CI 0.46 -- 0.51) to 0.44 (95\% CI 0.4 -- 0.49) (Table
-S1).
+from 0.48 (95\% CI 0.46 -- 0.51) to 0.44 (95\% CI 0.4 -- 0.49) (S1
+Table).
 
 \begin{figure}
 
@@ -964,17 +964,17 @@ S1).
 
 }
 
-\caption{\label{fig-rk}Estimates of the mean and dispersion of negative
-binomial distributions fitted to simulated secondary infection
-distributions by time period in 2020. The dispersion parameter \(k\)
+\caption{\label{fig-rk}\textbf{Estimates of the mean and dispersion of
+negative binomial distributions fitted to simulated secondary infection
+distributions by time period in 2020.} The dispersion parameter \(k\)
 gives an indication of the variation in the secondary infection
 distribution, with smaller values corresponding to greater variation and
 values less than 1 corresponding to very large variation. Grey boxes in
 the \(R\) plot show the average upper and lower bounds (90\% confidence
 interval) of the consensus estimates published by the Scientific
 Pandemic Influenza group on Modelling in the UK for the specified time
-periods. Shaded bands show 95\% bootstrap confidence intervals for the
-\(R\) and \(k\) estimates.}
+periods \citep{spimrtuk}. Shaded bands show 95\% bootstrap confidence
+intervals for the \(R\) and \(k\) estimates.}
 
 \end{figure}%
 
@@ -995,23 +995,23 @@ and variable viral load trajectories (0.11 -- 0.51), indicating that
 overdispersion in numbers of daily contacts, as the denominator in the
 infection process, contributes more to superspreading, meaning
 overdispersion in the secondary infection distribution, than variable
-viral load trajectories (Figure~\ref{fig-heterogen}). The two
+viral load trajectories (Fig~\ref{fig-heterogen}). The two
 overdispersed-contact scenarios, equal and variable viral load, differ
 only pre-pandemic (\(k\) = 0.74 versus 0.51). This is due to individuals
 in the upper tail of infectiousness generating disproportionately many
 secondary infections when contacts are plentiful, as a result of the
 right-skewed area-under-the-curve distribution, exceeding an 73-fold
-range (Figure~\ref{fig-vl}D). During restriction periods this difference
+range (Fig~\ref{fig-vl}D). During restriction periods this difference
 disappears, as compressed contact rates create a ceiling on secondary
 cases regardless of viral load, and the proportion infecting zero others
 and more than ten others converges across the two scenarios from the
-first lockdown onwards (Figure~\ref{fig-heterogen}). In the sensitivity
+first lockdown onwards (Fig~\ref{fig-heterogen}). In the sensitivity
 analysis with greater variation in individuals' viral load trajectories,
 with double the standard deviation in the viral load trajectory
 parameters, the \(k\) estimates for the scenario with Poisson contacts
 (0.76 -- 0.92) and variable viral loads were closer to those for
 overdispersed contacts and variable viral loads (0.08 -- 0.33), but
-still higher (Figure S8). The finding that contact heterogeneity plays a
+still higher (S8 Fig). The finding that contact heterogeneity plays a
 greater role in overdispersion in secondary infections than viral load
 heterogeneity therefore appears to be robust to much greater variation
 in peak viral load and duration of viral shedding than found in the
@@ -1025,19 +1025,19 @@ cohort in Kissler et al. \citep{kissler2021}.
 
 }
 
-\caption{\label{fig-heterogen}Estimates of the dispersion of negative
-binomial distributions fitted to secondary infection distributions by
-period, with different combinations of homogeneous and heterogeneous
-contact rates and viral load trajectories, along with the proportion of
-individuals infecting zero others and more than ten others. The
-dispersion parameter \(k\) gives an indication of the variation in
-numbers of secondary infections, with smaller values corresponding to
-greater variation and values less than 1 corresponding to very large
-variation. Values of \(k\) for equal viral load and equal contacts are
-not shown because they are very large, meaning the numbers of secondary
-infections are approximately Poisson distributed. Shaded bands show 95\%
-bootstrap confidence intervals. The sensitivity analysis with greater
-variation in viral loads is shown in Figure S8.}
+\caption{\label{fig-heterogen}\textbf{Estimates of the dispersion of
+negative binomial distributions fitted to secondary infection
+distributions by period, with different combinations of homogeneous and
+heterogeneous contact rates and viral load trajectories, along with the
+proportion of individuals infecting zero others and more than ten
+others.} The dispersion parameter \(k\) gives an indication of the
+variation in numbers of secondary infections, with smaller values
+corresponding to greater variation and values less than 1 corresponding
+to very large variation. Values of \(k\) for equal viral load and equal
+contacts are not shown because they are very large, meaning the numbers
+of secondary infections are approximately Poisson distributed. Shaded
+bands show 95\% bootstrap confidence intervals. The sensitivity analysis
+with greater variation in viral loads is shown in S8 Fig.}
 
 \end{figure}%
 
@@ -1047,29 +1047,28 @@ testing)}\label{impact-of-rapid-testing-regular-testing-vs.-pre-event-testing}
 For pre-pandemic levels of contacts, uptake of regular LFT testing must
 exceed 70\% to reduce \(R\) below 1 if testing daily and must be above
 80\% if testing every 3 days, but even 100\% uptake will not reduce
-\(R\) below 1 if testing weekly (Figure~\ref{fig-testing}A). For
-lockdown levels of contacts, testing does not appreciably reduce \(R\)
-below its already low level. For contact rates equivalent to those under
-relaxed restrictions with schools open, testing every 3 days will reduce
-\(R\) below 1 if uptake exceeds 70\% (Figure~\ref{fig-testing}A).
-Pre-event testing acts similarly, with high uptake (\textgreater{} 90\%)
-and testing for events with more than 10 others necessary to reduce
-\(R\) below 1 for pre-pandemic levels of contact, but only testing when
+\(R\) below 1 if testing weekly (Fig~\ref{fig-testing}A). For lockdown
+levels of contacts, testing does not appreciably reduce \(R\) below its
+already low level. For contact rates equivalent to those under relaxed
+restrictions with schools open, testing every 3 days will reduce \(R\)
+below 1 if uptake exceeds 70\% (Fig~\ref{fig-testing}A). Pre-event
+testing acts similarly, with high uptake (\textgreater{} 90\%) and
+testing for events with more than 10 others necessary to reduce \(R\)
+below 1 for pre-pandemic levels of contact, but only testing when
 attending events with more than 20 others and 60\% adherence required
-during relaxed restrictions with schools open
-(Figure~\ref{fig-testing}B). Both regular testing and pre-event testing
-reduce the rate of superspreading as defined as the proportion of
-individuals infecting over 10 others. However, there is also an increase
-in the proportion of individuals that infect no one. In some cases, this
-results in a decrease in \(k\) (greater overdispersion in the secondary
-infection distribution) (Figure~\ref{fig-testing} ). From the
-sensitivity analysis comparing the impact of regular testing with and
-without overdispersion in contacts (Figure S9), we can see that ignoring
-overdispersion in contacts reduces the estimated impact of testing in
-terms of reducing \(R\) and decreasing the proportion of superspreading
-events. This demonstrates the importance of accounting for contact
-overdispersion when estimating the impact of interventions on secondary
-infections.
+during relaxed restrictions with schools open (Fig~\ref{fig-testing}B).
+Both regular testing and pre-event testing reduce the rate of
+superspreading as defined as the proportion of individuals infecting
+over 10 others. However, there is also an increase in the proportion of
+individuals that infect no one. In some cases, this results in a
+decrease in \(k\) (greater overdispersion in the secondary infection
+distribution) (Fig~\ref{fig-testing}). From the sensitivity analysis
+comparing the impact of regular testing with and without overdispersion
+in contacts (S9 Fig), we can see that ignoring overdispersion in
+contacts reduces the estimated impact of testing in terms of reducing
+\(R\) and decreasing the proportion of superspreading events. This
+demonstrates the importance of accounting for contact overdispersion
+when estimating the impact of interventions on secondary infections.
 
 \begin{figure}
 
@@ -1079,11 +1078,11 @@ infections.
 
 }
 
-\caption{\label{fig-testing}Effect of regular and pre-event lateral flow
-testing on \(R\), \(k\), and the proportion infecting over 10 or 0
-others for varying levels of uptake or adherence (horizontal axes) and
-background contact rates (columns). A. Regular testing. B. Pre-event
-testing.}
+\caption{\label{fig-testing}\textbf{Effect of regular and pre-event
+lateral flow testing on \(R\), \(k\), and the proportion infecting over
+10 or 0 others for varying levels of uptake or adherence (horizontal
+axes) and background contact rates (columns).} A. Regular testing. B.
+Pre-event testing.}
 
 \end{figure}%
 
@@ -1093,24 +1092,24 @@ We have estimated the secondary infection distribution for SARS-CoV-2
 over the course of the pandemic in the UK in 2020 using a stochastic
 model incorporating viral load trajectories and reported daily contacts.
 Our estimates of the mean number of secondary infections are consistent
-with contemporaneous estimates (Figure~\ref{fig-rk}). Daily contact
-rates became both lower on average, from 11.5 per day to 4.7 per day,
-and more overdispersed during the pandemic in the UK in 2020 as some
-individuals maintained high contact rates, such as essential workers,
-while others had their number of daily contacts reduced to zero, such as
-those working from home. This drove a decrease in the mean number of
-secondary infections per infected individual, the reproduction number,
-but an increase in the dispersion in the number of secondary infections.
-Our estimates of the degree of overdispersion in the secondary infection
+with contemporaneous estimates (Fig~\ref{fig-rk}). Daily contact rates
+became both lower on average, from 11.5 per day to 4.7 per day, and more
+overdispersed during the pandemic in the UK in 2020 as some individuals
+maintained high contact rates, such as essential workers, while others
+had their number of daily contacts reduced to zero, such as those
+working from home. This drove a decrease in the mean number of secondary
+infections per infected individual, the reproduction number, but an
+increase in the dispersion in the number of secondary infections. Our
+estimates of the degree of overdispersion in the secondary infection
 distribution are similar to those reported by other authors, which are
 mostly between 0.3 and 0.6 \citep{lau2020, kremer2021}, though lower
 estimates of around 0.1 have been reported from outbreak cluster size
 data \citep{endo2020}.
 
 Our analysis shows that changes in the mean and overdispersion of daily
-numbers of contacts over time (Figure~\ref{fig-contacts}C) can be used
-to estimate dynamic shifts in the mean and overdispersion of the
-reproduction number (Figure~\ref{fig-rk}). This motivates collecting
+numbers of contacts over time (Fig~\ref{fig-contacts}C) can be used to
+estimate dynamic shifts in the mean and overdispersion of the
+reproduction number (Fig~\ref{fig-rk}). This motivates collecting
 contact data during epidemics, as contact overdispersion could provide a
 potential indicator of superspreading risk in real-time, along with the
 effective reproduction number. Changes in contact overdispersion would
@@ -1130,7 +1129,7 @@ viral load period, with 68\% having a peak culture probability greater
 than 0.6 and 53\% greater than 0.8. Viral load heterogeneity does still
 contribute significantly to heterogeneity in transmission since viral
 load varies by orders of magnitude over time within individuals and
-between individuals (Figure~\ref{fig-heterogen}). This indicates that
+between individuals (Fig~\ref{fig-heterogen}). This indicates that
 superspreading is more a result of between-person contact variability
 and within-person infectiousness variability than between-person
 infectiousness variability. Hence if reductions in contact rates can be
@@ -1229,8 +1228,8 @@ Pandemic \citep{klepac2018, klepac2020, kucharski2020} and POLYMOD
 participants to list contacts individually to include other information
 such as contact age, sex, and occupation, meaning that it was difficult
 to include mass contacts such as those made at a large gathering, thus
-truncating the true contact distribution (Figure~\ref{fig-contacts}B).
-From 18 May 2020 the CoMix survey introduced the option to record mass
+truncating the true contact distribution (Fig~\ref{fig-contacts}B). From
+18 May 2020 the CoMix survey introduced the option to record mass
 contacts as a count rather than listing each contactee in a separate
 entry. This means pre-pandemic and early-pandemic contact distributions
 are not directly comparable to those conducted later. However, we
@@ -1245,7 +1244,7 @@ artificial overdispersion in the contact distribution and hence in our
 estimates of secondary infection overdispersion. Another limitation of
 the BBC Pandemic contact data is that working-age adults were
 overrepresented among the participants, while children under 13 years
-were excluded (Figure S3). It is possible that this may have led to some
+were excluded (S3 Fig). It is possible that this may have led to some
 bias in the reported contact distributions. However, the similarity of
 contact patterns observed in the BBC Pandemic and UK POLYMOD datasets
 \citep{klepac2020} suggests that the BBC Pandemic data is broadly
@@ -1297,9 +1296,9 @@ relative to our estimates. We partially address this by drawing the
 logistic regression coefficients linking viral load to infectiousness
 for each individual from the estimated covariance distribution, and by
 examining robustness in a sensitivity analysis with twice the standard
-deviation in viral load trajectory parameters (Figure S8); however,
-these measures do not capture variation in transmission efficiency that
-is entirely independent of viral load. We also do not account for
+deviation in viral load trajectory parameters (S8 Fig); however, these
+measures do not capture variation in transmission efficiency that is
+entirely independent of viral load. We also do not account for
 correlation of the timing of peak viral load and infectiousness with
 symptom onset and intensity \citep{marks2021}, which may affect contact
 rates and numbers of secondary infections \citep{marc2021}.
@@ -1390,46 +1389,47 @@ transmission rates, provided uptake is moderate to high.
 
 \subsection{Supporting Information}\label{supporting-information}
 
-\paragraph*{Figure S1}
+\paragraph*{S1 Fig.}
 \label{fig-s1}
 {\textbf{Distribution of the duration of contact for household and
 out-of-household contacts from the CoMix contact survey in the UK.}}
 
-\paragraph*{Figure S2}
+\paragraph*{S2 Fig.}
 \label{fig-s2}
 {\textbf{Correlation between number of contacts and mean contact
 duration for CoMix survey participants from March 2020 to May 2021.}}
 
-\paragraph*{Figure S3}
+\paragraph*{S3 Fig.}
 \label{fig-s3}
 {\textbf{Age distribution of participants in the BBC Pandemic
 (Pre-pandemic) contact survey and each of the nine time periods from the
 CoMix contact survey from March 2020 to May 2021 relative to the
 mid-2020 UK age distribution \citep{ons2022}.}}
 
-\paragraph*{Figure S4}
+\paragraph*{S4 Fig.}
 \label{fig-s4}
 {\textbf{Contact distributions for three indicative timepoints before
 and during the pandemic in the UK with an imputed heavier tail in the
-Pre-pandemic (BBC Pandemic) contact distribution (cf.~Figure 2B).}} The
-heavier tail was imputed from the tails of contact distributions during
-periods of relaxed restrictions in the CoMix survey. We conducted a
-sensitivity analysis with this distribution to determine the effect of
-the heavier tail on \(R_0\) and \(k\).
+Pre-pandemic (BBC Pandemic) contact distribution (cf.
+Fig~\ref{fig-contacts}B).}} The heavier tail was imputed from the tails
+of contact distributions during periods of relaxed restrictions in the
+CoMix survey. We conducted a sensitivity analysis with this distribution
+to determine the effect of the heavier tail on \(R_0\) and \(k\) (see S1
+Table).
 
-\paragraph*{Figure S5}
+\paragraph*{S5 Fig.}
 \label{fig-s5}
 {\textbf{Distribution of the number of reported daily contacts for all
 time periods before (BBC Pandemic contact survey) and during (CoMix
 contact survey) the pandemic in the UK between March 2020 and May
 2021.}}
 
-\paragraph*{Figure S6}
+\paragraph*{S6 Fig.}
 \label{fig-s6}
 {\textbf{Contact distributions by age and gender across the nine time
 periods from the CoMix contact survey from March 2020 to May 2021.}}
 
-\paragraph*{Figure S7}
+\paragraph*{S7 Fig.}
 \label{fig-s7}
 {\textbf{Comparison of viral load trajectories and infectivity for the
 sensitivity analysis with double the standard deviation in viral load
@@ -1444,30 +1444,32 @@ copies per ml required for a 50\% probability of culturing virus or
 infectiousness. The shaded band in B represents the uncertainty in the
 probability of culturing virus given a certain viral load from the
 fitted logistic regression model from Pickering et al.
+\citep{pickering2021}.
 
-\paragraph*{Figure S8}
+\paragraph*{S8 Fig.}
 \label{fig-s8}
 {\textbf{Sensitivity of estimates of dispersion of the secondary
 infection distribution in different time periods to the degree of
 variation in viral load trajectories.}} Left: standard deviation in
-distributions for viral load trajectory parameters from Kissler et
-al.~Right: standard deviation of viral load parameters doubled.
+distributions for viral load trajectory parameters from Kissler et al.
+\citep{kissler2021}. Right: standard deviation of viral load parameters
+doubled.
 
-\paragraph*{Figure S9}
+\paragraph*{S9 Fig.}
 \label{fig-s9}
 {\textbf{Comparison of the impact of regular lateral flow testing on
 \(R\), \(k\), and the proportion infecting over 10 or 0 others with
 Poisson-distributed contacts and overdispersed contacts, for varying
 levels of uptake or adherence and background contact rates.}}
 
-\paragraph*{Table S1}
+\paragraph*{S1 Table.}
 \label{tbl-s1}
 {\textbf{Sensitivity analysis of the effect on \(R\) and \(k\) when
 imputing a heavier tail of the contact distribution for the pre-pandemic
 BBC Pandemic contact survey, which lacked the ability to record raw
 counts of high numbers of contacts.}}
 
-\paragraph*{Table S2}
+\paragraph*{S2 Table.}
 \label{tbl-s2}
 {\textbf{Sensitivity analysis of the effect on the mean and dispersion
 in contact rates comparing a negative binomial distribution to a
