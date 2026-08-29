@@ -5,6 +5,7 @@ uk_age_dist <- read_csv("data/ons_uk_age_distn_2020.csv")
 
 age_grps <- c("0-4", "5-11", "12-17", "18-29", "30-39", "40-49", "50-59", 
               "60-69", "70-120")
+age_grps <- factor(age_grps, levels = age_grps)
 uk_age <- uk_age_dist %>%
   mutate(part_age = cut(age, 
                          breaks = c(as.numeric(sub("-.*","",age_grps)), Inf), 
@@ -52,7 +53,14 @@ comix_part_age <- contact_data %>%
   drop_na(part_age) %>%
   group_by(period, part_age) %>%
   summarise(count = n(), .groups = "drop_last") %>% 
-  mutate(proportion = count / sum(count))
+  mutate(proportion = count / sum(count)) %>%
+  mutate(
+    part_age = factor(
+      part_age,
+      levels = age_grps
+    )
+  ) %>%
+  arrange(part_age)
 
 part_age <- bind_rows(uk_age, bbc_part_age, comix_part_age) %>%
   mutate(period = factor(
@@ -81,6 +89,13 @@ ggsave("results/manuscript_figures/fig_age_distribution.eps", width = 200, heigh
 cnt_by_age <- contact_data %>%
   drop_na(part_age) %>%
   pivot_longer.(cols = c(e_home, e_other, e_all)) %>%
+  mutate(
+    part_age = factor(
+      part_age,
+      levels = age_grps
+    )
+  ) %>%
+  arrange(part_age) %>%
   ggplot() +
   geom_boxplot(aes(x = part_age, y = value, fill = period), 
                position = "dodge") +
