@@ -47,7 +47,7 @@ affiliations:
   - id: lshtm
     name: "Centre for Mathematical Modelling of Infectious Diseases, London School of Hygiene and Tropical Medicine"
   - id: charite
-    name: "Center for Global Health, Charite Universitatsmedizin Berlin"
+    name: "Center for Global Health, Charité Universitatsmedizin Berlin"
   - id: lu
     name: "School of Mathematical Sciences, Lancaster University"
   - id: kcl
@@ -522,11 +522,11 @@ $$
 \operatorname{logit}(p_{\mathrm{culture}}) &= \beta_0 + \beta_1\,\mathrm{vl}
 \end{aligned}
 $$
-where culture is the binary outcome of whether or not virus was cultured. The probability of infectiousness over the course of each individual’s viral load trajectory was then calculated using the estimated regression coefficients $\beta_0$ and $\beta_1$ to produce infectiousness trajectories ([@fig-vl]C). Uncertainty in $\beta_0$ and $\beta_1$ was accounted for by drawing values for each individual from a bivariate normal distribution centred at the maximum likelihood estimate $\hat{\beta} = (\hat{\beta}_0, \hat{\beta}_1) = (-14.8, 2.1)$:
+where $\mathrm{culture}$ is the binary outcome of whether or not virus was cultured. The probability of infectiousness over the course of each individual’s viral load trajectory was then calculated using the estimated regression coefficients $\beta_0$ and $\beta_1$ to produce infectiousness trajectories ([@fig-vl]C). Uncertainty in $\beta_0$ and $\beta_1$ was accounted for by drawing values for each individual from a bivariate normal distribution centred at the maximum likelihood estimate $\hat{\beta} = (\hat{\beta}_0, \hat{\beta}_1) = (-14.8, 2.1)$:
 $$
-\boldsymbol{\beta} \sim \mathcal{N}(\hat{\boldsymbol{\beta}}, \Sigma)
+\boldsymbol{\beta} \sim \mathcal{N}(\hat{\boldsymbol{\beta}}, \boldsymbol{\Sigma})
 $$
-where $\Sigma$ is the estimated covariance matrix from the logistic regression. Drawing values for the regression coefficients in this way may be taken to represent a degree of variation in infectiousness between individuals for the same viral load, as Ke et al. [@ke2022] concluded was necessary to explain observed heterogeneity in infectiousness. We use viral culture positivity as our proxy for infectiousness because it indicates the presence of replication-competent virus and is therefore believed to provide a better indicator of transmission potential than Ct values from PCR measurements [@drain2023]. It also allows us to make use of empirical relationships linking viral load, viral culture positivity, and test detection: (i) viral load determines the probability of culturing viable virus, with the logistic relationship fitted directly from data in Pickering et al. [@pickering2021] ([@fig-vl]B); and (ii) LFT positivity closely tracks viable virus in controlled human challenge studies [@killingley2022].
+where $\boldsymbol{\Sigma}$ is the estimated covariance matrix from the logistic regression. Drawing values for the regression coefficients in this way may be taken to represent a degree of variation in infectiousness between individuals for the same viral load, as Ke et al. [@ke2022] concluded was necessary to explain observed heterogeneity in infectiousness. We use viral culture positivity as our proxy for infectiousness because it indicates the presence of replication-competent virus and is therefore believed to provide a better indicator of transmission potential than Ct values from PCR measurements [@drain2023]. It also allows us to make use of empirical relationships linking viral load, viral culture positivity, and test detection: (i) viral load determines the probability of culturing viable virus, with the logistic relationship fitted directly from data in Pickering et al. [@pickering2021] ([@fig-vl]B); and (ii) LFT positivity closely tracks viable virus in controlled human challenge studies [@killingley2022].
 
 ```{r}
 #| label: fig-diagram
